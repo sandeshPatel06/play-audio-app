@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
-import { useRouter } from 'expo-router';
+import { useRootNavigationState, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, {
     memo,
@@ -14,35 +15,45 @@ import React, {
 } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Image,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
-import Animated, { FadeInDown, FadeInRight, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddToPlaylistModal from '../../components/AddToPlaylistModal';
+import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
 import MiniPlayer from '../../components/MiniPlayer';
-import RenameModal from '../../components/RenameModal';
+import PaginationControls from '../../components/PaginationControls';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
 
+const SONGS_PER_PAGE = 20;
+
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
     const { colors, theme } = useTheme();
+    const isLight = theme === 'light';
+    const gradientColors = isLight
+        ? [colors.background, '#EAF1FF', '#F8FAFF']
+        : [colors.background, '#0D1524', '#070B14'];
+    const panelBg = isLight ? 'rgba(17,24,39,0.05)' : 'rgba(255,255,255,0.08)';
+    const panelBorder = isLight ? 'rgba(17,24,39,0.12)' : 'rgba(255,255,255,0.12)';
+    const songCardBg = isLight ? colors.surface : '#111827';
     const router = useRouter();
+    const rootNavigationState = useRootNavigationState();
     const {
         setPermissionGranted,
-        queue,
+        library,
         currentSong,
-        loadAudio,
         setCurrentIndex,
+        startQueuePlayback,
         refreshLibrary,
+        autoOpenPlayerOnPlay,
+        showVideoBadges,
         deleteSong,
-        renameSong,
         likedIds,
         toggleLike,
         playlists,
@@ -51,14 +62,27 @@ export default function LibraryScreen() {
 
     const [loading, setLoading] = useState(true);
     const [selectedAsset, setSelectedAsset] = useState<MediaLibrary.Asset | null>(null);
-    const [isRenameVisible, setIsRenameVisible] = useState(false);
     const [isAddPlaylistVisible, setIsAddPlaylistVisible] = useState(false);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sortBy, setSortBy] = useState<'name' | 'date' | 'duration'>('name');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [isActionVisible, setIsActionVisible] = useState(false);
+    const [pendingOpenPlayer, setPendingOpenPlayer] = useState(false);
+    const [confirmState, setConfirmState] = useState<{ visible: boolean; title: string; message: string; onConfirm: () => void }>({
+        visible: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+    });
+    const [noticeState, setNoticeState] = useState<{ visible: boolean; title: string; message: string }>({
+        visible: false,
+        title: '',
+        message: '',
+    });
 
-    const sectionedData = useMemo(() => {
-        let sorted = [...queue];
+    const sortedSongs = useMemo(() => {
+        const sorted = [...library];
         if (sortBy === 'name') {
             sorted.sort((a, b) => a.filename.localeCompare(b.filename));
         } else if (sortBy === 'date') {
@@ -66,6 +90,18 @@ export default function LibraryScreen() {
         } else if (sortBy === 'duration') {
             sorted.sort((a, b) => b.duration - a.duration);
         }
+        return sorted;
+    }, [library, sortBy]);
+
+    const totalPages = Math.max(1, Math.ceil(sortedSongs.length / SONGS_PER_PAGE));
+
+    const pagedSongs = useMemo(() => {
+        const start = (currentPage - 1) * SONGS_PER_PAGE;
+        return sortedSongs.slice(start, start + SONGS_PER_PAGE);
+    }, [sortedSongs, currentPage]);
+
+    const sectionedData = useMemo(() => {
+        const sorted = pagedSongs;
 
         const items: (MediaLibrary.Asset | { type: 'header'; title: string; id: string })[] = [];
         const indices: number[] = [];
@@ -86,7 +122,17 @@ export default function LibraryScreen() {
             return { items: sorted, indices: [] };
         }
         return { items, indices };
-    }, [queue, sortBy]);
+    }, [pagedSongs, sortBy]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [sortBy, library.length]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
 
     const toggleSelection = (id: string) => {
         Haptics.selectionAsync();
@@ -110,42 +156,68 @@ export default function LibraryScreen() {
     };
 
     const handleBulkDelete = () => {
-        Alert.alert(
-            "Bulk Delete",
-            `Are you sure you want to delete ${selectedIds.size} songs?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: performBulkDelete }
-            ]
-        );
+        setConfirmState({
+            visible: true,
+            title: 'Bulk Delete',
+            message: `Are you sure you want to delete ${selectedIds.size} songs?`,
+            onConfirm: performBulkDelete,
+        });
     };
 
     const performBulkDelete = async () => {
+        setConfirmState((prev) => ({ ...prev, visible: false }));
         setLoading(true);
-        const assetsToDelete = queue.filter(item => selectedIds.has(item.id));
+        const assetsToDelete = library.filter(item => selectedIds.has(item.id));
         const success = await MediaLibrary.deleteAssetsAsync(assetsToDelete);
         if (success) {
             await refreshLibrary();
             exitSelectionMode();
         } else {
-            Alert.alert("Error", "Bulk delete failed");
+            setNoticeState({
+                visible: true,
+                title: 'Error',
+                message: 'Bulk delete failed',
+            });
         }
         setLoading(false);
     };
 
     const selectAll = () => {
-        if (selectedIds.size === queue.length) {
+        if (selectedIds.size === library.length) {
             setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(queue.map(s => s.id)));
+            setSelectedIds(new Set(library.map(s => s.id)));
         }
     };
 
     const checkPermissions = useCallback(async () => {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status === 'granted') {
-            setPermissionGranted(true);
-            await refreshLibrary();
+        if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+            setPermissionGranted(false);
+            setNoticeState({
+                visible: true,
+                title: 'Expo Go Limitation',
+                message: 'Audio media permission is not available in Expo Go. Install a development build to scan songs.',
+            });
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status === 'granted') {
+                setPermissionGranted(true);
+                await refreshLibrary();
+            } else {
+                setPermissionGranted(false);
+            }
+        } catch (error) {
+            console.error('Permission request failed:', error);
+            setPermissionGranted(false);
+            setNoticeState({
+                visible: true,
+                title: 'Permission Error',
+                message: 'Media permission is unavailable in this runtime. Use a development build instead of Expo Go.',
+            });
         }
         setLoading(false);
     }, [refreshLibrary, setPermissionGranted]);
@@ -154,58 +226,61 @@ export default function LibraryScreen() {
         checkPermissions();
     }, [checkPermissions]);
 
-    const onSongPress = async (item: MediaLibrary.Asset, index: number) => {
+    useEffect(() => {
+        if (!pendingOpenPlayer || !rootNavigationState?.key) return;
+        const timer = setTimeout(() => {
+            try {
+                router.push('/player');
+            } catch {
+                // Ignore transient navigation readiness races.
+            } finally {
+                setPendingOpenPlayer(false);
+            }
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [pendingOpenPlayer, rootNavigationState?.key, router]);
+
+    const onSongPress = async (item: MediaLibrary.Asset) => {
         Haptics.selectionAsync();
-        setCurrentIndex(index);
-        await loadAudio(item);
-        router.push('/player');
+        const actualIndex = sortedSongs.findIndex((song) => song.id === item.id);
+        if (actualIndex >= 0) {
+            await startQueuePlayback(sortedSongs, actualIndex);
+            setCurrentIndex(actualIndex);
+        }
+        if (autoOpenPlayerOnPlay) {
+            setPendingOpenPlayer(true);
+        }
     };
 
     const onMenuPress = (item: MediaLibrary.Asset) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedAsset(item);
-        Alert.alert(
-            item.filename,
-            "Manage this song",
-            [
-                { text: "Add to Playlist", onPress: () => setIsAddPlaylistVisible(true) },
-                { text: "Rename", onPress: () => setIsRenameVisible(true) },
-                { text: "Delete", style: "destructive", onPress: () => confirmDelete(item) },
-                { text: "Cancel", style: "cancel" }
-            ]
-        );
+        setIsActionVisible(true);
     };
 
     const confirmDelete = (item: MediaLibrary.Asset) => {
-        Alert.alert(
-            "Delete Song",
-            `Are you sure you want to permanently delete "${item.filename}"?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: () => handleDelete(item) }
-            ]
-        );
+        setConfirmState({
+            visible: true,
+            title: 'Delete Song',
+            message: `Are you sure you want to permanently delete "${item.filename}"?`,
+            onConfirm: () => handleDelete(item),
+        });
     };
 
     const handleDelete = async (item: MediaLibrary.Asset) => {
+        setConfirmState((prev) => ({ ...prev, visible: false }));
         const success = await deleteSong(item);
         if (!success) {
-            Alert.alert("Error", "Could not delete the file.");
+            setNoticeState({
+                visible: true,
+                title: 'Error',
+                message: 'Could not delete the file.',
+            });
         }
     };
 
-    const handleRename = async (newName: string) => {
-        if (!selectedAsset) return;
-        const success = await renameSong(selectedAsset, newName);
-        if (success) {
-            setIsRenameVisible(false);
-            setSelectedAsset(null);
-        } else {
-            Alert.alert("Error", "Could not rename the file.");
-        }
-    };
-
-    const renderItem = useCallback(({ item, index }: { item: any, index: number }) => {
+    const renderItem = useCallback(({ item }: { item: any }) => {
         if (item.type === 'header') {
             return <SectionHeader title={item.title} colors={colors} styles={styles} />;
         }
@@ -213,23 +288,25 @@ export default function LibraryScreen() {
         return (
             <SongItem
                 asset={item as MediaLibrary.Asset}
-                index={index}
                 isActive={currentSong?.id === item.id}
                 isSelected={selectedIds.has(item.id)}
                 isSelectionMode={isSelectionMode}
                 onPress={() => {
                     if (isSelectionMode) toggleSelection(item.id);
-                    else onSongPress(item, index);
+                    else onSongPress(item);
                 }}
                 onLongPress={() => !isSelectionMode && enterSelectionMode(item.id)}
                 onLike={() => toggleLike(item.id)}
                 onMenu={() => onMenuPress(item)}
                 isLiked={likedIds.includes(item.id)}
+                showVideoBadges={showVideoBadges}
+                isLight={isLight}
+                songCardBg={songCardBg}
                 colors={colors}
                 styles={styles}
             />
         );
-    }, [currentSong, selectedIds, isSelectionMode, likedIds, colors, toggleSelection, onSongPress, enterSelectionMode, toggleLike, onMenuPress]);
+    }, [currentSong, selectedIds, isSelectionMode, likedIds, colors, toggleSelection, onSongPress, enterSelectionMode, toggleLike, onMenuPress, showVideoBadges, isLight, songCardBg]);
 
     if (loading) {
         return (
@@ -242,17 +319,14 @@ export default function LibraryScreen() {
 
     return (
         <LinearGradient
-            colors={[colors.background, '#121212', '#000000']}
+            colors={gradientColors}
             style={styles.container}
         >
             <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
 
             <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
 
-            <Animated.View
-                entering={FadeInRight.delay(200).duration(800)}
-                style={[styles.header, { paddingTop: insets.top + 10 }]}
-            >
+            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                 {isSelectionMode ? (
                     <View style={styles.selectionHeader}>
                         <TouchableOpacity onPress={exitSelectionMode} style={styles.headerBtn}>
@@ -263,7 +337,7 @@ export default function LibraryScreen() {
                         </Text>
                         <TouchableOpacity onPress={selectAll} style={styles.headerBtnText}>
                             <Text style={{ color: colors.accent, fontWeight: '700' }}>
-                                {selectedIds.size === queue.length ? 'None' : 'All'}
+                                {selectedIds.size === library.length ? 'None' : 'All'}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -271,11 +345,11 @@ export default function LibraryScreen() {
                     <>
                         <View style={styles.headerTop}>
                             <View>
-                                <Text style={[styles.headerSubtitle, { color: colors.accent }]}>Welcome Back</Text>
+                                <Text style={[styles.headerSubtitle, { color: colors.accent }]}>Library</Text>
                                 <Text style={[styles.headerTitle, { color: colors.text }]}>Your Library</Text>
                             </View>
                             <ScalePressable
-                                style={[styles.iconBtn, { backgroundColor: 'rgba(255,255,255,0.1)' }]}
+                                style={[styles.iconBtn, { backgroundColor: panelBg, borderColor: panelBorder }]}
                                 onPress={() => router.push('/search')}
                             >
                                 <Ionicons name="search" size={24} color={colors.text} />
@@ -287,7 +361,7 @@ export default function LibraryScreen() {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     setSortBy('name');
                                 }}
-                                style={[styles.sortBtn, sortBy === 'name' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                                style={[styles.sortBtn, { backgroundColor: panelBg, borderColor: panelBorder }, sortBy === 'name' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="text-outline" size={14} color={sortBy === 'name' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'name' ? colors.accent : colors.textMuted }]}>Name</Text>
@@ -297,7 +371,7 @@ export default function LibraryScreen() {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     setSortBy('date');
                                 }}
-                                style={[styles.sortBtn, sortBy === 'date' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                                style={[styles.sortBtn, { backgroundColor: panelBg, borderColor: panelBorder }, sortBy === 'date' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="calendar-outline" size={14} color={sortBy === 'date' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'date' ? colors.accent : colors.textMuted }]}>Recent</Text>
@@ -307,7 +381,7 @@ export default function LibraryScreen() {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     setSortBy('duration');
                                 }}
-                                style={[styles.sortBtn, sortBy === 'duration' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                                style={[styles.sortBtn, { backgroundColor: panelBg, borderColor: panelBorder }, sortBy === 'duration' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="time-outline" size={14} color={sortBy === 'duration' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'duration' ? colors.accent : colors.textMuted }]}>Length</Text>
@@ -315,39 +389,37 @@ export default function LibraryScreen() {
                         </View>
                     </>
                 )}
-            </Animated.View>
+            </View>
 
-            {/* @ts-ignore */}
             <FlashList
                 data={sectionedData.items as any}
                 renderItem={renderItem}
                 keyExtractor={(item: any) => item.id || item.filename}
-                estimatedItemSize={85}
                 getItemType={(item: any) => (item.type === 'header' ? 'header' : 'row')}
                 stickyHeaderIndices={sectionedData.indices}
                 contentContainerStyle={[styles.listContent, { paddingBottom: 160 + insets.bottom }]}
                 showsVerticalScrollIndicator={false}
-                ListHeaderComponent={
-                    <View style={styles.listHeader}>
-                        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-                            ALL SONGS ({queue.length})
-                        </Text>
-                    </View>
-                }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="musical-notes" size={80} color={colors.textMuted} />
                         <Text style={{ color: colors.textMuted, marginTop: 20 }}>No songs found on this device</Text>
                     </View>
                 }
+                ListFooterComponent={
+                    sectionedData.items.length > 0 ? (
+                        <PaginationControls
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPrev={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                            colors={colors}
+                        />
+                    ) : null
+                }
             />
 
             {isSelectionMode && (
-                <Animated.View
-                    entering={FadeInDown}
-                    exiting={FadeOut}
-                    style={[styles.selectionBar, { bottom: 100 + insets.bottom, backgroundColor: colors.surface }]}
-                >
+                <View style={[styles.selectionBar, { bottom: 100 + insets.bottom, backgroundColor: colors.surface }]}>
                     <ScalePressable
                         style={[styles.bulkActionBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]}
                         onPress={handleBulkDelete}
@@ -358,15 +430,8 @@ export default function LibraryScreen() {
                             Delete ({selectedIds.size})
                         </Text>
                     </ScalePressable>
-                </Animated.View>
+                </View>
             )}
-
-            <RenameModal
-                visible={isRenameVisible}
-                onClose={() => setIsRenameVisible(false)}
-                onRename={handleRename}
-                currentName={selectedAsset?.filename.substring(0, selectedAsset.filename.lastIndexOf('.')) || ''}
-            />
 
             <AddToPlaylistModal
                 visible={isAddPlaylistVisible}
@@ -381,6 +446,54 @@ export default function LibraryScreen() {
                 }}
             />
 
+            <ActionDialog
+                visible={isActionVisible}
+                title={selectedAsset?.filename || 'Song'}
+                message="Manage this song"
+                onClose={() => setIsActionVisible(false)}
+                actions={[
+                    {
+                        key: 'playlist',
+                        label: 'Add to Playlist',
+                        icon: 'add-circle-outline',
+                        onPress: () => {
+                            setIsActionVisible(false);
+                            setIsAddPlaylistVisible(true);
+                        },
+                    },
+                    {
+                        key: 'delete',
+                        label: 'Delete',
+                        icon: 'trash-outline',
+                        danger: true,
+                        onPress: () => {
+                            setIsActionVisible(false);
+                            if (selectedAsset) {
+                                confirmDelete(selectedAsset);
+                            }
+                        },
+                    },
+                ]}
+            />
+
+            <ConfirmDialog
+                visible={confirmState.visible}
+                title={confirmState.title}
+                message={confirmState.message}
+                onClose={() => setConfirmState((prev) => ({ ...prev, visible: false }))}
+                onConfirm={confirmState.onConfirm}
+                confirmText="Delete"
+                cancelText="Cancel"
+                danger
+            />
+
+            <NoticeDialog
+                visible={noticeState.visible}
+                title={noticeState.title}
+                message={noticeState.message}
+                onClose={() => setNoticeState((prev) => ({ ...prev, visible: false }))}
+            />
+
             <MiniPlayer />
         </LinearGradient>
     );
@@ -392,16 +505,16 @@ const styles = StyleSheet.create({
     },
     bgGlow: {
         position: 'absolute',
-        top: -100,
-        left: -100,
-        width: 400,
-        height: 400,
-        borderRadius: 200,
-        opacity: 0.08,
+        top: -140,
+        left: -80,
+        width: 360,
+        height: 360,
+        borderRadius: 180,
+        opacity: 0.11,
     },
     header: {
-        paddingHorizontal: 20,
-        paddingBottom: 20,
+        paddingHorizontal: 16,
+        paddingBottom: 14,
     },
     headerTop: {
         flexDirection: 'row',
@@ -416,7 +529,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     selectionCount: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: '700',
     },
     headerBtn: {
@@ -429,51 +542,42 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
     },
     headerSubtitle: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 12,
+        fontWeight: '700',
         textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 4,
+        letterSpacing: 1.2,
+        marginBottom: 2,
     },
     headerTitle: {
-        fontSize: 34,
+        fontSize: 30,
         fontWeight: '800',
     },
     iconBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 42,
+        height: 42,
+        borderRadius: 14,
+        borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
     listContent: {
-        paddingHorizontal: 20,
-    },
-    listHeader: {
-        marginBottom: 10,
-        marginTop: 10,
-    },
-    sectionTitle: {
-        fontSize: 12,
-        fontWeight: '700',
-        letterSpacing: 1,
+        paddingHorizontal: 16,
     },
     songItem: {
-        marginBottom: 12,
-        borderRadius: 16,
+        marginBottom: 10,
+        borderRadius: 14,
         overflow: 'hidden',
     },
     songContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        backgroundColor: '#121217', // subSurface
+        padding: 11,
     },
     thumbnailContainer: {
-        width: 56,
-        height: 56,
+        width: 54,
+        height: 54,
         borderRadius: 12,
-        marginRight: 16,
+        marginRight: 14,
         overflow: 'hidden',
         elevation: 5,
         shadowOffset: { width: 0, height: 4 },
@@ -503,7 +607,7 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     songTitle: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: '700',
         marginBottom: 4,
     },
@@ -524,8 +628,8 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
         flexDirection: 'row',
         paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 30,
+        paddingVertical: 11,
+        borderRadius: 16,
         elevation: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 5 },
@@ -544,33 +648,46 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     headerSection: {
-        paddingVertical: 12,
+        paddingVertical: 8,
         paddingHorizontal: 10,
-        marginTop: 10,
+        marginTop: 6,
     },
     headerSectionText: {
-        fontSize: 20,
+        fontSize: 13,
         fontWeight: '800',
-        opacity: 0.8,
+        letterSpacing: 0.8,
+        opacity: 0.9,
     },
     sortContainer: {
         flexDirection: 'row',
-        gap: 10,
+        gap: 8,
     },
     sortBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
+        paddingVertical: 7,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255,255,255,0.12)',
         backgroundColor: 'rgba(255,255,255,0.05)',
         gap: 6,
     },
     sortText: {
         fontSize: 12,
         fontWeight: '700',
+    },
+    videoBadge: {
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        marginLeft: 8,
+    },
+    videoBadgeText: {
+        fontSize: 10,
+        fontWeight: '800',
+        letterSpacing: 0.5,
     },
 });
 
@@ -582,7 +699,6 @@ const SectionHeader = memo(({ title, colors, styles }: any) => (
 
 const SongItem = memo(({
     asset,
-    index,
     isActive,
     isSelected,
     isSelectionMode,
@@ -591,51 +707,58 @@ const SongItem = memo(({
     onLike,
     onMenu,
     isLiked,
+    showVideoBadges,
+    isLight,
+    songCardBg,
     colors,
     styles
 }: any) => (
-    <Animated.View
-        entering={FadeInDown.delay(Math.min(index * 20, 300)).springify()}
-        exiting={FadeOut.duration(200)}
-    >
+    <View>
         <ScalePressable
             style={[
                 styles.songItem,
-                isActive && !isSelectionMode && { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: colors.accent, borderWidth: 1 },
+                isActive && !isSelectionMode && { backgroundColor: isLight ? `${colors.accent}12` : 'rgba(255,255,255,0.08)', borderColor: colors.accent, borderWidth: 1 },
                 isSelected && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent, borderWidth: 1 }
             ]}
             onPress={onPress}
             onLongPress={onLongPress}
         >
-            <View style={styles.songContent}>
+            <View style={[styles.songContent, { backgroundColor: songCardBg }]}>
                 <View style={[styles.thumbnailContainer, { shadowColor: colors.accent }]}>
                     <Image
                         source={require('../../assets/images/placeholder.png')}
                         style={styles.thumbnail}
                     />
                     {isActive && !isSelectionMode && (
-                        <View style={[styles.activeOverlay, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+                        <View style={[styles.activeOverlay, { backgroundColor: isLight ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)' }]}>
                             <Ionicons name="stats-chart" size={20} color={colors.accent} />
                         </View>
                     )}
                     {isSelectionMode && (
-                        <View style={[styles.selectionOverlay, { backgroundColor: isSelected ? colors.accent : 'rgba(0,0,0,0.4)' }]}>
+                        <View style={[styles.selectionOverlay, { backgroundColor: isSelected ? colors.accent : (isLight ? 'rgba(17,24,39,0.18)' : 'rgba(0,0,0,0.4)') }]}>
                             <Ionicons
                                 name={isSelected ? "checkmark-circle" : "ellipse-outline"}
                                 size={24}
-                                color="#FFF"
+                                color={isSelected ? '#FFF' : (isLight ? '#111827' : '#FFF')}
                             />
                         </View>
                     )}
                 </View>
 
                 <View style={styles.songInfo}>
-                    <Text
-                        numberOfLines={1}
-                        style={[styles.songTitle, { color: (isActive && !isSelectionMode) || isSelected ? colors.accent : colors.text }]}
-                    >
-                        {asset.filename}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text
+                            numberOfLines={1}
+                            style={[styles.songTitle, { color: (isActive && !isSelectionMode) || isSelected ? colors.accent : colors.text, flex: 1 }]}
+                        >
+                            {asset.filename}
+                        </Text>
+                        {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(asset.filename || asset.uri || '') && (
+                            <View style={[styles.videoBadge, { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}>
+                                <Text style={[styles.videoBadgeText, { color: colors.accent }]}>VIDEO</Text>
+                            </View>
+                        )}
+                    </View>
                     <Text style={[styles.songSubtitle, { color: colors.textMuted }]}>
                         Sonic Flow • {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toFixed(0).padStart(2, '0')}
                     </Text>
@@ -665,5 +788,5 @@ const SongItem = memo(({
                 )}
             </View>
         </ScalePressable>
-    </Animated.View>
+    </View>
 ));

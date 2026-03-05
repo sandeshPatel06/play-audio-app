@@ -1,0 +1,284 @@
+import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as MediaLibrary from 'expo-media-library';
+import { useLocalSearchParams, useRootNavigationState, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MiniPlayer from '../../components/MiniPlayer';
+import PaginationControls from '../../components/PaginationControls';
+import ScalePressable from '../../components/ScalePressable';
+import { useTheme } from '../../context/ThemeContext';
+import { useAudio } from '../../hooks/useAudio';
+
+const SONGS_PER_PAGE = 20;
+
+export default function PlaylistDetailsScreen() {
+    const { id } = useLocalSearchParams<{ id: string }>();
+    const router = useRouter();
+    const rootNavigationState = useRootNavigationState();
+    const insets = useSafeAreaInsets();
+    const { colors, theme } = useTheme();
+    const isLight = theme === 'light';
+    const gradientColors = isLight
+        ? [colors.background, '#EAF1FF', '#F8FAFF']
+        : [colors.background, '#0D1524', '#070B14'];
+    const rowBg = isLight ? 'rgba(17,24,39,0.04)' : 'rgba(255,255,255,0.05)';
+    const rowBorder = isLight ? 'rgba(17,24,39,0.12)' : 'rgba(255,255,255,0.08)';
+    const {
+        playlists,
+        library,
+        currentSong,
+        autoOpenPlayerOnPlay,
+        showVideoBadges,
+        likedIds,
+        toggleLike,
+        startQueuePlayback,
+    } = useAudio();
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pendingOpenPlayer, setPendingOpenPlayer] = useState(false);
+
+    const playlist = useMemo(
+        () => playlists.find((p) => p.id === id) ?? null,
+        [playlists, id]
+    );
+
+    const playlistSongs = useMemo(() => {
+        if (!playlist) return [];
+        return playlist.assetIds
+            .map((assetId) => library.find((song) => song.id === assetId))
+            .filter(Boolean) as MediaLibrary.Asset[];
+    }, [playlist, library]);
+
+    const totalPages = Math.max(1, Math.ceil(playlistSongs.length / SONGS_PER_PAGE));
+
+    const pagedPlaylistSongs = useMemo(() => {
+        const start = (currentPage - 1) * SONGS_PER_PAGE;
+        return playlistSongs.slice(start, start + SONGS_PER_PAGE);
+    }, [playlistSongs, currentPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [id]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    useEffect(() => {
+        if (!pendingOpenPlayer || !rootNavigationState?.key) return;
+        const timer = setTimeout(() => {
+            try {
+                router.push('/player');
+            } catch {
+                // Ignore transient navigation readiness races.
+            } finally {
+                setPendingOpenPlayer(false);
+            }
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [pendingOpenPlayer, rootNavigationState?.key, router]);
+
+    const openPlayerSafely = () => {
+        if (rootNavigationState?.key) {
+            router.push('/player');
+        } else {
+            setPendingOpenPlayer(true);
+        }
+    };
+
+    const playAtIndex = async (index: number) => {
+        if (!playlist || playlistSongs.length === 0) return;
+        Haptics.selectionAsync();
+        await startQueuePlayback(playlistSongs, index, {
+            type: 'playlist',
+            title: playlist.name,
+            playlistId: playlist.id,
+        });
+        if (autoOpenPlayerOnPlay) {
+            openPlayerSafely();
+        }
+    };
+
+    if (!playlist) {
+        return (
+            <View style={[styles.center, { backgroundColor: colors.background }]}>
+                <Text style={{ color: colors.text }}>Playlist not found.</Text>
+                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 12 }}>
+                    <Text style={{ color: colors.accent, fontWeight: '700' }}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    return (
+        <LinearGradient colors={gradientColors} style={styles.container}>
+            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+
+            <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+                <ScalePressable style={styles.headerBtn} onPress={() => router.back()}>
+                    <Ionicons name="chevron-back" size={24} color={colors.text} />
+                </ScalePressable>
+                <View style={styles.headerCenter}>
+                    <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>{playlist.name}</Text>
+                    <Text style={[styles.subtitle, { color: colors.textMuted }]}>{playlistSongs.length} songs</Text>
+                </View>
+                <ScalePressable
+                    style={[styles.headerBtn, { backgroundColor: `${colors.accent}22` }]}
+                    onPress={() => playAtIndex(0)}
+                    disabled={playlistSongs.length === 0}
+                >
+                    <Ionicons name="play" size={20} color={colors.accent} />
+                </ScalePressable>
+            </View>
+
+            <FlashList
+                data={pagedPlaylistSongs}
+                estimatedItemSize={86}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 160 + insets.bottom }}
+                ListEmptyComponent={
+                    <View style={styles.empty}>
+                        <Ionicons name="musical-notes-outline" size={64} color={colors.textMuted} />
+                        <Text style={{ color: colors.textMuted, marginTop: 14 }}>This playlist has no songs yet.</Text>
+                    </View>
+                }
+                renderItem={({ item, index }) => {
+                    const isActive = currentSong?.id === item.id;
+                    const isLiked = likedIds.includes(item.id);
+                    const actualIndex = (currentPage - 1) * SONGS_PER_PAGE + index;
+                    return (
+                        <ScalePressable
+                            style={[styles.row, { borderColor: isActive ? colors.accent : rowBorder, backgroundColor: rowBg }]}
+                            onPress={() => playAtIndex(actualIndex)}
+                        >
+                            <Image source={require('../../assets/images/placeholder.png')} style={styles.thumb} />
+                            <View style={styles.info}>
+                                <View style={styles.nameRow}>
+                                    <Text numberOfLines={1} style={[styles.name, { color: isActive ? colors.accent : colors.text }]}>
+                                        {item.filename}
+                                    </Text>
+                                    {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(item.filename || item.uri || '') ? (
+                                        <View style={[styles.badge, { borderColor: colors.accent, backgroundColor: `${colors.accent}20` }]}>
+                                            <Text style={[styles.badgeText, { color: colors.accent }]}>VIDEO</Text>
+                                        </View>
+                                    ) : null}
+                                </View>
+                                <Text style={[styles.meta, { color: colors.textMuted }]}>
+                                    {Math.floor(item.duration / 60)}:{(item.duration % 60).toFixed(0).padStart(2, '0')}
+                                </Text>
+                            </View>
+                            <ScalePressable onPress={() => toggleLike(item.id)} style={styles.likeBtn}>
+                                <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={20} color={isLiked ? colors.accent : colors.textMuted} />
+                            </ScalePressable>
+                        </ScalePressable>
+                    );
+                }}
+                ListFooterComponent={
+                    playlistSongs.length > 0 ? (
+                        <PaginationControls
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPrev={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                            colors={colors}
+                        />
+                    ) : null
+                }
+            />
+
+            <MiniPlayer />
+        </LinearGradient>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    center: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    header: {
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    headerBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerCenter: {
+        flex: 1,
+        marginHorizontal: 12,
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: '800',
+    },
+    subtitle: {
+        fontSize: 12,
+        marginTop: 2,
+        fontWeight: '600',
+    },
+    empty: {
+        alignItems: 'center',
+        marginTop: 80,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 8,
+        padding: 10,
+    },
+    thumb: {
+        width: 48,
+        height: 48,
+        borderRadius: 10,
+        marginRight: 12,
+    },
+    info: {
+        flex: 1,
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    name: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    meta: {
+        fontSize: 12,
+        marginTop: 3,
+    },
+    likeBtn: {
+        padding: 8,
+        marginLeft: 6,
+    },
+    badge: {
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        marginLeft: 8,
+    },
+    badgeText: {
+        fontSize: 10,
+        fontWeight: '800',
+    },
+});

@@ -13,34 +13,40 @@ export default function TabsLayout() {
                 headerShown: false,
                 tabBarStyle: {
                     position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 80, // Taller tab bar
+                    bottom: 14,
+                    left: 16,
+                    right: 16,
+                    height: 74,
+                    borderRadius: 18,
+                    marginHorizontal: 0,
                     elevation: 0,
                     borderTopWidth: 0,
-                    backgroundColor: Platform.OS === 'android' ? colors.surface : 'transparent', // Fallback for Android if Blur doesn't work well
+                    backgroundColor: Platform.OS === 'android' ? colors.surface : 'transparent',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.18,
+                    shadowRadius: 16,
                 },
                 tabBarBackground: () => (
                     Platform.OS === 'ios' ? (
                         <BlurView
-                            intensity={80}
+                            intensity={95}
                             tint={theme === 'dark' ? 'dark' : 'light'}
-                            style={StyleSheet.absoluteFill}
+                            style={[StyleSheet.absoluteFill, { borderRadius: 18, overflow: 'hidden' }]}
                         />
                     ) : (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface, opacity: 0.95 }]} />
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface, opacity: 0.98, borderRadius: 18 }]} />
                     )
                 ),
                 tabBarActiveTintColor: colors.accent,
                 tabBarInactiveTintColor: colors.textMuted,
                 tabBarLabelStyle: {
-                    fontSize: 10,
-                    fontWeight: '600',
-                    marginBottom: 5,
+                    fontSize: 11,
+                    fontWeight: '700',
+                    marginBottom: 3,
                 },
                 tabBarItemStyle: {
-                    paddingTop: 10,
+                    paddingTop: 8,
                 },
             }}
         >

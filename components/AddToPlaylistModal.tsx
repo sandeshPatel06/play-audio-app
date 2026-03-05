@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { Playlist } from '../store/useAudioStore';
 
@@ -12,7 +13,13 @@ interface AddToPlaylistModalProps {
 }
 
 export default function AddToPlaylistModal({ visible, onClose, playlists, onSelect }: AddToPlaylistModalProps) {
-    const { colors } = useTheme();
+    const { colors, theme } = useTheme();
+    const insets = useSafeAreaInsets();
+    const isLight = theme === 'light';
+    const overlayColor = isLight ? 'rgba(15,23,42,0.28)' : 'rgba(2,6,23,0.62)';
+    const sheetBorder = isLight ? 'rgba(17,24,39,0.14)' : 'rgba(255,255,255,0.12)';
+    const rowBorder = isLight ? 'rgba(17,24,39,0.08)' : 'rgba(255,255,255,0.05)';
+    const iconBg = isLight ? 'rgba(17,24,39,0.06)' : 'rgba(255,255,255,0.05)';
 
     return (
         <Modal
@@ -21,8 +28,8 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
             animationType="slide"
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
-                <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalOverlay, { backgroundColor: overlayColor }]}>
+                <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: sheetBorder, paddingBottom: insets.bottom + 16 }]}>
                     <View style={styles.header}>
                         <Text style={[styles.title, { color: colors.text }]}>Add to Playlist</Text>
                         <TouchableOpacity onPress={onClose}>
@@ -39,10 +46,10 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
                             playlists.map(playlist => (
                                 <TouchableOpacity
                                     key={playlist.id}
-                                    style={[styles.item, { borderBottomColor: 'rgba(255,255,255,0.05)' }]}
+                                    style={[styles.item, { borderBottomColor: rowBorder }]}
                                     onPress={() => onSelect(playlist.id)}
                                 >
-                                    <View style={[styles.icon, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                                    <View style={[styles.icon, { backgroundColor: iconBg }]}>
                                         <Ionicons name="musical-notes" size={20} color={colors.accent} />
                                     </View>
                                     <View>
@@ -62,15 +69,15 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
 const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
     },
     modalContent: {
         width: '100%',
-        height: '60%',
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        padding: 25,
+        height: '64%',
+        borderTopLeftRadius: 26,
+        borderTopRightRadius: 26,
+        borderWidth: 1,
+        padding: 22,
     },
     header: {
         flexDirection: 'row',
@@ -79,7 +86,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     title: {
-        fontSize: 20,
+        fontSize: 19,
         fontWeight: '800',
     },
     list: {
@@ -88,7 +95,7 @@ const styles = StyleSheet.create({
     item: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 15,
+        paddingVertical: 14,
         borderBottomWidth: 1,
     },
     icon: {

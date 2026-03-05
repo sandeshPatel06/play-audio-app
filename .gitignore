@@ -37,7 +37,10 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
-
+# Keep large local audio library ignored by default, but allow explicitly bundled files.
+/assets/audio/*
+!/assets/audio/
+!/assets/audio/Night Changes X Woh Din*xmNukxEHLlA*.mp3
 # generated native folders
 /ios
 /android

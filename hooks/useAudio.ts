@@ -1,40 +1,174 @@
 import { AudioStatus, createAudioPlayer } from 'expo-audio';
+import { Asset } from 'expo-asset';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as FileSystem from 'expo-file-system';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { useCallback, useEffect } from 'react';
+import { BUNDLED_SUGGESTED_TRACKS } from '../constants/bundledTracks';
+import { NowPlayingContext } from '../store/useAudioStore';
 import { useAudioStore } from '../store/useAudioStore';
+
+const SUPPORTED_EXTENSIONS = new Set([
+    'mp3', 'aac', 'm4a', 'wav', 'aiff', 'aif', 'flac',
+    'alac', 'ogg', 'opus', 'wma', 'amr', 'mid', 'midi',
+    'mp4', 'm4v', 'mov', 'webm',
+    'dsf', 'dff', 'pcm'
+]);
+
+const LOCAL_SCAN_ROOTS = [FileSystem.Paths.document.uri, FileSystem.Paths.cache.uri].filter(Boolean) as string[];
+const LOCAL_SCAN_MAX_DEPTH = 3;
+
+const fileNameFromUri = (uri: string) => {
+    const cleanUri = uri.split('?')[0];
+    return cleanUri.substring(cleanUri.lastIndexOf('/') + 1) || 'track';
+};
+
+const isVideoExtension = (extension?: string | null) =>
+    !!extension && ['mp4', 'm4v', 'mov', 'webm'].includes(extension.toLowerCase());
+
+const isSupportedAudioFile = (uri: string) => {
+    const filename = fileNameFromUri(uri).toLowerCase();
+    const extension = filename.split('.').pop();
+    return !!extension && SUPPORTED_EXTENSIONS.has(extension);
+};
+
+const trackFromUri = (
+    uri: string,
+    id: string,
+    filename?: string,
+    creationTime = Date.now()
+): MediaLibrary.Asset =>
+    {
+        const name = filename || fileNameFromUri(uri);
+        const extension = name.toLowerCase().split('.').pop();
+        return {
+            id,
+            uri,
+            filename: name,
+            mediaType: isVideoExtension(extension) ? MediaLibrary.MediaType.video : MediaLibrary.MediaType.audio,
+            creationTime,
+            modificationTime: creationTime,
+            duration: 0,
+            width: 0,
+            height: 0,
+        } as MediaLibrary.Asset;
+    };
+
+const scanLocalDirectory = async (root: string, depth = 0): Promise<MediaLibrary.Asset[]> => {
+    if (depth > LOCAL_SCAN_MAX_DEPTH) return [];
+    const result: MediaLibrary.Asset[] = [];
+    try {
+        const entries = await FileSystemLegacy.readDirectoryAsync(root);
+        for (const entry of entries) {
+            const uri = `${root}${entry}`;
+            const info = await FileSystemLegacy.getInfoAsync(uri);
+            if (!info.exists) continue;
+
+            if (info.isDirectory) {
+                const children = await scanLocalDirectory(`${uri}/`, depth + 1);
+                result.push(...children);
+                continue;
+            }
+
+            if (isSupportedAudioFile(uri)) {
+                result.push(trackFromUri(uri, `local:${uri}`, entry, Date.now()));
+            }
+        }
+    } catch {
+        // Ignore inaccessible subfolders in app cache/doc storage.
+    }
+    return result;
+};
+
+const loadBundledTracks = async (): Promise<MediaLibrary.Asset[]> => {
+    const result: MediaLibrary.Asset[] = [];
+    for (const bundled of BUNDLED_SUGGESTED_TRACKS) {
+        try {
+            const asset = Asset.fromModule(bundled.module);
+            await asset.downloadAsync();
+            const uri = asset.localUri || asset.uri;
+            if (!uri || !isSupportedAudioFile(uri)) continue;
+            result.push(trackFromUri(uri, `bundle:${bundled.id}`, bundled.filename, Date.now()));
+        } catch {
+            // Keep app functional if a bundled file path is invalid.
+        }
+    }
+    return result;
+};
+
+const LOCK_SCREEN_OPTIONS = {
+    showSeekBackward: true,
+    showSeekForward: true,
+};
 
 export const useAudio = () => {
     const store = useAudioStore();
 
+    const ensureDeletePermission = async () => {
+        const existing = await MediaLibrary.getPermissionsAsync(false, ['audio', 'video']);
+        if (existing.status === 'granted') return true;
+
+        const requested = await MediaLibrary.requestPermissionsAsync(false, ['audio', 'video']);
+        if (requested.status === 'granted') return true;
+
+        // Fallback for runtimes that honor writeOnly differently.
+        const writeRequested = await MediaLibrary.requestPermissionsAsync(true, ['audio', 'video']);
+        return writeRequested.status === 'granted';
+    };
+
     const loadAudio = async (asset: MediaLibrary.Asset, shouldPlay = true) => {
         try {
+            const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
+            await artworkAsset.downloadAsync();
             const metadata = {
                 title: asset.filename,
                 artist: 'Sonic Flow',
-                artwork: require('../assets/images/placeholder.png'),
+                albumTitle: 'Local Library',
+                artworkUrl: artworkAsset.localUri || artworkAsset.uri,
             };
 
             if (!store.player) {
                 const newPlayer = createAudioPlayer(asset.uri);
                 store.setPlayer(newPlayer);
-                if (typeof newPlayer.setActiveForLockScreen === 'function') {
-                    newPlayer.setActiveForLockScreen(true, metadata);
+                if (store.enableLockScreenControls) {
+                    newPlayer.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
+                } else {
+                    newPlayer.clearLockScreenControls();
                 }
+                newPlayer.setPlaybackRate(store.playbackRate);
                 if (shouldPlay) newPlayer.play();
             } else {
                 store.player.replace(asset.uri);
-                if (typeof store.player.updateLockScreenMetadata === 'function') {
+                if (store.enableLockScreenControls) {
+                    store.player.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
                     store.player.updateLockScreenMetadata(metadata);
+                } else {
+                    store.player.clearLockScreenControls();
                 }
+                store.player.setPlaybackRate(store.playbackRate);
                 if (shouldPlay) store.player.play();
             }
             store.setCurrentSong(asset);
             store.setIsPlaying(shouldPlay);
         } catch (error) {
-            console.error("Error loading audio:", error);
+            console.error('Error loading audio:', error);
         }
+    };
+
+    const startQueuePlayback = async (
+        playbackQueue: MediaLibrary.Asset[],
+        startIndex = 0,
+        context: NowPlayingContext = { type: 'library', title: 'Library Queue' }
+    ) => {
+        if (playbackQueue.length === 0) return;
+        const safeIndex = Math.min(Math.max(startIndex, 0), playbackQueue.length - 1);
+
+        store.setQueue(playbackQueue);
+        store.setCurrentIndex(safeIndex);
+        store.setNowPlayingContext(context ?? { type: 'library', title: 'Library Queue' });
+        await loadAudio(playbackQueue[safeIndex]);
     };
 
     const handleNext = useCallback(async () => {
@@ -88,24 +222,27 @@ export const useAudio = () => {
     };
 
     const playLikedSongs = async () => {
-        const likedSongs = store.queue.filter(s => store.likedIds.includes(s.id));
-        if (likedSongs.length > 0) {
-            store.setQueue(likedSongs);
-            store.setCurrentIndex(0);
-            await loadAudio(likedSongs[0]);
-        }
+        const likedSongs = store.library.filter((song) => store.likedIds.includes(song.id));
+        if (likedSongs.length === 0) return false;
+        await startQueuePlayback(likedSongs, 0, { type: 'liked', title: 'Liked Songs' });
+        return true;
     };
 
     const playPlaylist = async (playlistId: string) => {
-        const playlist = store.playlists.find(p => p.id === playlistId);
-        if (playlist) {
-            const playlistSongs = store.queue.filter(s => playlist.assetIds.includes(s.id));
-            if (playlistSongs.length > 0) {
-                store.setQueue(playlistSongs);
-                store.setCurrentIndex(0);
-                await loadAudio(playlistSongs[0]);
-            }
-        }
+        const playlist = store.playlists.find((p) => p.id === playlistId);
+        if (!playlist) return false;
+
+        const playlistSongs = playlist.assetIds
+            .map((assetId) => store.library.find((song) => song.id === assetId))
+            .filter(Boolean) as MediaLibrary.Asset[];
+
+        if (playlistSongs.length === 0) return false;
+        await startQueuePlayback(playlistSongs, 0, {
+            type: 'playlist',
+            title: playlist.name,
+            playlistId: playlist.id,
+        });
+        return true;
     };
 
     const onPlaybackStatusUpdate = useCallback((status: AudioStatus) => {
@@ -127,6 +264,46 @@ export const useAudio = () => {
         }
     }, [store.player, onPlaybackStatusUpdate]);
 
+    useEffect(() => {
+        if (!store.player) return;
+        store.player.setPlaybackRate(store.playbackRate);
+    }, [store.player, store.playbackRate]);
+
+    useEffect(() => {
+        if (!store.player || !store.currentSong) return;
+
+        let cancelled = false;
+
+        const syncLockScreenState = async () => {
+            if (!store.enableLockScreenControls) {
+                store.player?.clearLockScreenControls();
+                return;
+            }
+
+            const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
+            await artworkAsset.downloadAsync();
+            if (cancelled) return;
+
+            const metadata = {
+                title: store.currentSong?.filename,
+                artist: 'Sonic Flow',
+                albumTitle: 'Local Library',
+                artworkUrl: artworkAsset.localUri || artworkAsset.uri,
+            };
+
+            store.player?.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
+            store.player?.updateLockScreenMetadata(metadata);
+        };
+
+        syncLockScreenState().catch((error) => {
+            console.error('Lock screen sync failed:', error);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [store.player, store.currentSong?.id, store.enableLockScreenControls]);
+
     const handlePlayPause = async () => {
         if (!store.player) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -138,23 +315,20 @@ export const useAudio = () => {
     };
 
     const refreshLibrary = useCallback(async () => {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status !== 'granted') return;
-
-        let allAssets: MediaLibrary.Asset[] = [];
-        let hasNextPage = true;
-        let endCursor: string | undefined;
-
-        const supportedExtensions = new Set([
-            'mp3', 'aac', 'm4a', 'wav', 'aiff', 'aif', 'flac',
-            'alac', 'ogg', 'opus', 'wma', 'amr', 'mid', 'midi',
-            'dsf', 'dff', 'pcm'
-        ]);
-
+        if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+            return false;
+        }
         try {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') return false;
+
+            let allAssets: MediaLibrary.Asset[] = [];
+            let hasNextPage = true;
+            let endCursor: string | undefined;
+
             while (hasNextPage) {
                 const media: MediaLibrary.PagedInfo<MediaLibrary.Asset> = await MediaLibrary.getAssetsAsync({
-                    mediaType: 'audio',
+                    mediaType: [MediaLibrary.MediaType.audio, MediaLibrary.MediaType.video],
                     sortBy: 'creationTime',
                     first: 500,
                     after: endCursor,
@@ -165,20 +339,79 @@ export const useAudio = () => {
                 endCursor = media.endCursor;
             }
 
-            const filteredAssets = allAssets.filter(asset => {
+            const filteredAssets = allAssets.filter((asset) => {
                 const filename = asset.filename.toLowerCase();
                 const extension = filename.split('.').pop();
-                return extension && supportedExtensions.has(extension);
+                return extension && SUPPORTED_EXTENSIONS.has(extension);
             });
 
-            store.setQueue(filteredAssets);
+            const localTracks = (
+                await Promise.all(LOCAL_SCAN_ROOTS.map((root) => scanLocalDirectory(root)))
+            ).flat();
+            const bundledTracks = await loadBundledTracks();
+            const merged = [...filteredAssets, ...localTracks, ...bundledTracks];
+            const dedupedByUri = new Map<string, MediaLibrary.Asset>();
+            for (const track of merged) {
+                if (!dedupedByUri.has(track.uri)) {
+                    dedupedByUri.set(track.uri, track);
+                }
+            }
+            const mergedAssets = Array.from(dedupedByUri.values());
+
+            const state = useAudioStore.getState();
+            state.setLibrary(mergedAssets);
+            state.reconcileAssetReferences(mergedAssets.map((asset) => asset.id));
+
+            if (state.currentSong) {
+                const refreshedCurrent = mergedAssets.find((asset) => asset.id === state.currentSong?.id);
+                if (!refreshedCurrent) {
+                    state.player?.pause();
+                    state.setPlayer(null);
+                    state.setCurrentSong(null);
+                    state.setIsPlaying(false);
+                    state.setQueue([]);
+                    state.setCurrentIndex(-1);
+                    state.setNowPlayingContext(null);
+                } else {
+                    state.setCurrentSong(refreshedCurrent);
+                    const refreshedQueue = state.queue
+                        .map((queued) => mergedAssets.find((asset) => asset.id === queued.id))
+                        .filter(Boolean) as MediaLibrary.Asset[];
+                    state.setQueue(refreshedQueue);
+                    const refreshedIndex = refreshedQueue.findIndex((asset) => asset.id === refreshedCurrent.id);
+                    state.setCurrentIndex(refreshedIndex);
+                }
+            }
+            return true;
         } catch (error) {
-            console.error("Error fetching audio assets:", error);
+            console.error('Error fetching audio assets:', error);
+            return false;
         }
-    }, [store.setQueue]);
+    }, []);
 
     const deleteSong = async (asset: MediaLibrary.Asset) => {
         try {
+            // Tracks discovered via local filesystem scan are not MediaLibrary assets.
+            if (asset.id.startsWith('local:') && asset.uri.startsWith('file://')) {
+                await FileSystemLegacy.deleteAsync(asset.uri, { idempotent: true });
+                await refreshLibrary();
+                if (store.currentSong?.id === asset.id) {
+                    store.player?.pause();
+                    store.setPlayer(null);
+                    store.setCurrentSong(null);
+                    store.setIsPlaying(false);
+                    store.setQueue([]);
+                    store.setCurrentIndex(-1);
+                    store.setNowPlayingContext(null);
+                }
+                return true;
+            }
+
+            const allowed = await ensureDeletePermission();
+            if (!allowed) {
+                return false;
+            }
+
             const success = await MediaLibrary.deleteAssetsAsync([asset]);
             if (success) {
                 await refreshLibrary();
@@ -187,30 +420,39 @@ export const useAudio = () => {
                     store.setPlayer(null);
                     store.setCurrentSong(null);
                     store.setIsPlaying(false);
+                    store.setQueue([]);
+                    store.setCurrentIndex(-1);
+                    store.setNowPlayingContext(null);
                 }
                 return true;
             }
             return false;
         } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.includes("didn't grant write permission")) {
+                try {
+                    const allowed = await ensureDeletePermission();
+                    if (!allowed) return false;
+
+                    const success = await MediaLibrary.deleteAssetsAsync([asset]);
+                    if (success) {
+                        await refreshLibrary();
+                        if (store.currentSong?.id === asset.id) {
+                            store.player?.pause();
+                            store.setPlayer(null);
+                            store.setCurrentSong(null);
+                            store.setIsPlaying(false);
+                            store.setQueue([]);
+                            store.setCurrentIndex(-1);
+                            store.setNowPlayingContext(null);
+                        }
+                        return true;
+                    }
+                } catch {
+                    // fall through to default error logging
+                }
+            }
             console.error('Delete failed:', error);
-            return false;
-        }
-    };
-
-    const renameSong = async (asset: MediaLibrary.Asset, newName: string) => {
-        try {
-            const directory = asset.uri.substring(0, asset.uri.lastIndexOf('/') + 1);
-            const extension = asset.filename.substring(asset.filename.lastIndexOf('.'));
-            const newUri = `${directory}${newName}${extension}`;
-
-            await FileSystem.moveAsync({
-                from: asset.uri,
-                to: newUri
-            });
-            await refreshLibrary();
-            return true;
-        } catch (error) {
-            console.error('Rename failed:', error);
             return false;
         }
     };
@@ -218,6 +460,28 @@ export const useAudio = () => {
     const seekTo = async (positionSeconds: number) => {
         if (store.player) {
             await store.player.seekTo(positionSeconds);
+        }
+    };
+
+    const playFromUrl = async (url: string) => {
+        const trimmed = url.trim();
+        if (!/^https?:\/\//i.test(trimmed)) return false;
+
+        try {
+            const parsed = new URL(trimmed);
+            const filenameFromPath = decodeURIComponent(fileNameFromUri(parsed.toString()));
+            const filename = filenameFromPath && filenameFromPath !== 'track'
+                ? filenameFromPath
+                : `${parsed.hostname}.stream`;
+            const track = trackFromUri(parsed.toString(), `remote:${parsed.toString()}`, filename, Date.now());
+
+            store.setQueue([track]);
+            store.setCurrentIndex(0);
+            store.setNowPlayingContext({ type: 'remote', title: 'Stream Queue' });
+            await loadAudio(track, true);
+            return true;
+        } catch {
+            return false;
         }
     };
 
@@ -230,9 +494,10 @@ export const useAudio = () => {
         seekTo,
         refreshLibrary,
         deleteSong,
-        renameSong,
         toggleLike,
         playLikedSongs,
         playPlaylist,
+        startQueuePlayback,
+        playFromUrl,
     };
 };
