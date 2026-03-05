@@ -3,7 +3,7 @@ import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
-import { useLocalSearchParams, useRootNavigationState, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -13,13 +13,14 @@ import PaginationControls from '../../components/PaginationControls';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
+import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
 const SONGS_PER_PAGE = 20;
 
 export default function PlaylistDetailsScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
-    const rootNavigationState = useRootNavigationState();
+    const safePush = useSafeRouterPush();
     const insets = useSafeAreaInsets();
     const { colors, theme } = useTheme();
     const isLight = theme === 'light';
@@ -39,7 +40,6 @@ export default function PlaylistDetailsScreen() {
         startQueuePlayback,
     } = useAudio();
     const [currentPage, setCurrentPage] = useState(1);
-    const [pendingOpenPlayer, setPendingOpenPlayer] = useState(false);
 
     const playlist = useMemo(
         () => playlists.find((p) => p.id === id) ?? null,
@@ -70,26 +70,8 @@ export default function PlaylistDetailsScreen() {
         }
     }, [currentPage, totalPages]);
 
-    useEffect(() => {
-        if (!pendingOpenPlayer || !rootNavigationState?.key) return;
-        const timer = setTimeout(() => {
-            try {
-                router.push('/player');
-            } catch {
-                // Ignore transient navigation readiness races.
-            } finally {
-                setPendingOpenPlayer(false);
-            }
-        }, 0);
-        return () => clearTimeout(timer);
-    }, [pendingOpenPlayer, rootNavigationState?.key, router]);
-
     const openPlayerSafely = () => {
-        if (rootNavigationState?.key) {
-            router.push('/player');
-        } else {
-            setPendingOpenPlayer(true);
-        }
+        safePush('/player');
     };
 
     const playAtIndex = async (index: number) => {

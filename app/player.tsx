@@ -23,6 +23,7 @@ import PaginationControls from '../components/PaginationControls';
 import ScalePressable from '../components/ScalePressable';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../hooks/useAudio';
+import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 
 const { width } = Dimensions.get('window');
 const ART_SIZE = Math.min(width - 72, 320);
@@ -49,6 +50,7 @@ export default function FullPlayerScreen() {
   const queueCardBg = isLight ? 'rgba(17,24,39,0.03)' : 'rgba(255,255,255,0.03)';
   const queueCardBorder = isLight ? 'rgba(17,24,39,0.14)' : 'rgba(255,255,255,0.14)';
   const router = useRouter();
+  const safePush = useSafeRouterPush();
 
   const [isActionVisible, setIsActionVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -307,7 +309,7 @@ export default function FullPlayerScreen() {
           <View style={styles.queueHeader}>
             <Text style={[styles.queueHeaderText, { color: colors.text }]}>Up Next ({queue.length})</Text>
             {nowPlayingContext?.playlistId ? (
-              <TouchableOpacity onPress={() => router.push(`/playlist/${nowPlayingContext.playlistId}` as any)}>
+              <TouchableOpacity onPress={() => safePush(`/playlist/${nowPlayingContext.playlistId}`)}>
                 <Text style={[styles.openPlaylist, { color: colors.accent }]}>Open Playlist</Text>
               </TouchableOpacity>
             ) : null}

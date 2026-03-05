@@ -4,7 +4,6 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
-import { useRootNavigationState, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, {
     memo,
@@ -29,6 +28,7 @@ import PaginationControls from '../../components/PaginationControls';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
+import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
 const SONGS_PER_PAGE = 20;
 
@@ -42,8 +42,7 @@ export default function LibraryScreen() {
     const panelBg = isLight ? 'rgba(17,24,39,0.05)' : 'rgba(255,255,255,0.08)';
     const panelBorder = isLight ? 'rgba(17,24,39,0.12)' : 'rgba(255,255,255,0.12)';
     const songCardBg = isLight ? colors.surface : '#111827';
-    const router = useRouter();
-    const rootNavigationState = useRootNavigationState();
+    const safePush = useSafeRouterPush();
     const {
         setPermissionGranted,
         library,
@@ -68,7 +67,6 @@ export default function LibraryScreen() {
     const [sortBy, setSortBy] = useState<'name' | 'date' | 'duration'>('name');
     const [currentPage, setCurrentPage] = useState(1);
     const [isActionVisible, setIsActionVisible] = useState(false);
-    const [pendingOpenPlayer, setPendingOpenPlayer] = useState(false);
     const [confirmState, setConfirmState] = useState<{ visible: boolean; title: string; message: string; onConfirm: () => void }>({
         visible: false,
         title: '',
@@ -226,21 +224,6 @@ export default function LibraryScreen() {
         checkPermissions();
     }, [checkPermissions]);
 
-    useEffect(() => {
-        if (!pendingOpenPlayer || !rootNavigationState?.key) return;
-        const timer = setTimeout(() => {
-            try {
-                router.push('/player');
-            } catch {
-                // Ignore transient navigation readiness races.
-            } finally {
-                setPendingOpenPlayer(false);
-            }
-        }, 0);
-
-        return () => clearTimeout(timer);
-    }, [pendingOpenPlayer, rootNavigationState?.key, router]);
-
     const onSongPress = async (item: MediaLibrary.Asset) => {
         Haptics.selectionAsync();
         const actualIndex = sortedSongs.findIndex((song) => song.id === item.id);
@@ -249,7 +232,7 @@ export default function LibraryScreen() {
             setCurrentIndex(actualIndex);
         }
         if (autoOpenPlayerOnPlay) {
-            setPendingOpenPlayer(true);
+            safePush('/player');
         }
     };
 
@@ -350,7 +333,7 @@ export default function LibraryScreen() {
                             </View>
                             <ScalePressable
                                 style={[styles.iconBtn, { backgroundColor: panelBg, borderColor: panelBorder }]}
-                                onPress={() => router.push('/search')}
+                                onPress={() => safePush('/search')}
                             >
                                 <Ionicons name="search" size={24} color={colors.text} />
                             </ScalePressable>

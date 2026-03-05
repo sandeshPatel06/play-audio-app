@@ -3,7 +3,6 @@ import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
-import { useRootNavigationState, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -16,6 +15,7 @@ import ScalePressable from '../../components/ScalePressable';
 import { SUGGESTED_PLAYLISTS, getSuggestedPlaylistTracks } from '../../constants/suggestedPlaylists';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
+import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 import { useAudioStore } from '../../store/useAudioStore';
 
 const SONGS_PER_PAGE = 20;
@@ -42,15 +42,13 @@ export default function SearchScreen() {
         createPlaylist,
         deletePlaylist,
     } = useAudio();
-    const router = useRouter();
-    const rootNavigationState = useRootNavigationState();
+    const safePush = useSafeRouterPush();
     const [query, setQuery] = useState('');
     const [isCreatePlaylistVisible, setIsCreatePlaylistVisible] = useState(false);
     const [isPlaylistActionVisible, setIsPlaylistActionVisible] = useState(false);
     const [isDeletePlaylistVisible, setDeletePlaylistVisible] = useState(false);
     const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [pendingOpenPlayer, setPendingOpenPlayer] = useState(false);
     const [noticeState, setNoticeState] = useState<{ visible: boolean; title: string; message: string }>({
         visible: false,
         title: '',
@@ -92,26 +90,8 @@ export default function SearchScreen() {
         }
     }, [currentPage, totalPages]);
 
-    useEffect(() => {
-        if (!pendingOpenPlayer || !rootNavigationState?.key) return;
-        const timer = setTimeout(() => {
-            try {
-                router.push('/player');
-            } catch {
-                // Ignore transient navigation readiness races.
-            } finally {
-                setPendingOpenPlayer(false);
-            }
-        }, 0);
-        return () => clearTimeout(timer);
-    }, [pendingOpenPlayer, rootNavigationState?.key, router]);
-
     const openPlayerSafely = () => {
-        if (rootNavigationState?.key) {
-            router.push('/player');
-        } else {
-            setPendingOpenPlayer(true);
-        }
+        safePush('/player');
     };
 
     const onSongPress = async (item: MediaLibrary.Asset) => {
@@ -245,7 +225,7 @@ export default function SearchScreen() {
                 >
                     <ScalePressable
                         style={styles.playlistMain}
-                        onPress={() => router.push(`/playlist/${p.id}` as any)}
+                        onPress={() => safePush(`/playlist/${p.id}`)}
                     >
                         <View style={[styles.playlistIcon, { backgroundColor: panelBgStrong }]}>
                             <Ionicons name="musical-notes" size={20} color={colors.accent} />

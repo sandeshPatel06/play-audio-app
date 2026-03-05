@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../hooks/useAudio';
+import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 import ScalePressable from './ScalePressable';
 
 export default function MiniPlayer() {
@@ -18,7 +18,7 @@ export default function MiniPlayer() {
     const progressBg = isLight ? 'rgba(17,24,39,0.12)' : 'rgba(255,255,255,0.1)';
     const shadowColor = isLight ? '#1F2937' : '#000';
     const { currentSong, isPlaying, handlePlayPause, position, duration } = useAudio();
-    const router = useRouter();
+    const safePush = useSafeRouterPush();
 
     if (!currentSong) return null;
 
@@ -47,7 +47,7 @@ export default function MiniPlayer() {
             </View>
             <ScalePressable
                 style={styles.content}
-                onPress={() => router.push('/player' as any)}
+                onPress={() => safePush('/player')}
                 scaleTo={0.98}
             >
                 <Image

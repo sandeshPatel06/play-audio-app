@@ -2,8 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRootNavigationState, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
@@ -11,6 +10,7 @@ import LinkInputModal from '../../components/LinkInputModal';
 import MiniPlayer from '../../components/MiniPlayer';
 import { ACCENT_COLORS, useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
+import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -21,8 +21,7 @@ export default function SettingsScreen() {
   const iconBg = isLight ? 'rgba(17,24,39,0.07)' : 'rgba(255,255,255,0.08)';
   const pillBg = isLight ? 'rgba(17,24,39,0.05)' : 'rgba(255,255,255,0.04)';
   const speedInactiveBg = isLight ? 'rgba(17,24,39,0.04)' : 'rgba(255,255,255,0.03)';
-  const router = useRouter();
-  const rootNavigationState = useRootNavigationState();
+  const safePush = useSafeRouterPush();
   const {
     library,
     likedIds,
@@ -47,7 +46,6 @@ export default function SettingsScreen() {
   } = useAudio();
 
   const [isLinkModalVisible, setIsLinkModalVisible] = useState(false);
-  const [pendingOpenPlayer, setPendingOpenPlayer] = useState(false);
   const [noticeState, setNoticeState] = useState<{ visible: boolean; title: string; message: string }>({
     visible: false,
     title: '',
@@ -87,26 +85,8 @@ export default function SettingsScreen() {
     else showNotice('Rescan Skipped', 'Library permission is missing or unavailable in this runtime.');
   };
 
-  useEffect(() => {
-    if (!pendingOpenPlayer || !rootNavigationState?.key) return;
-    const timer = setTimeout(() => {
-      try {
-        router.push('/player');
-      } catch {
-        // Ignore transient navigation readiness races.
-      } finally {
-        setPendingOpenPlayer(false);
-      }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [pendingOpenPlayer, rootNavigationState?.key, router]);
-
   const openPlayerSafely = () => {
-    if (rootNavigationState?.key) {
-      router.push('/player');
-    } else {
-      setPendingOpenPlayer(true);
-    }
+    safePush('/player');
   };
 
   const handlePlayFromLink = async (link: string) => {
