@@ -106,6 +106,24 @@ const LOCK_SCREEN_OPTIONS = {
 export const useAudio = () => {
     const store = useAudioStore();
 
+    const resolvePlayableUri = async (asset: MediaLibrary.Asset) => {
+        // Local/bundled/remote tracks already carry a direct playable URI.
+        if (
+            asset.id.startsWith('local:') ||
+            asset.id.startsWith('bundle:') ||
+            asset.id.startsWith('remote:')
+        ) {
+            return asset.uri;
+        }
+
+        try {
+            const info = await MediaLibrary.getAssetInfoAsync(asset);
+            return info.localUri || info.uri || asset.uri;
+        } catch {
+            return asset.uri;
+        }
+    };
+
     const ensureDeletePermission = async () => {
         const existing = await MediaLibrary.getPermissionsAsync(false, ['audio', 'video']);
         if (existing.status === 'granted') return true;
@@ -120,6 +138,7 @@ export const useAudio = () => {
 
     const loadAudio = async (asset: MediaLibrary.Asset, shouldPlay = true) => {
         try {
+            const playableUri = await resolvePlayableUri(asset);
             const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
             await artworkAsset.downloadAsync();
             const metadata = {
@@ -130,7 +149,7 @@ export const useAudio = () => {
             };
 
             if (!store.player) {
-                const newPlayer = createAudioPlayer(asset.uri);
+                const newPlayer = createAudioPlayer(playableUri);
                 store.setPlayer(newPlayer);
                 if (store.enableLockScreenControls) {
                     newPlayer.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
@@ -140,7 +159,7 @@ export const useAudio = () => {
                 newPlayer.setPlaybackRate(store.playbackRate);
                 if (shouldPlay) newPlayer.play();
             } else {
-                store.player.replace(asset.uri);
+                store.player.replace(playableUri);
                 if (store.enableLockScreenControls) {
                     store.player.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
                     store.player.updateLockScreenMetadata(metadata);
@@ -150,7 +169,7 @@ export const useAudio = () => {
                 store.player.setPlaybackRate(store.playbackRate);
                 if (shouldPlay) store.player.play();
             }
-            store.setCurrentSong(asset);
+            store.setCurrentSong({ ...asset, uri: playableUri } as MediaLibrary.Asset);
             store.setIsPlaying(shouldPlay);
         } catch (error) {
             console.error('Error loading audio:', error);
