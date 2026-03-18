@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { NowPlayingContext } from '../store/useAudioStore';
 import { useAudioStore } from '../store/useAudioStore';
 
@@ -88,6 +88,25 @@ const LOCK_SCREEN_OPTIONS = {
 
 export const useAudio = () => {
     const store = useAudioStore();
+    const hasTriggeredTrackEndRef = useRef(false);
+
+    const disposePlayer = useCallback(() => {
+        store.player?.remove();
+        store.setPlayer(null);
+    }, [store]);
+
+    const clearPlaybackState = useCallback(() => {
+        store.player?.pause();
+        disposePlayer();
+        store.setCurrentSong(null);
+        store.setIsPlaying(false);
+        store.setQueue([]);
+        store.setCurrentIndex(-1);
+        store.setNowPlayingContext(null);
+        store.setPosition(0);
+        store.setDuration(0);
+        hasTriggeredTrackEndRef.current = false;
+    }, [disposePlayer, store]);
 
     const resolvePlayableUri = async (asset: MediaLibrary.Asset) => {
         // Local/remote tracks already carry a direct playable URI.
@@ -118,9 +137,49 @@ export const useAudio = () => {
         return writeRequested.status === 'granted';
     };
 
+    const deleteSongInternal = async (
+        asset: MediaLibrary.Asset,
+        options: {
+            refreshAfterDelete?: boolean;
+            mediaLibraryPermissionGranted?: boolean;
+        } = {}
+    ) => {
+        const { refreshAfterDelete = true, mediaLibraryPermissionGranted = false } = options;
+
+        if (asset.id.startsWith('local:') && asset.uri.startsWith('file://')) {
+            await FileSystemLegacy.deleteAsync(asset.uri, { idempotent: true });
+            if (refreshAfterDelete) {
+                await refreshLibrary();
+            }
+            if (store.currentSong?.id === asset.id) {
+                clearPlaybackState();
+            }
+            return true;
+        }
+
+        const allowed = mediaLibraryPermissionGranted || await ensureDeletePermission();
+        if (!allowed) {
+            return false;
+        }
+
+        const success = await MediaLibrary.deleteAssetsAsync([asset]);
+        if (success) {
+            if (refreshAfterDelete) {
+                await refreshLibrary();
+            }
+            if (store.currentSong?.id === asset.id) {
+                clearPlaybackState();
+            }
+            return true;
+        }
+
+        return false;
+    };
+
     const loadAudio = async (asset: MediaLibrary.Asset, shouldPlay = true) => {
         try {
             const playableUri = await resolvePlayableUri(asset);
+            hasTriggeredTrackEndRef.current = false;
             
             // Handle artwork with extra care for production environments
             let artworkUrl: string | undefined;
@@ -260,8 +319,16 @@ export const useAudio = () => {
         store.setDuration(status.duration);
         store.setIsPlaying(status.playing);
 
-        if (status.playing && status.currentTime >= (status.duration - 0.5) && status.duration > 0) {
+        const nearTrackEnd = status.playing && status.duration > 0 && status.currentTime >= (status.duration - 0.5);
+
+        if (nearTrackEnd && !hasTriggeredTrackEndRef.current) {
+            hasTriggeredTrackEndRef.current = true;
             handleNext();
+            return;
+        }
+
+        if (!nearTrackEnd || status.currentTime < Math.max(status.duration - 1, 0)) {
+            hasTriggeredTrackEndRef.current = false;
         }
     }, [handleNext]);
 
@@ -383,12 +450,16 @@ export const useAudio = () => {
                 const refreshedCurrent = mergedAssets.find((asset) => asset.id === state.currentSong?.id);
                 if (!refreshedCurrent) {
                     state.player?.pause();
+                    state.player?.remove();
                     state.setPlayer(null);
                     state.setCurrentSong(null);
                     state.setIsPlaying(false);
                     state.setQueue([]);
                     state.setCurrentIndex(-1);
                     state.setNowPlayingContext(null);
+                    state.setPosition(0);
+                    state.setDuration(0);
+                    hasTriggeredTrackEndRef.current = false;
                 } else {
                     state.setCurrentSong(refreshedCurrent);
                     const refreshedQueue = state.queue
@@ -408,42 +479,7 @@ export const useAudio = () => {
 
     const deleteSong = async (asset: MediaLibrary.Asset) => {
         try {
-            // Tracks discovered via local filesystem scan are not MediaLibrary assets.
-            if (asset.id.startsWith('local:') && asset.uri.startsWith('file://')) {
-                await FileSystemLegacy.deleteAsync(asset.uri, { idempotent: true });
-                await refreshLibrary();
-                if (store.currentSong?.id === asset.id) {
-                    store.player?.pause();
-                    store.setPlayer(null);
-                    store.setCurrentSong(null);
-                    store.setIsPlaying(false);
-                    store.setQueue([]);
-                    store.setCurrentIndex(-1);
-                    store.setNowPlayingContext(null);
-                }
-                return true;
-            }
-
-            const allowed = await ensureDeletePermission();
-            if (!allowed) {
-                return false;
-            }
-
-            const success = await MediaLibrary.deleteAssetsAsync([asset]);
-            if (success) {
-                await refreshLibrary();
-                if (store.currentSong?.id === asset.id) {
-                    store.player?.pause();
-                    store.setPlayer(null);
-                    store.setCurrentSong(null);
-                    store.setIsPlaying(false);
-                    store.setQueue([]);
-                    store.setCurrentIndex(-1);
-                    store.setNowPlayingContext(null);
-                }
-                return true;
-            }
-            return false;
+            return await deleteSongInternal(asset);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             if (message.includes("didn't grant write permission")) {
@@ -451,20 +487,9 @@ export const useAudio = () => {
                     const allowed = await ensureDeletePermission();
                     if (!allowed) return false;
 
-                    const success = await MediaLibrary.deleteAssetsAsync([asset]);
-                    if (success) {
-                        await refreshLibrary();
-                        if (store.currentSong?.id === asset.id) {
-                            store.player?.pause();
-                            store.setPlayer(null);
-                            store.setCurrentSong(null);
-                            store.setIsPlaying(false);
-                            store.setQueue([]);
-                            store.setCurrentIndex(-1);
-                            store.setNowPlayingContext(null);
-                        }
-                        return true;
-                    }
+                    return await deleteSongInternal(asset, {
+                        mediaLibraryPermissionGranted: true,
+                    });
                 } catch {
                     // fall through to default error logging
                 }
@@ -476,8 +501,57 @@ export const useAudio = () => {
 
     const seekTo = async (positionSeconds: number) => {
         if (store.player) {
+            hasTriggeredTrackEndRef.current = false;
             await store.player.seekTo(positionSeconds);
         }
+    };
+
+    const deleteSongs = async (assets: MediaLibrary.Asset[]) => {
+        if (assets.length === 0) {
+            return { success: true, deletedCount: 0, failedCount: 0 };
+        }
+
+        const localAssets = assets.filter((asset) => asset.id.startsWith('local:'));
+        const mediaLibraryAssets = assets.filter((asset) => !asset.id.startsWith('local:'));
+        const mediaLibraryPermissionGranted = mediaLibraryAssets.length > 0
+            ? await ensureDeletePermission()
+            : false;
+
+        let deletedCount = 0;
+        let shouldRefreshLibrary = false;
+
+        for (const asset of localAssets) {
+            const success = await deleteSongInternal(asset, {
+                refreshAfterDelete: false,
+            });
+            if (success) {
+                deletedCount += 1;
+                shouldRefreshLibrary = true;
+            }
+        }
+
+        if (mediaLibraryPermissionGranted) {
+            for (const asset of mediaLibraryAssets) {
+                const success = await deleteSongInternal(asset, {
+                    refreshAfterDelete: false,
+                    mediaLibraryPermissionGranted: true,
+                });
+                if (success) {
+                    deletedCount += 1;
+                    shouldRefreshLibrary = true;
+                }
+            }
+        }
+
+        if (shouldRefreshLibrary) {
+            await refreshLibrary();
+        }
+
+        return {
+            success: deletedCount === assets.length,
+            deletedCount,
+            failedCount: assets.length - deletedCount,
+        };
     };
 
     const playFromUrl = async (url: string) => {
@@ -511,6 +585,7 @@ export const useAudio = () => {
         seekTo,
         refreshLibrary,
         deleteSong,
+        deleteSongs,
         toggleLike,
         playLikedSongs,
         playPlaylist,

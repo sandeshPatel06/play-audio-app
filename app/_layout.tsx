@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 
 function RootLayoutContent() {
-  const { colors, theme } = useTheme();
+  const { colors, resolvedTheme } = useTheme();
 
   useEffect(() => {
     setAudioModeAsync({
@@ -20,7 +20,7 @@ function RootLayoutContent() {
 
   return (
     <>
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerStyle: {

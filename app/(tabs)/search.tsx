@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,14 +20,7 @@ const SONGS_PER_PAGE = 20;
 
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
-    const { colors, theme } = useTheme();
-    const isLight = theme === 'light';
-    const gradientColors = isLight
-        ? [colors.background, '#EAF1FF', '#F8FAFF']
-        : [colors.background, '#0D1524', '#070B14'];
-    const panelBg = isLight ? 'rgba(17,24,39,0.05)' : 'rgba(255,255,255,0.05)';
-    const panelBgStrong = isLight ? 'rgba(17,24,39,0.07)' : 'rgba(255,255,255,0.10)';
-    const panelBorder = isLight ? 'rgba(17,24,39,0.12)' : 'rgba(255,255,255,0.12)';
+    const { colors, resolvedTheme } = useTheme();
     const {
         library,
         startQueuePlayback,
@@ -81,11 +73,11 @@ export default function SearchScreen() {
         }
     }, [currentPage, totalPages]);
 
-    const openPlayerSafely = () => {
+    const openPlayerSafely = useCallback(() => {
         safePush('/player');
-    };
+    }, [safePush]);
 
-    const onSongPress = async (item: MediaLibrary.Asset) => {
+    const onSongPress = useCallback(async (item: MediaLibrary.Asset) => {
         Haptics.selectionAsync();
         const index = library.findIndex(s => s.id === item.id);
         if (index >= 0) {
@@ -94,7 +86,7 @@ export default function SearchScreen() {
                 openPlayerSafely();
             }
         }
-    };
+    }, [autoOpenPlayerOnPlay, library, openPlayerSafely, startQueuePlayback]);
 
     const openPlaylistActions = (playlistId: string) => {
         Haptics.selectionAsync();
@@ -140,7 +132,7 @@ export default function SearchScreen() {
     const renderSections = () => (
         <View style={styles.sections}>
             <ScalePressable
-                style={[styles.sectionCard, { backgroundColor: colors.accent + (isLight ? '16' : '20') }]}
+                style={[styles.sectionCard, { backgroundColor: colors.accentSurface }]}
                 onPress={async () => {
                     const started = await playLikedSongs();
                     if (started) {
@@ -153,7 +145,7 @@ export default function SearchScreen() {
                 }}
             >
                 <View style={[styles.sectionIcon, { backgroundColor: colors.accent }]}>
-                    <Ionicons name="heart" size={24} color="#FFF" />
+                    <Ionicons name="heart" size={24} color={colors.onAccent} />
                 </View>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Liked Songs</Text>
                 <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
@@ -171,13 +163,13 @@ export default function SearchScreen() {
             {playlists.map(p => (
                 <View
                     key={p.id}
-                    style={[styles.playlistItem, { backgroundColor: panelBg, borderColor: panelBorder }]}
+                    style={[styles.playlistItem, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                 >
                     <ScalePressable
                         style={styles.playlistMain}
                         onPress={() => safePush(`/playlist/${p.id}`)}
                     >
-                        <View style={[styles.playlistIcon, { backgroundColor: panelBgStrong }]}>
+                        <View style={[styles.playlistIcon, { backgroundColor: colors.cardBackgroundStrong }]}>
                             <Ionicons name="musical-notes" size={20} color={colors.accent} />
                         </View>
                         <View style={styles.playlistInfo}>
@@ -207,17 +199,16 @@ export default function SearchScreen() {
     );
 
     return (
-        <LinearGradient
-            colors={gradientColors}
-            style={styles.container}
+        <View
+            style={[styles.container, { backgroundColor: colors.screenBackground }]}
         >
-            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+            <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
 
-            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Discover</Text>
             </View>
 
-            <View style={[styles.searchContainer, { backgroundColor: panelBgStrong, borderColor: panelBorder }]}>
+            <View style={[styles.searchContainer, { backgroundColor: colors.cardBackgroundStrong, borderColor: colors.cardBorder }]}>
                 <Ionicons name="search" size={20} color={colors.textMuted} />
                 <TextInput
                     placeholder="Artists, Songs, or Albums"
@@ -247,7 +238,7 @@ export default function SearchScreen() {
                         </Text>
                     </View>
                 ) : null}
-                contentContainerStyle={{ paddingBottom: 160 + insets.bottom, paddingHorizontal: 16 }}
+                contentContainerStyle={{ paddingBottom: 168 + insets.bottom, paddingHorizontal: 20 }}
                 showsVerticalScrollIndicator={false}
                 ListFooterComponent={
                     query && filteredItems.length > 0 ? (
@@ -308,7 +299,7 @@ export default function SearchScreen() {
             />
 
             <MiniPlayer />
-        </LinearGradient>
+        </View>
     );
 }
 
@@ -317,22 +308,22 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        paddingHorizontal: 16,
-        marginBottom: 12,
+        paddingHorizontal: 20,
+        marginBottom: 14,
     },
     headerTitle: {
-        fontSize: 30,
+        fontSize: 32,
         fontWeight: '800',
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: 16,
-        borderRadius: 14,
+        marginHorizontal: 20,
+        borderRadius: 16,
         borderWidth: 1,
-        height: 52,
-        paddingHorizontal: 15,
-        marginBottom: 16,
+        height: 54,
+        paddingHorizontal: 16,
+        marginBottom: 18,
     },
     searchInput: {
         flex: 1,
@@ -343,14 +334,16 @@ const styles = StyleSheet.create({
     resultItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
+        padding: 12,
+        borderWidth: 1,
+        borderRadius: 16,
+        marginBottom: 10,
     },
     thumbnail: {
-        width: 48,
-        height: 48,
-        borderRadius: 8,
-        marginRight: 15,
+        width: 52,
+        height: 52,
+        borderRadius: 12,
+        marginRight: 14,
     },
     resultInfo: {
         flex: 1,
@@ -358,17 +351,17 @@ const styles = StyleSheet.create({
     },
     empty: {
         alignItems: 'center',
-        marginTop: 60,
+        marginTop: 72,
     },
     sections: {
-        marginBottom: 22,
+        marginBottom: 24,
     },
     sectionCard: {
-        padding: 16,
-        borderRadius: 16,
+        padding: 18,
+        borderRadius: 18,
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 22,
+        marginBottom: 24,
     },
     sectionIcon: {
         width: 56,
@@ -376,7 +369,7 @@ const styles = StyleSheet.create({
         borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 15,
+        marginRight: 16,
     },
     sectionTitle: {
         fontSize: 17,
@@ -392,7 +385,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 14,
     },
     playlistHeaderText: {
         fontSize: 17,
@@ -401,10 +394,10 @@ const styles = StyleSheet.create({
     playlistItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        borderRadius: 14,
+        padding: 14,
+        borderRadius: 16,
         borderWidth: 1,
-        marginBottom: 8,
+        marginBottom: 10,
     },
     playlistMain: {
         flex: 1,
@@ -412,7 +405,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     playlistMenuBtn: {
-        padding: 8,
+        padding: 10,
     },
     playlistIcon: {
         width: 44,
@@ -436,10 +429,10 @@ const styles = StyleSheet.create({
     emptyPlaylist: {
         borderWidth: 1,
         borderStyle: 'dashed',
-        borderRadius: 14,
-        padding: 16,
+        borderRadius: 16,
+        padding: 18,
         alignItems: 'center',
-        marginTop: 8,
+        marginTop: 10,
     },
     videoBadge: {
         borderWidth: 1,
@@ -454,11 +447,11 @@ const styles = StyleSheet.create({
     },
 });
 
-const SearchItem = memo(({ item, onPress, onLike, isLiked, showVideoBadges, colors, styles }: any) => (
+const SearchItemComponent = ({ item, onPress, onLike, isLiked, showVideoBadges, colors, styles }: any) => (
     <View>
         <ScalePressable
             onPress={onPress}
-            style={[styles.resultItem, { borderBottomColor: colors.border }]}
+            style={[styles.resultItem, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}
         >
             <Image
                 source={require('../../assets/images/placeholder.png')}
@@ -469,8 +462,8 @@ const SearchItem = memo(({ item, onPress, onLike, isLiked, showVideoBadges, colo
                     <Text numberOfLines={1} style={{ color: colors.text, fontSize: 16, fontWeight: '600', flex: 1 }}>
                         {item.filename}
                     </Text>
-                    {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(item.filename || item.uri || '') && (
-                        <View style={[styles.videoBadge, { backgroundColor: `${colors.accent}25`, borderColor: colors.accent }]}>
+                    {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(`${item.filename} ${item.uri}`) && (
+                        <View style={[styles.videoBadge, { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}>
                             <Text style={[styles.videoBadgeText, { color: colors.accent }]}>VIDEO</Text>
                         </View>
                     )}
@@ -479,7 +472,7 @@ const SearchItem = memo(({ item, onPress, onLike, isLiked, showVideoBadges, colo
                     Sonic Flow • {Math.floor(item.duration / 60)}:{(item.duration % 60).toFixed(0).padStart(2, '0')}
                 </Text>
             </View>
-            <ScalePressable onPress={onLike} style={{ padding: 10 }}>
+            <ScalePressable onPress={onLike} style={{ padding: 12 }}>
                 <Ionicons
                     name={isLiked ? 'heart' : 'heart-outline'}
                     size={20}
@@ -488,4 +481,7 @@ const SearchItem = memo(({ item, onPress, onLike, isLiked, showVideoBadges, colo
             </ScalePressable>
         </ScalePressable>
     </View>
-));
+);
+
+const SearchItem = memo(SearchItemComponent);
+SearchItem.displayName = 'SearchItem';

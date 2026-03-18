@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -22,13 +21,7 @@ export default function PlaylistDetailsScreen() {
     const router = useRouter();
     const safePush = useSafeRouterPush();
     const insets = useSafeAreaInsets();
-    const { colors, theme } = useTheme();
-    const isLight = theme === 'light';
-    const gradientColors = isLight
-        ? [colors.background, '#EAF1FF', '#F8FAFF']
-        : [colors.background, '#0D1524', '#070B14'];
-    const rowBg = isLight ? 'rgba(17,24,39,0.04)' : 'rgba(255,255,255,0.05)';
-    const rowBorder = isLight ? 'rgba(17,24,39,0.12)' : 'rgba(255,255,255,0.08)';
+    const { colors, resolvedTheme } = useTheme();
     const {
         playlists,
         library,
@@ -99,11 +92,11 @@ export default function PlaylistDetailsScreen() {
     }
 
     return (
-        <LinearGradient colors={gradientColors} style={styles.container}>
-            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
+            <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
 
-            <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-                <ScalePressable style={styles.headerBtn} onPress={() => router.back()}>
+            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+                <ScalePressable style={[styles.headerBtn, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]} onPress={() => router.back()}>
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </ScalePressable>
                 <View style={styles.headerCenter}>
@@ -111,7 +104,7 @@ export default function PlaylistDetailsScreen() {
                     <Text style={[styles.subtitle, { color: colors.textMuted }]}>{playlistSongs.length} songs</Text>
                 </View>
                 <ScalePressable
-                    style={[styles.headerBtn, { backgroundColor: `${colors.accent}22` }]}
+                    style={[styles.headerBtn, { backgroundColor: colors.accentSurface }]}
                     onPress={() => playAtIndex(0)}
                     disabled={playlistSongs.length === 0}
                 >
@@ -121,9 +114,8 @@ export default function PlaylistDetailsScreen() {
 
             <FlashList
                 data={pagedPlaylistSongs}
-                estimatedItemSize={86}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 160 + insets.bottom }}
+                contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 168 + insets.bottom }}
                 ListEmptyComponent={
                     <View style={styles.empty}>
                         <Ionicons name="musical-notes-outline" size={64} color={colors.textMuted} />
@@ -136,7 +128,7 @@ export default function PlaylistDetailsScreen() {
                     const actualIndex = (currentPage - 1) * SONGS_PER_PAGE + index;
                     return (
                         <ScalePressable
-                            style={[styles.row, { borderColor: isActive ? colors.accent : rowBorder, backgroundColor: rowBg }]}
+                            style={[styles.row, { borderColor: isActive ? colors.accent : colors.cardBorder, backgroundColor: colors.cardBackground }]}
                             onPress={() => playAtIndex(actualIndex)}
                         >
                             <Image source={require('../../assets/images/placeholder.png')} style={styles.thumb} />
@@ -145,8 +137,8 @@ export default function PlaylistDetailsScreen() {
                                     <Text numberOfLines={1} style={[styles.name, { color: isActive ? colors.accent : colors.text }]}>
                                         {item.filename}
                                     </Text>
-                                    {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(item.filename || item.uri || '') ? (
-                                        <View style={[styles.badge, { borderColor: colors.accent, backgroundColor: `${colors.accent}20` }]}>
+                                    {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(`${item.filename} ${item.uri}`) ? (
+                                        <View style={[styles.badge, { borderColor: colors.accent, backgroundColor: colors.accentSurface }]}>
                                             <Text style={[styles.badgeText, { color: colors.accent }]}>VIDEO</Text>
                                         </View>
                                     ) : null}
@@ -175,7 +167,7 @@ export default function PlaylistDetailsScreen() {
             />
 
             <MiniPlayer />
-        </LinearGradient>
+        </View>
     );
 }
 
@@ -189,24 +181,25 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     header: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     headerBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
     },
     headerCenter: {
         flex: 1,
         marginHorizontal: 12,
     },
     title: {
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: '800',
     },
     subtitle: {
@@ -216,21 +209,21 @@ const styles = StyleSheet.create({
     },
     empty: {
         alignItems: 'center',
-        marginTop: 80,
+        marginTop: 88,
     },
     row: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 12,
+        borderRadius: 16,
         borderWidth: 1,
-        marginBottom: 8,
-        padding: 10,
+        marginBottom: 10,
+        padding: 12,
     },
     thumb: {
-        width: 48,
-        height: 48,
-        borderRadius: 10,
-        marginRight: 12,
+        width: 52,
+        height: 52,
+        borderRadius: 12,
+        marginRight: 14,
     },
     info: {
         flex: 1,
@@ -249,8 +242,8 @@ const styles = StyleSheet.create({
         marginTop: 3,
     },
     likeBtn: {
-        padding: 8,
-        marginLeft: 6,
+        padding: 10,
+        marginLeft: 8,
     },
     badge: {
         borderWidth: 1,

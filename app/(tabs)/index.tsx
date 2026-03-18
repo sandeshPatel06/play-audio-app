@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
 import React, {
@@ -34,14 +33,7 @@ const SONGS_PER_PAGE = 20;
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
-    const { colors, theme } = useTheme();
-    const isLight = theme === 'light';
-    const gradientColors = isLight
-        ? [colors.background, '#EAF1FF', '#F8FAFF']
-        : [colors.background, '#0D1524', '#070B14'];
-    const panelBg = isLight ? 'rgba(17,24,39,0.05)' : 'rgba(255,255,255,0.08)';
-    const panelBorder = isLight ? 'rgba(17,24,39,0.12)' : 'rgba(255,255,255,0.12)';
-    const songCardBg = isLight ? colors.surface : '#111827';
+    const { colors, resolvedTheme } = useTheme();
     const safePush = useSafeRouterPush();
     const {
         setPermissionGranted,
@@ -53,6 +45,7 @@ export default function LibraryScreen() {
         autoOpenPlayerOnPlay,
         showVideoBadges,
         deleteSong,
+        deleteSongs,
         likedIds,
         toggleLike,
         playlists,
@@ -132,7 +125,7 @@ export default function LibraryScreen() {
         }
     }, [currentPage, totalPages]);
 
-    const toggleSelection = (id: string) => {
+    const toggleSelection = useCallback((id: string) => {
         Haptics.selectionAsync();
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -140,13 +133,13 @@ export default function LibraryScreen() {
             else next.add(id);
             return next;
         });
-    };
+    }, []);
 
-    const enterSelectionMode = (id: string) => {
+    const enterSelectionMode = useCallback((id: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setIsSelectionMode(true);
         setSelectedIds(new Set([id]));
-    };
+    }, []);
 
     const exitSelectionMode = () => {
         setIsSelectionMode(false);
@@ -166,15 +159,17 @@ export default function LibraryScreen() {
         setConfirmState((prev) => ({ ...prev, visible: false }));
         setLoading(true);
         const assetsToDelete = library.filter(item => selectedIds.has(item.id));
-        const success = await MediaLibrary.deleteAssetsAsync(assetsToDelete);
-        if (success) {
-            await refreshLibrary();
+        const result = await deleteSongs(assetsToDelete);
+        if (result.deletedCount > 0) {
             exitSelectionMode();
-        } else {
+        }
+        if (!result.success) {
             setNoticeState({
                 visible: true,
-                title: 'Error',
-                message: 'Bulk delete failed',
+                title: result.deletedCount > 0 ? 'Partial Delete' : 'Error',
+                message: result.deletedCount > 0
+                    ? `${result.deletedCount} songs deleted, ${result.failedCount} failed.`
+                    : 'Bulk delete failed',
             });
         }
         setLoading(false);
@@ -224,7 +219,7 @@ export default function LibraryScreen() {
         checkPermissions();
     }, [checkPermissions]);
 
-    const onSongPress = async (item: MediaLibrary.Asset) => {
+    const onSongPress = useCallback(async (item: MediaLibrary.Asset) => {
         Haptics.selectionAsync();
         const actualIndex = sortedSongs.findIndex((song) => song.id === item.id);
         if (actualIndex >= 0) {
@@ -234,13 +229,13 @@ export default function LibraryScreen() {
         if (autoOpenPlayerOnPlay) {
             safePush('/player');
         }
-    };
+    }, [autoOpenPlayerOnPlay, safePush, setCurrentIndex, sortedSongs, startQueuePlayback]);
 
-    const onMenuPress = (item: MediaLibrary.Asset) => {
+    const onMenuPress = useCallback((item: MediaLibrary.Asset) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedAsset(item);
         setIsActionVisible(true);
-    };
+    }, []);
 
     const confirmDelete = (item: MediaLibrary.Asset) => {
         setConfirmState({
@@ -283,13 +278,11 @@ export default function LibraryScreen() {
                 onMenu={() => onMenuPress(item)}
                 isLiked={likedIds.includes(item.id)}
                 showVideoBadges={showVideoBadges}
-                isLight={isLight}
-                songCardBg={songCardBg}
                 colors={colors}
                 styles={styles}
             />
         );
-    }, [currentSong, selectedIds, isSelectionMode, likedIds, colors, toggleSelection, onSongPress, enterSelectionMode, toggleLike, onMenuPress, showVideoBadges, isLight, songCardBg]);
+    }, [currentSong, selectedIds, isSelectionMode, likedIds, colors, toggleSelection, onSongPress, enterSelectionMode, toggleLike, onMenuPress, showVideoBadges]);
 
     if (loading) {
         return (
@@ -301,15 +294,12 @@ export default function LibraryScreen() {
     }
 
     return (
-        <LinearGradient
-            colors={gradientColors}
-            style={styles.container}
-        >
-            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
+            <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
 
-            <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
+            <View style={[styles.bgGlow, { backgroundColor: colors.sectionGlow }]} />
 
-            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                 {isSelectionMode ? (
                     <View style={styles.selectionHeader}>
                         <TouchableOpacity onPress={exitSelectionMode} style={styles.headerBtn}>
@@ -332,7 +322,7 @@ export default function LibraryScreen() {
                                 <Text style={[styles.headerTitle, { color: colors.text }]}>Your Library</Text>
                             </View>
                             <ScalePressable
-                                style={[styles.iconBtn, { backgroundColor: panelBg, borderColor: panelBorder }]}
+                                style={[styles.iconBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
                                 onPress={() => safePush('/search')}
                             >
                                 <Ionicons name="search" size={24} color={colors.text} />
@@ -344,7 +334,7 @@ export default function LibraryScreen() {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     setSortBy('name');
                                 }}
-                                style={[styles.sortBtn, { backgroundColor: panelBg, borderColor: panelBorder }, sortBy === 'name' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'name' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="text-outline" size={14} color={sortBy === 'name' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'name' ? colors.accent : colors.textMuted }]}>Name</Text>
@@ -354,7 +344,7 @@ export default function LibraryScreen() {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     setSortBy('date');
                                 }}
-                                style={[styles.sortBtn, { backgroundColor: panelBg, borderColor: panelBorder }, sortBy === 'date' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'date' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="calendar-outline" size={14} color={sortBy === 'date' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'date' ? colors.accent : colors.textMuted }]}>Recent</Text>
@@ -364,7 +354,7 @@ export default function LibraryScreen() {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     setSortBy('duration');
                                 }}
-                                style={[styles.sortBtn, { backgroundColor: panelBg, borderColor: panelBorder }, sortBy === 'duration' && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}
+                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'duration' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="time-outline" size={14} color={sortBy === 'duration' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'duration' ? colors.accent : colors.textMuted }]}>Length</Text>
@@ -380,7 +370,7 @@ export default function LibraryScreen() {
                 keyExtractor={(item: any) => item.id || item.filename}
                 getItemType={(item: any) => (item.type === 'header' ? 'header' : 'row')}
                 stickyHeaderIndices={sectionedData.indices}
-                contentContainerStyle={[styles.listContent, { paddingBottom: 160 + insets.bottom }]}
+                contentContainerStyle={[styles.listContent, { paddingBottom: 168 + insets.bottom }]}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
@@ -404,12 +394,12 @@ export default function LibraryScreen() {
             {isSelectionMode && (
                 <View style={[styles.selectionBar, { bottom: 100 + insets.bottom, backgroundColor: colors.surface }]}>
                     <ScalePressable
-                        style={[styles.bulkActionBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]}
+                        style={[styles.bulkActionBtn, { backgroundColor: colors.dangerSurface }]}
                         onPress={handleBulkDelete}
                         disabled={selectedIds.size === 0}
                     >
-                        <Ionicons name="trash-outline" size={20} color={selectedIds.size > 0 ? "#FF3B30" : colors.textMuted} />
-                        <Text style={[styles.bulkActionText, { color: selectedIds.size > 0 ? "#FF3B30" : colors.textMuted }]}>
+                        <Ionicons name="trash-outline" size={20} color={selectedIds.size > 0 ? colors.danger : colors.textMuted} />
+                        <Text style={[styles.bulkActionText, { color: selectedIds.size > 0 ? colors.danger : colors.textMuted }]}>
                             Delete ({selectedIds.size})
                         </Text>
                     </ScalePressable>
@@ -478,7 +468,7 @@ export default function LibraryScreen() {
             />
 
             <MiniPlayer />
-        </LinearGradient>
+        </View>
     );
 }
 
@@ -496,14 +486,14 @@ const styles = StyleSheet.create({
         opacity: 0.11,
     },
     header: {
-        paddingHorizontal: 16,
-        paddingBottom: 14,
+        paddingHorizontal: 20,
+        paddingBottom: 16,
     },
     headerTop: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15,
+        marginBottom: 16,
     },
     selectionHeader: {
         flex: 1,
@@ -512,17 +502,19 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     selectionCount: {
-        fontSize: 17,
+        fontSize: 18,
         fontWeight: '700',
     },
     headerBtn: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         justifyContent: 'center',
         alignItems: 'center',
     },
     headerBtnText: {
-        paddingHorizontal: 10,
+        minHeight: 44,
+        paddingHorizontal: 12,
+        justifyContent: 'center',
     },
     headerSubtitle: {
         fontSize: 12,
@@ -532,34 +524,34 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     headerTitle: {
-        fontSize: 30,
+        fontSize: 32,
         fontWeight: '800',
     },
     iconBtn: {
-        width: 42,
-        height: 42,
-        borderRadius: 14,
+        width: 46,
+        height: 46,
+        borderRadius: 16,
         borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
     listContent: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
     },
     songItem: {
-        marginBottom: 10,
-        borderRadius: 14,
+        marginBottom: 12,
+        borderRadius: 16,
         overflow: 'hidden',
     },
     songContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 11,
+        padding: 12,
     },
     thumbnailContainer: {
-        width: 54,
-        height: 54,
-        borderRadius: 12,
+        width: 56,
+        height: 56,
+        borderRadius: 14,
         marginRight: 14,
         overflow: 'hidden',
         elevation: 5,
@@ -586,7 +578,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     likeBtn: {
-        padding: 8,
+        padding: 10,
         marginLeft: 8,
     },
     songTitle: {
@@ -599,11 +591,11 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     menuBtn: {
-        padding: 10,
+        padding: 12,
     },
     emptyContainer: {
         alignItems: 'center',
-        paddingTop: 100,
+        paddingTop: 116,
         opacity: 0.5,
     },
     selectionBar: {
@@ -611,10 +603,9 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
         flexDirection: 'row',
         paddingHorizontal: 20,
-        paddingVertical: 11,
-        borderRadius: 16,
+        paddingVertical: 12,
+        borderRadius: 18,
         elevation: 10,
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 5 },
         shadowOpacity: 0.3,
         shadowRadius: 10,
@@ -623,8 +614,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 8,
-        borderRadius: 20,
+        paddingVertical: 10,
+        borderRadius: 22,
     },
     bulkActionText: {
         fontWeight: '700',
@@ -632,8 +623,8 @@ const styles = StyleSheet.create({
     },
     headerSection: {
         paddingVertical: 8,
-        paddingHorizontal: 10,
-        marginTop: 6,
+        paddingHorizontal: 12,
+        marginTop: 8,
     },
     headerSectionText: {
         fontSize: 13,
@@ -648,12 +639,11 @@ const styles = StyleSheet.create({
     sortBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderRadius: 12,
+        minHeight: 38,
+        paddingHorizontal: 13,
+        paddingVertical: 8,
+        borderRadius: 13,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
-        backgroundColor: 'rgba(255,255,255,0.05)',
         gap: 6,
     },
     sortText: {
@@ -674,13 +664,16 @@ const styles = StyleSheet.create({
     },
 });
 
-const SectionHeader = memo(({ title, colors, styles }: any) => (
+const SectionHeaderComponent = ({ title, colors, styles }: any) => (
     <View style={[styles.headerSection, { backgroundColor: colors.background }]}>
         <Text style={[styles.headerSectionText, { color: colors.accent }]}>{title}</Text>
     </View>
-));
+);
 
-const SongItem = memo(({
+const SectionHeader = memo(SectionHeaderComponent);
+SectionHeader.displayName = 'SectionHeader';
+
+const SongItemComponent = ({
     asset,
     isActive,
     isSelected,
@@ -691,8 +684,6 @@ const SongItem = memo(({
     onMenu,
     isLiked,
     showVideoBadges,
-    isLight,
-    songCardBg,
     colors,
     styles
 }: any) => (
@@ -700,29 +691,29 @@ const SongItem = memo(({
         <ScalePressable
             style={[
                 styles.songItem,
-                isActive && !isSelectionMode && { backgroundColor: isLight ? `${colors.accent}12` : 'rgba(255,255,255,0.08)', borderColor: colors.accent, borderWidth: 1 },
-                isSelected && { backgroundColor: `${colors.accent}20`, borderColor: colors.accent, borderWidth: 1 }
+                isActive && !isSelectionMode && { backgroundColor: colors.activeRowBackground, borderColor: colors.accent, borderWidth: 1 },
+                isSelected && { backgroundColor: colors.accentSurface, borderColor: colors.accent, borderWidth: 1 }
             ]}
             onPress={onPress}
             onLongPress={onLongPress}
         >
-            <View style={[styles.songContent, { backgroundColor: songCardBg }]}>
+            <View style={[styles.songContent, { backgroundColor: colors.screenSurface }]}>
                 <View style={[styles.thumbnailContainer, { shadowColor: colors.accent }]}>
                     <Image
                         source={require('../../assets/images/placeholder.png')}
                         style={styles.thumbnail}
                     />
                     {isActive && !isSelectionMode && (
-                        <View style={[styles.activeOverlay, { backgroundColor: isLight ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)' }]}>
+                        <View style={[styles.activeOverlay, { backgroundColor: colors.activeOverlay }]}>
                             <Ionicons name="stats-chart" size={20} color={colors.accent} />
                         </View>
                     )}
                     {isSelectionMode && (
-                        <View style={[styles.selectionOverlay, { backgroundColor: isSelected ? colors.accent : (isLight ? 'rgba(17,24,39,0.18)' : 'rgba(0,0,0,0.4)') }]}>
+                        <View style={[styles.selectionOverlay, { backgroundColor: isSelected ? colors.accent : colors.selectionOverlay }]}>
                             <Ionicons
                                 name={isSelected ? "checkmark-circle" : "ellipse-outline"}
                                 size={24}
-                                color={isSelected ? '#FFF' : (isLight ? '#111827' : '#FFF')}
+                                color={isSelected ? colors.onAccent : colors.text}
                             />
                         </View>
                     )}
@@ -736,8 +727,8 @@ const SongItem = memo(({
                         >
                             {asset.filename}
                         </Text>
-                        {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(asset.filename || asset.uri || '') && (
-                            <View style={[styles.videoBadge, { backgroundColor: `${colors.accent}20`, borderColor: colors.accent }]}>
+                        {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(`${asset.filename} ${asset.uri}`) && (
+                            <View style={[styles.videoBadge, { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}>
                                 <Text style={[styles.videoBadgeText, { color: colors.accent }]}>VIDEO</Text>
                             </View>
                         )}
@@ -772,4 +763,7 @@ const SongItem = memo(({
             </View>
         </ScalePressable>
     </View>
-));
+);
+
+const SongItem = memo(SongItemComponent);
+SongItem.displayName = 'SongItem';

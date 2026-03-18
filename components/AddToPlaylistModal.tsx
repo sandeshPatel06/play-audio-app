@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { Playlist } from '../store/useAudioStore';
+import ScalePressable from './ScalePressable';
 
 interface AddToPlaylistModalProps {
     visible: boolean;
@@ -13,13 +14,8 @@ interface AddToPlaylistModalProps {
 }
 
 export default function AddToPlaylistModal({ visible, onClose, playlists, onSelect }: AddToPlaylistModalProps) {
-    const { colors, theme } = useTheme();
+    const { colors } = useTheme();
     const insets = useSafeAreaInsets();
-    const isLight = theme === 'light';
-    const overlayColor = isLight ? 'rgba(15,23,42,0.28)' : 'rgba(2,6,23,0.62)';
-    const sheetBorder = isLight ? 'rgba(17,24,39,0.14)' : 'rgba(255,255,255,0.12)';
-    const rowBorder = isLight ? 'rgba(17,24,39,0.08)' : 'rgba(255,255,255,0.05)';
-    const iconBg = isLight ? 'rgba(17,24,39,0.06)' : 'rgba(255,255,255,0.05)';
 
     return (
         <Modal
@@ -28,13 +24,13 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
             animationType="slide"
             onRequestClose={onClose}
         >
-            <View style={[styles.modalOverlay, { backgroundColor: overlayColor }]}>
-                <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: sheetBorder, paddingBottom: insets.bottom + 16 }]}>
+            <View style={[styles.modalOverlay, { backgroundColor: colors.modalOverlay }]}>
+                <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.modalBorder, paddingBottom: insets.bottom + 16 }]}>
                     <View style={styles.header}>
                         <Text style={[styles.title, { color: colors.text }]}>Add to Playlist</Text>
-                        <TouchableOpacity onPress={onClose}>
+                        <ScalePressable style={[styles.closeButton, { backgroundColor: colors.modalCancelBackground }]} onPress={onClose}>
                             <Ionicons name="close" size={24} color={colors.text} />
-                        </TouchableOpacity>
+                        </ScalePressable>
                     </View>
 
                     <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
@@ -44,19 +40,19 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
                             </View>
                         ) : (
                             playlists.map(playlist => (
-                                <TouchableOpacity
+                                <ScalePressable
                                     key={playlist.id}
-                                    style={[styles.item, { borderBottomColor: rowBorder }]}
+                                    style={[styles.item, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}
                                     onPress={() => onSelect(playlist.id)}
                                 >
-                                    <View style={[styles.icon, { backgroundColor: iconBg }]}>
+                                    <View style={[styles.icon, { backgroundColor: colors.cardBackgroundStrong }]}>
                                         <Ionicons name="musical-notes" size={20} color={colors.accent} />
                                     </View>
                                     <View>
                                         <Text style={[styles.name, { color: colors.text }]}>{playlist.name}</Text>
                                         <Text style={[styles.meta, { color: colors.textMuted }]}>{playlist.assetIds.length} songs</Text>
                                     </View>
-                                </TouchableOpacity>
+                                </ScalePressable>
                             ))
                         )}
                     </ScrollView>
@@ -73,7 +69,7 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         width: '100%',
-        height: '64%',
+        maxHeight: '72%',
         borderTopLeftRadius: 26,
         borderTopRightRadius: 26,
         borderWidth: 1,
@@ -85,6 +81,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 20,
     },
+    closeButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     title: {
         fontSize: 19,
         fontWeight: '800',
@@ -95,8 +98,12 @@ const styles = StyleSheet.create({
     item: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 14,
-        borderBottomWidth: 1,
+        minHeight: 68,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderRadius: 16,
+        marginBottom: 10,
     },
     icon: {
         width: 44,
@@ -116,6 +123,6 @@ const styles = StyleSheet.create({
     },
     empty: {
         alignItems: 'center',
-        marginTop: 40,
+        marginTop: 48,
     },
 });

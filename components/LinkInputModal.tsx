@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import ScalePressable from './ScalePressable';
 
 interface LinkInputModalProps {
     visible: boolean;
@@ -9,13 +10,10 @@ interface LinkInputModalProps {
 }
 
 export default function LinkInputModal({ visible, onClose, onSubmit }: LinkInputModalProps) {
-    const { colors, theme } = useTheme();
-    const isLight = theme === 'light';
-    const overlayColor = isLight ? 'rgba(15,23,42,0.28)' : 'rgba(2,6,23,0.62)';
-    const borderColor = isLight ? 'rgba(17,24,39,0.14)' : 'rgba(255,255,255,0.12)';
-    const shadowColor = isLight ? '#1F2937' : '#000';
-    const cancelBg = isLight ? 'rgba(17,24,39,0.06)' : 'rgba(255,255,255,0.06)';
+    const { colors } = useTheme();
     const [value, setValue] = useState('');
+    const trimmedValue = value.trim();
+    const canSubmit = trimmedValue.length > 0;
 
     const handleClose = () => {
         setValue('');
@@ -23,22 +21,22 @@ export default function LinkInputModal({ visible, onClose, onSubmit }: LinkInput
     };
 
     const handleSubmit = () => {
-        if (!value.trim()) return;
-        onSubmit(value.trim());
+        if (!trimmedValue) return;
+        onSubmit(trimmedValue);
         setValue('');
     };
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-            <View style={[styles.overlay, { backgroundColor: overlayColor }]}>
-                <View style={[styles.content, { backgroundColor: colors.surface, borderColor, shadowColor }]}>
+            <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
+                <View style={[styles.content, { backgroundColor: colors.surface, borderColor: colors.modalBorder, shadowColor: colors.modalShadow }]}>
                     <Text style={[styles.title, { color: colors.text }]}>Play From Link</Text>
                     <Text style={[styles.subtitle, { color: colors.textMuted }]}>Paste a direct media URL (mp3/mp4/m3u8).</Text>
 
                     <TextInput
                         value={value}
                         onChangeText={setValue}
-                        style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+                        style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardBackgroundSubtle }]}
                         placeholder="https://example.com/media.mp4"
                         placeholderTextColor={colors.textMuted}
                         autoCapitalize="none"
@@ -49,12 +47,19 @@ export default function LinkInputModal({ visible, onClose, onSubmit }: LinkInput
                     />
 
                     <View style={styles.row}>
-                        <TouchableOpacity style={[styles.btn, { backgroundColor: cancelBg }]} onPress={handleClose}>
+                        <ScalePressable style={[styles.btn, { backgroundColor: colors.modalCancelBackground }]} onPress={handleClose}>
                             <Text style={{ color: colors.textMuted }}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.btn, { backgroundColor: colors.accent }]} onPress={handleSubmit}>
-                            <Text style={{ color: '#FFF', fontWeight: '700' }}>Play</Text>
-                        </TouchableOpacity>
+                        </ScalePressable>
+                        <ScalePressable
+                            style={[
+                                styles.btn,
+                                { backgroundColor: canSubmit ? colors.accent : colors.cardBackgroundStrong },
+                            ]}
+                            onPress={handleSubmit}
+                            disabled={!canSubmit}
+                        >
+                            <Text style={{ color: canSubmit ? colors.onAccent : colors.textMuted, fontWeight: '700' }}>Play</Text>
+                        </ScalePressable>
                     </View>
                 </View>
             </View>
@@ -72,7 +77,7 @@ const styles = StyleSheet.create({
     content: {
         width: '100%',
         padding: 24,
-        borderRadius: 20,
+        borderRadius: 24,
         borderWidth: 1,
         elevation: 20,
         shadowOffset: { width: 0, height: 10 },
@@ -80,30 +85,36 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
     },
     title: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '800',
     },
     subtitle: {
-        marginTop: 8,
-        fontSize: 13,
+        marginTop: 10,
+        fontSize: 14,
+        lineHeight: 20,
     },
     input: {
-        marginTop: 16,
+        marginTop: 18,
         borderWidth: 1,
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        fontSize: 14,
+        borderRadius: 14,
+        minHeight: 52,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 15,
     },
     row: {
-        marginTop: 20,
+        marginTop: 22,
         flexDirection: 'row',
         justifyContent: 'flex-end',
         gap: 10,
     },
     btn: {
-        paddingHorizontal: 16,
+        minWidth: 108,
+        minHeight: 46,
+        paddingHorizontal: 18,
         paddingVertical: 10,
-        borderRadius: 10,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import ScalePressable from './ScalePressable';
 
 interface PlaylistNameModalProps {
     visible: boolean;
@@ -19,13 +20,10 @@ export default function PlaylistNameModal({
     onClose,
     onConfirm,
 }: PlaylistNameModalProps) {
-    const { colors, theme } = useTheme();
-    const isLight = theme === 'light';
-    const overlayColor = isLight ? 'rgba(15,23,42,0.28)' : 'rgba(2,6,23,0.62)';
-    const cardBorder = isLight ? 'rgba(17,24,39,0.14)' : 'rgba(255,255,255,0.12)';
-    const shadowColor = isLight ? '#1F2937' : '#000';
-    const cancelBg = isLight ? 'rgba(17,24,39,0.06)' : 'rgba(255,255,255,0.06)';
+    const { colors } = useTheme();
     const [name, setName] = useState(initialValue);
+    const normalizedName = name.trim();
+    const canSubmit = normalizedName.length > 0;
 
     useEffect(() => {
         if (visible) {
@@ -39,9 +37,8 @@ export default function PlaylistNameModal({
     };
 
     const handleConfirm = () => {
-        const normalized = name.trim();
-        if (!normalized) return;
-        onConfirm(normalized);
+        if (!normalizedName) return;
+        onConfirm(normalizedName);
     };
 
     return (
@@ -51,11 +48,11 @@ export default function PlaylistNameModal({
             animationType="fade"
             onRequestClose={handleClose}
         >
-            <View style={[styles.modalOverlay, { backgroundColor: overlayColor }]}>
-                <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: cardBorder, shadowColor }]}>
+            <View style={[styles.modalOverlay, { backgroundColor: colors.modalOverlay }]}>
+                <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.modalBorder, shadowColor: colors.modalShadow }]}>
                     <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
                     <TextInput
-                        style={[styles.modalInput, { color: colors.text, borderColor: colors.border }]}
+                        style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardBackgroundSubtle }]}
                         placeholder="Playlist Name"
                         placeholderTextColor={colors.textMuted}
                         value={name}
@@ -65,15 +62,16 @@ export default function PlaylistNameModal({
                         onSubmitEditing={handleConfirm}
                     />
                     <View style={styles.modalButtons}>
-                        <TouchableOpacity onPress={handleClose} style={[styles.modalBtn, { backgroundColor: cancelBg }]}>
+                        <ScalePressable onPress={handleClose} style={[styles.modalBtn, { backgroundColor: colors.modalCancelBackground }]}>
                             <Text style={{ color: colors.textMuted }}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
+                        </ScalePressable>
+                        <ScalePressable
                             onPress={handleConfirm}
-                            style={[styles.modalBtn, { backgroundColor: colors.accent }]}
+                            style={[styles.modalBtn, { backgroundColor: canSubmit ? colors.accent : colors.cardBackgroundStrong }]}
+                            disabled={!canSubmit}
                         >
-                            <Text style={{ color: '#FFF', fontWeight: '700' }}>{confirmText}</Text>
-                        </TouchableOpacity>
+                            <Text style={{ color: canSubmit ? colors.onAccent : colors.textMuted, fontWeight: '700' }}>{confirmText}</Text>
+                        </ScalePressable>
                     </View>
                 </View>
             </View>
@@ -91,7 +89,7 @@ const styles = StyleSheet.create({
     modalContent: {
         width: '100%',
         padding: 22,
-        borderRadius: 22,
+        borderRadius: 24,
         borderWidth: 1,
         elevation: 20,
         shadowOffset: { width: 0, height: 10 },
@@ -99,16 +97,17 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
     },
     modalTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '800',
-        marginBottom: 16,
+        marginBottom: 18,
     },
     modalInput: {
         borderWidth: 1.5,
-        borderRadius: 12,
+        borderRadius: 14,
+        minHeight: 52,
         padding: 14,
         fontSize: 16,
-        marginBottom: 20,
+        marginBottom: 22,
     },
     modalButtons: {
         flexDirection: 'row',
@@ -116,8 +115,12 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     modalBtn: {
+        minWidth: 108,
+        minHeight: 46,
         paddingVertical: 12,
         paddingHorizontal: 20,
-        borderRadius: 12,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

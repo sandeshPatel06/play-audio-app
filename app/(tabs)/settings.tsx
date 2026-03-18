@@ -1,26 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
 import LinkInputModal from '../../components/LinkInputModal';
 import MiniPlayer from '../../components/MiniPlayer';
+import ScalePressable from '../../components/ScalePressable';
 import { ACCENT_COLORS, useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { theme, setTheme, accentColor, setAccentColor, colors } = useTheme();
-  const isLight = theme === 'light';
-  const gradientColors = isLight ? [colors.background, '#EAF1FF', '#F8FAFF'] : [colors.background, '#0D1524', '#070B14'];
-  const cardBg = isLight ? 'rgba(17,24,39,0.04)' : 'rgba(255,255,255,0.06)';
-  const iconBg = isLight ? 'rgba(17,24,39,0.07)' : 'rgba(255,255,255,0.08)';
-  const pillBg = isLight ? 'rgba(17,24,39,0.05)' : 'rgba(255,255,255,0.04)';
-  const speedInactiveBg = isLight ? 'rgba(17,24,39,0.04)' : 'rgba(255,255,255,0.03)';
+  const { theme, resolvedTheme, setTheme, accentColor, setAccentColor, colors } = useTheme();
   const safePush = useSafeRouterPush();
   const {
     library,
@@ -67,9 +61,9 @@ export default function SettingsScreen() {
     setAccentColor(color);
   };
 
-  const handleThemeChange = (val: boolean) => {
+  const handleThemeChange = (nextTheme: 'light' | 'dark' | 'system') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setTheme(val ? 'dark' : 'light');
+    setTheme(nextTheme);
   };
 
   const cycleRepeatMode = () => {
@@ -129,10 +123,10 @@ export default function SettingsScreen() {
   const runtimeText = Constants.executionEnvironment === ExecutionEnvironment.StoreClient ? 'Expo Go' : 'Development/Standalone';
 
   return (
-    <LinearGradient colors={gradientColors} style={styles.container}>
-      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
+    <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
+      <StatusBar barStyle={resolvedTheme === 'dark' ? 'light-content' : 'dark-content'} />
 
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}> 
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
         <Text style={[styles.headerSub, { color: colors.textMuted }]}>Personalize playback, tools, and app behavior</Text>
       </View>
@@ -143,30 +137,56 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <View style={[styles.statsCard, { borderColor: colors.border, backgroundColor: cardBg }]}> 
-            <StatPill label="Tracks" value={library.length.toString()} color={colors} bgColor={pillBg} />
-            <StatPill label="Liked" value={likedIds.length.toString()} color={colors} bgColor={pillBg} />
-            <StatPill label="Playlists" value={playlists.length.toString()} color={colors} bgColor={pillBg} />
+          <View style={[styles.statsCard, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}> 
+            <StatPill label="Tracks" value={library.length.toString()} color={colors} bgColor={colors.cardBackgroundStrong} />
+            <StatPill label="Liked" value={likedIds.length.toString()} color={colors} bgColor={colors.cardBackgroundStrong} />
+            <StatPill label="Playlists" value={playlists.length.toString()} color={colors} bgColor={colors.cardBackgroundStrong} />
           </View>
         </View>
 
         <View style={styles.section}>
           <SectionTitle text="Appearance" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: cardBg }]}>
-            <SettingRow
-              icon="moon"
-              label="Dark Mode"
-              colors={colors}
-              iconBg={iconBg}
-              right={
-                <Switch
-                  value={theme === 'dark'}
-                  onValueChange={handleThemeChange}
-                  trackColor={{ false: '#6B7280', true: colors.accent }}
-                  thumbColor="#f4f3f4"
-                />
-              }
-            />
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}>
+            <View style={styles.themeHeader}>
+              <View style={styles.rowLeft}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
+                  <Ionicons name="color-palette-outline" size={18} color={colors.text} />
+                </View>
+                <View>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>Theme Mode</Text>
+                  <Text style={[styles.rowHint, { color: colors.textMuted }]}>Choose light, dark, or follow device settings</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.themeModeRow}>
+              {([
+                { key: 'system', label: 'System' },
+                { key: 'light', label: 'Light' },
+                { key: 'dark', label: 'Dark' },
+              ] as const).map((option) => {
+                const isSelected = theme === option.key;
+                return (
+                  <ScalePressable
+                    key={option.key}
+                    style={[
+                      styles.themeModePill,
+                      {
+                        backgroundColor: isSelected ? colors.accentSurface : colors.cardBackgroundSubtle,
+                        borderColor: isSelected ? colors.accent : colors.border,
+                      },
+                    ]}
+                    onPress={() => handleThemeChange(option.key)}
+                  >
+                    <Text style={[styles.themeModeText, { color: isSelected ? colors.accent : colors.textMuted }]}>
+                      {option.label}
+                    </Text>
+                  </ScalePressable>
+                );
+              })}
+            </View>
+            <Text style={[styles.themeStatus, { color: colors.textMuted }]}>
+              Active appearance: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
+            </Text>
             <View style={[styles.divider, { borderColor: colors.border }]} />
             <Text style={[styles.inlineLabel, { color: colors.text }]}>Accent Color</Text>
             <View style={styles.colorGrid}>
@@ -181,7 +201,7 @@ export default function SettingsScreen() {
                   ]}
                   onPress={() => handleAccentChange(color)}
                 >
-                  {accentColor === color ? <Ionicons name="checkmark" size={18} color={isLight ? '#111827' : '#FFF'} /> : null}
+                  {accentColor === color ? <Ionicons name="checkmark" size={18} color={colors.onAccent} /> : null}
                 </TouchableOpacity>
               ))}
             </View>
@@ -190,18 +210,18 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <SectionTitle text="Playback" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: cardBg }]}>
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}>
             <SettingRow
               icon="open-outline"
               label="Auto-open Player"
               colors={colors}
-              iconBg={iconBg}
+              iconBg={colors.iconBackground}
               right={
                 <Switch
                   value={autoOpenPlayerOnPlay}
                   onValueChange={setAutoOpenPlayerOnPlay}
-                  trackColor={{ false: '#6B7280', true: colors.accent }}
-                  thumbColor="#f4f3f4"
+                  trackColor={{ false: colors.switchTrackOff, true: colors.accent }}
+                  thumbColor={colors.switchThumb}
                 />
               }
             />
@@ -210,13 +230,13 @@ export default function SettingsScreen() {
               icon="videocam-outline"
               label="Show VIDEO Badges"
               colors={colors}
-              iconBg={iconBg}
+              iconBg={colors.iconBackground}
               right={
                 <Switch
                   value={showVideoBadges}
                   onValueChange={setShowVideoBadges}
-                  trackColor={{ false: '#6B7280', true: colors.accent }}
-                  thumbColor="#f4f3f4"
+                  trackColor={{ false: colors.switchTrackOff, true: colors.accent }}
+                  thumbColor={colors.switchThumb}
                 />
               }
             />
@@ -225,20 +245,20 @@ export default function SettingsScreen() {
               icon="phone-portrait-outline"
               label="Lock-screen Controls"
               colors={colors}
-              iconBg={iconBg}
+              iconBg={colors.iconBackground}
               right={
                 <Switch
                   value={enableLockScreenControls}
                   onValueChange={setEnableLockScreenControls}
-                  trackColor={{ false: '#6B7280', true: colors.accent }}
-                  thumbColor="#f4f3f4"
+                  trackColor={{ false: colors.switchTrackOff, true: colors.accent }}
+                  thumbColor={colors.switchThumb}
                 />
               }
             />
             <View style={[styles.divider, { borderColor: colors.border }]} />
             <TouchableOpacity style={styles.actionRow} onPress={cycleRepeatMode}>
                 <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
                   <Ionicons name="repeat" size={18} color={colors.text} />
                 </View>
                 <Text style={[styles.rowLabel, { color: colors.text }]}>Repeat Mode</Text>
@@ -248,7 +268,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.border }]} />
             <TouchableOpacity style={styles.actionRow} onPress={() => setShuffle(!shuffle)}>
                 <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
                   <Ionicons name="shuffle" size={18} color={colors.text} />
                 </View>
                 <Text style={[styles.rowLabel, { color: colors.text }]}>Shuffle</Text>
@@ -269,7 +289,7 @@ export default function SettingsScreen() {
                     styles.speedPill,
                     {
                       borderColor: playbackRate === rate ? colors.accent : colors.border,
-                      backgroundColor: playbackRate === rate ? `${colors.accent}20` : speedInactiveBg,
+                      backgroundColor: playbackRate === rate ? colors.accentSurface : colors.cardBackgroundSubtle,
                     },
                   ]}
                 >
@@ -284,10 +304,10 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <SectionTitle text="Tools" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: cardBg }]}>
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}>
             <TouchableOpacity style={styles.actionRow} onPress={handleRescan}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
                   <Ionicons name="refresh" size={18} color={colors.text} />
                 </View>
                 <View>
@@ -301,7 +321,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.border }]} />
             <TouchableOpacity style={styles.actionRow} onPress={() => setIsLinkModalVisible(true)}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
                   <Ionicons name="link" size={18} color={colors.text} />
                 </View>
                 <View>
@@ -315,7 +335,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.border }]} />
             <TouchableOpacity style={styles.actionRow} onPress={openPlayerSafely}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
                   <Ionicons name="play-circle-outline" size={18} color={colors.text} />
                 </View>
                 <View>
@@ -329,7 +349,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.border }]} />
             <TouchableOpacity style={styles.actionRow} onPress={clearAudio}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
                   <Ionicons name="stop-circle-outline" size={18} color={colors.text} />
                 </View>
                 <View>
@@ -344,26 +364,26 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <SectionTitle text="Danger Zone" color={colors.text} />
-          <View style={[styles.card, { borderColor: 'rgba(255,59,48,0.35)', backgroundColor: 'rgba(255,59,48,0.07)' }]}>
+          <View style={[styles.card, { borderColor: colors.dangerBorder, backgroundColor: colors.dangerSurfaceStrong }]}>
             <TouchableOpacity style={styles.actionRow} onPress={askClearLiked}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,159,10,0.18)' }]}>
-                  <Ionicons name="heart-dislike" size={18} color="#FF9F0A" />
+                <View style={[styles.iconContainer, { backgroundColor: colors.warningSurface }]}>
+                  <Ionicons name="heart-dislike" size={18} color={colors.warning} />
                 </View>
                 <View>
-                  <Text style={[styles.rowLabel, { color: '#FFB25C' }]}>Clear Liked Songs</Text>
+                  <Text style={[styles.rowLabel, { color: colors.warningText } ]}>Clear Liked Songs</Text>
                   <Text style={[styles.rowHint, { color: colors.textMuted }]}>Removes all liked entries</Text>
                 </View>
               </View>
             </TouchableOpacity>
-            <View style={[styles.divider, { borderColor: 'rgba(255,59,48,0.25)' }]} />
+            <View style={[styles.divider, { borderColor: colors.dangerDivider }]} />
             <TouchableOpacity style={styles.actionRow} onPress={askClearPlaylists}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,59,48,0.2)' }]}>
-                  <Ionicons name="trash" size={18} color="#FF3B30" />
+                <View style={[styles.iconContainer, { backgroundColor: colors.dangerSurface }]}>
+                  <Ionicons name="trash" size={18} color={colors.danger} />
                 </View>
                 <View>
-                  <Text style={[styles.rowLabel, { color: '#FF6B62' }]}>Delete All Playlists</Text>
+                  <Text style={[styles.rowLabel, { color: colors.dangerText }]}>Delete All Playlists</Text>
                   <Text style={[styles.rowHint, { color: colors.textMuted }]}>Cannot be undone</Text>
                 </View>
               </View>
@@ -373,7 +393,7 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <SectionTitle text="About" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: cardBg }]}>
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}>
             <View style={styles.infoRow}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>Version</Text>
               <Text style={[styles.valueText, { color: colors.textMuted }]}>1.0.0</Text>
@@ -412,7 +432,7 @@ export default function SettingsScreen() {
       />
 
       <MiniPlayer />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -470,45 +490,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   headerTitle: {
-    fontSize: 31,
+    fontSize: 32,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   headerSub: {
-    marginTop: 4,
-    fontSize: 13,
+    marginTop: 6,
+    fontSize: 14,
     fontWeight: '500',
   },
   scrollView: {
     flex: 1,
   },
   section: {
-    marginBottom: 18,
-    paddingHorizontal: 16,
+    marginBottom: 20,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '800',
-    marginBottom: 8,
+    marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
     opacity: 0.9,
   },
   statsCard: {
     flexDirection: 'row',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    padding: 12,
-    gap: 8,
+    padding: 14,
+    gap: 10,
   },
   statPill: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   statValue: {
@@ -521,20 +541,47 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    padding: 14,
+    padding: 16,
     overflow: 'hidden',
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 46,
+    minHeight: 50,
+  },
+  themeHeader: {
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  themeModeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  themeModePill: {
+    flex: 1,
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  themeModeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  themeStatus: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: '500',
   },
   divider: {
     borderBottomWidth: 1,
-    marginVertical: 10,
+    marginVertical: 12,
   },
   rowLeft: {
     flexDirection: 'row',
@@ -543,12 +590,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   iconContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   rowLabel: {
     fontSize: 15,
@@ -562,7 +609,7 @@ const styles = StyleSheet.create({
   inlineLabel: {
     fontSize: 13,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   colorGrid: {
     flexDirection: 'row',
@@ -570,9 +617,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   colorDot: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -580,13 +627,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 54,
+    minHeight: 58,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 40,
+    minHeight: 44,
   },
   valueText: {
     fontSize: 14,
@@ -601,7 +648,7 @@ const styles = StyleSheet.create({
   speedPill: {
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
 });

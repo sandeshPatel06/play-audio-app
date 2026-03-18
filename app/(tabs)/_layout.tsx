@@ -5,7 +5,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function TabsLayout() {
-    const { colors, theme } = useTheme();
+    const { colors, resolvedTheme } = useTheme();
 
     return (
         <Tabs
@@ -21,8 +21,8 @@ export default function TabsLayout() {
                     marginHorizontal: 0,
                     elevation: 0,
                     borderTopWidth: 0,
-                    backgroundColor: Platform.OS === 'android' ? colors.surface : 'transparent',
-                    shadowColor: '#000',
+                    backgroundColor: Platform.OS === 'android' ? colors.tabBarBackground : colors.transparent,
+                    shadowColor: colors.tabBarShadow,
                     shadowOffset: { width: 0, height: 8 },
                     shadowOpacity: 0.18,
                     shadowRadius: 16,
@@ -31,11 +31,11 @@ export default function TabsLayout() {
                     Platform.OS === 'ios' ? (
                         <BlurView
                             intensity={95}
-                            tint={theme === 'dark' ? 'dark' : 'light'}
+                            tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
                             style={[StyleSheet.absoluteFill, { borderRadius: 18, overflow: 'hidden' }]}
                         />
                     ) : (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface, opacity: 0.98, borderRadius: 18 }]} />
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.tabBarBackground, opacity: 0.98, borderRadius: 18 }]} />
                     )
                 ),
                 tabBarActiveTintColor: colors.accent,

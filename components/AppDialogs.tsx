@@ -4,10 +4,10 @@ import {
     Modal,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import ScalePressable from './ScalePressable';
 
 interface BaseDialogProps {
     visible: boolean;
@@ -44,37 +44,40 @@ export function ActionDialog({ visible, title, message, actions, onClose }: Acti
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style={styles.overlay}>
-                <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+            <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
+                <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.modalBorder }]}>
                     <View style={styles.headerRow}>
                         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-                        <TouchableOpacity onPress={onClose} hitSlop={8}>
+                        <ScalePressable style={styles.closeButton} onPress={onClose} hitSlop={8}>
                             <Ionicons name="close" size={22} color={colors.textMuted} />
-                        </TouchableOpacity>
+                        </ScalePressable>
                     </View>
                     {!!message && <Text style={[styles.message, { color: colors.textMuted }]}>{message}</Text>}
 
                     <View style={styles.actionsWrap}>
                         {actions.map((action) => (
-                            <TouchableOpacity
+                            <ScalePressable
                                 key={action.key}
-                                style={[styles.actionRow, { borderBottomColor: colors.border }]}
+                                style={[
+                                    styles.actionRow,
+                                    { borderBottomColor: colors.border, backgroundColor: action.danger ? colors.dangerSurface : colors.cardBackgroundSubtle },
+                                ]}
                                 onPress={action.onPress}
                             >
                                 <Ionicons
                                     name={action.icon}
                                     size={18}
-                                    color={action.danger ? '#FF3B30' : colors.accent}
+                                    color={action.danger ? colors.danger : colors.accent}
                                 />
                                 <Text
                                     style={[
                                         styles.actionLabel,
-                                        { color: action.danger ? '#FF3B30' : colors.text },
+                                        { color: action.danger ? colors.danger : colors.text },
                                     ]}
                                 >
                                     {action.label}
                                 </Text>
-                            </TouchableOpacity>
+                            </ScalePressable>
                         ))}
                     </View>
                 </View>
@@ -97,25 +100,25 @@ export function ConfirmDialog({
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style={styles.overlay}>
-                <View style={[styles.dialog, { backgroundColor: colors.surface }]}>
+            <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
+                <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.modalBorder }]}>
                     <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
                     {!!message && <Text style={[styles.message, { color: colors.textMuted }]}>{message}</Text>}
 
                     <View style={styles.buttonRow}>
-                        <TouchableOpacity style={styles.buttonBase} onPress={onClose}>
+                        <ScalePressable style={[styles.buttonBase, { backgroundColor: colors.modalCancelBackground }]} onPress={onClose}>
                             <Text style={[styles.buttonText, { color: colors.textMuted }]}>{cancelText}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
+                        </ScalePressable>
+                        <ScalePressable
                             style={[
                                 styles.buttonBase,
                                 styles.primaryButton,
-                                { backgroundColor: danger ? '#FF3B30' : colors.accent },
+                                { backgroundColor: danger ? colors.danger : colors.accent },
                             ]}
                             onPress={onConfirm}
                         >
-                            <Text style={[styles.buttonText, { color: '#FFF' }]}>{confirmText}</Text>
-                        </TouchableOpacity>
+                            <Text style={[styles.buttonText, { color: danger ? colors.onDanger : colors.onAccent }]}>{confirmText}</Text>
+                        </ScalePressable>
                     </View>
                 </View>
             </View>
@@ -134,17 +137,17 @@ export function NoticeDialog({
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style={styles.overlay}>
-                <View style={[styles.dialog, { backgroundColor: colors.surface }]}>
+            <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
+                <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.modalBorder }]}>
                     <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
                     {!!message && <Text style={[styles.message, { color: colors.textMuted }]}>{message}</Text>}
 
-                    <TouchableOpacity
+                    <ScalePressable
                         style={[styles.singleButton, { backgroundColor: colors.accent }]}
                         onPress={onClose}
                     >
-                        <Text style={[styles.buttonText, { color: '#FFF' }]}>{buttonText}</Text>
-                    </TouchableOpacity>
+                        <Text style={[styles.buttonText, { color: colors.onAccent }]}>{buttonText}</Text>
+                    </ScalePressable>
                 </View>
             </View>
         </Modal>
@@ -154,21 +157,18 @@ export function NoticeDialog({
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(2,6,23,0.62)',
         justifyContent: 'center',
         padding: 20,
     },
     sheet: {
-        borderRadius: 24,
-        padding: 20,
+        borderRadius: 28,
+        padding: 22,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
     },
     dialog: {
-        borderRadius: 24,
-        padding: 20,
+        borderRadius: 28,
+        padding: 22,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
     },
     headerRow: {
         flexDirection: 'row',
@@ -176,22 +176,35 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     title: {
-        fontSize: 19,
+        fontSize: 20,
         fontWeight: '800',
+        flex: 1,
+        paddingRight: 12,
     },
     message: {
-        marginTop: 8,
+        marginTop: 10,
         fontSize: 14,
-        lineHeight: 20,
+        lineHeight: 21,
     },
     actionsWrap: {
-        marginTop: 14,
+        marginTop: 16,
+        gap: 10,
+    },
+    closeButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     actionRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        minHeight: 54,
+        paddingHorizontal: 14,
         paddingVertical: 14,
         borderBottomWidth: StyleSheet.hairlineWidth,
+        borderRadius: 16,
     },
     actionLabel: {
         fontSize: 15,
@@ -199,17 +212,19 @@ const styles = StyleSheet.create({
         marginLeft: 10,
     },
     buttonRow: {
-        marginTop: 18,
+        marginTop: 22,
         flexDirection: 'row',
         justifyContent: 'flex-end',
         gap: 10,
     },
     buttonBase: {
-        minWidth: 92,
+        minWidth: 108,
+        minHeight: 46,
         paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12,
+        paddingHorizontal: 18,
+        borderRadius: 14,
         alignItems: 'center',
+        justifyContent: 'center',
     },
     primaryButton: {
         elevation: 1,
@@ -219,12 +234,14 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     singleButton: {
-        marginTop: 20,
+        marginTop: 22,
         alignSelf: 'flex-end',
-        minWidth: 92,
+        minWidth: 108,
+        minHeight: 46,
         paddingVertical: 11,
-        paddingHorizontal: 16,
-        borderRadius: 10,
+        paddingHorizontal: 18,
+        borderRadius: 14,
         alignItems: 'center',
+        justifyContent: 'center',
     },
 });

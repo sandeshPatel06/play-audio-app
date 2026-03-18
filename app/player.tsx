@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -32,23 +31,7 @@ const SONGS_PER_PAGE = 20;
 export default function FullPlayerScreen() {
   useKeepAwake();
   const insets = useSafeAreaInsets();
-  const { colors, theme } = useTheme();
-  const isLight = theme === 'light';
-  const gradientColors = isLight
-    ? [colors.background, '#EAF1FF', '#F8FAFF', '#F2F6FF']
-    : ['#080A11', '#0E1320', '#111621', '#070A10'];
-  const iconButtonBg = isLight ? 'rgba(17,24,39,0.04)' : 'rgba(255,255,255,0.04)';
-  const iconButtonBorder = isLight ? 'rgba(17,24,39,0.14)' : `${colors.text}26`;
-  const artworkWrapBg = isLight ? 'rgba(17,24,39,0.03)' : 'rgba(255,255,255,0.03)';
-  const likeButtonBg = isLight ? 'rgba(17,24,39,0.05)' : 'rgba(255,255,255,0.04)';
-  const sliderTrackBg = isLight ? 'rgba(17,24,39,0.2)' : 'rgba(255,255,255,0.2)';
-  const thumbColor = isLight ? colors.text : '#FFF';
-  const subTextColor = isLight ? 'rgba(17,24,39,0.62)' : 'rgba(255,255,255,0.62)';
-  const mutedIconColor = isLight ? 'rgba(17,24,39,0.6)' : 'rgba(255,255,255,0.55)';
-  const mainControlBg = isLight ? 'rgba(17,24,39,0.06)' : 'rgba(255,255,255,0.06)';
-  const mainControlBorder = isLight ? 'rgba(17,24,39,0.16)' : 'rgba(255,255,255,0.14)';
-  const queueCardBg = isLight ? 'rgba(17,24,39,0.03)' : 'rgba(255,255,255,0.03)';
-  const queueCardBorder = isLight ? 'rgba(17,24,39,0.14)' : 'rgba(255,255,255,0.14)';
+  const { colors, resolvedTheme } = useTheme();
   const router = useRouter();
   const safePush = useSafeRouterPush();
 
@@ -147,20 +130,20 @@ export default function FullPlayerScreen() {
 
   if (!currentSong) {
     return (
-      <LinearGradient colors={gradientColors} style={styles.container}>
-        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
+        <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
         <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>No track is playing</Text>
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>Start a song from Library, Search, or Playlist.</Text>
           <ScalePressable
-            style={[styles.emptyBtn, { borderColor: iconButtonBorder, backgroundColor: iconButtonBg }]}
+            style={[styles.emptyBtn, { borderColor: colors.iconButtonBorder, backgroundColor: colors.iconButtonBackground }]}
             onPress={() => router.back()}
           >
             <Ionicons name="chevron-back" size={18} color={colors.text} />
             <Text style={[styles.emptyBtnText, { color: colors.text }]}>Go Back</Text>
           </ScalePressable>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -204,14 +187,13 @@ export default function FullPlayerScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={gradientColors}
-      style={styles.container}
+    <View
+      style={[styles.container, { backgroundColor: colors.screenBackground }]}
     >
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
 
-      <View style={[styles.header, { paddingTop: insets.top + 6 }]}> 
-        <ScalePressable style={[styles.iconBtn, { borderColor: iconButtonBorder, backgroundColor: iconButtonBg }]} onPress={() => router.back()}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <ScalePressable style={[styles.iconBtn, { borderColor: colors.iconButtonBorder, backgroundColor: colors.iconButtonBackground }]} onPress={() => router.back()}>
           <Ionicons name="chevron-down" size={22} color={colors.text} />
         </ScalePressable>
 
@@ -221,7 +203,7 @@ export default function FullPlayerScreen() {
         </View>
 
         <ScalePressable
-          style={[styles.iconBtn, { borderColor: iconButtonBorder, backgroundColor: iconButtonBg }]}
+          style={[styles.iconBtn, { borderColor: colors.iconButtonBorder, backgroundColor: colors.iconButtonBackground }]}
           onPress={() => setIsActionVisible(true)}
         >
           <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
@@ -233,7 +215,7 @@ export default function FullPlayerScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 124 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.artworkWrap, { borderColor: `${colors.text}1A`, backgroundColor: artworkWrapBg }]}>
+        <View style={[styles.artworkWrap, { borderColor: colors.cardBorder, backgroundColor: colors.artworkBackground }]}>
           {isVideoTrack ? (
             <VideoView
               style={[styles.artwork, { width: ART_SIZE, height: ART_SIZE }]}
@@ -253,10 +235,10 @@ export default function FullPlayerScreen() {
           <View style={styles.songTitleRow}>
             <View style={styles.songMetaWrap}>
               <Text numberOfLines={1} style={[styles.songTitle, { color: colors.text }]}>{currentSong.filename}</Text>
-              <Text numberOfLines={1} style={[styles.songSub, { color: subTextColor }]}>Sonic Flow</Text>
+              <Text numberOfLines={1} style={[styles.songSub, { color: colors.mutedText }]}>Sonic Flow</Text>
             </View>
             <ScalePressable
-              style={[styles.likeBtn, { backgroundColor: likeButtonBg, borderColor: liked ? `${colors.accent}80` : (isLight ? 'rgba(17,24,39,0.18)' : 'rgba(255,255,255,0.18)') }]}
+              style={[styles.likeBtn, { backgroundColor: colors.likeButtonBackground, borderColor: liked ? colors.accentBorder : colors.mainControlBorder }]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 toggleLike(currentSong.id);
@@ -273,39 +255,39 @@ export default function FullPlayerScreen() {
               maximumValue={Math.max(duration, 1)}
               value={position}
               minimumTrackTintColor={colors.accent}
-              maximumTrackTintColor={sliderTrackBg}
-              thumbTintColor={thumbColor}
+              maximumTrackTintColor={colors.sliderTrack}
+              thumbTintColor={colors.text}
               onSlidingComplete={onSeekComplete}
             />
             <View style={styles.timeRow}>
-              <Text style={[styles.timeText, { color: subTextColor }]}>{formatTime(position)}</Text>
-              <Text style={[styles.timeText, { color: subTextColor }]}>-{formatTime(remaining)}</Text>
+              <Text style={[styles.timeText, { color: colors.mutedText }]}>{formatTime(position)}</Text>
+              <Text style={[styles.timeText, { color: colors.mutedText }]}>-{formatTime(remaining)}</Text>
             </View>
           </View>
 
           <View style={styles.controlRow}>
             <ScalePressable style={styles.smallControl} onPress={() => setShuffle(!shuffle)}>
-              <Ionicons name="shuffle" size={22} color={shuffle ? colors.accent : mutedIconColor} />
+              <Ionicons name="shuffle" size={22} color={shuffle ? colors.accent : colors.mutedIcon} />
             </ScalePressable>
-            <ScalePressable style={[styles.mainControl, { backgroundColor: mainControlBg, borderColor: mainControlBorder }]} onPress={handlePrevious}>
+            <ScalePressable style={[styles.mainControl, { backgroundColor: colors.mainControlBackground, borderColor: colors.mainControlBorder }]} onPress={handlePrevious}>
               <Ionicons name="play-skip-back" size={24} color={colors.text} />
             </ScalePressable>
             <ScalePressable style={[styles.playControl, { backgroundColor: colors.accent }]} onPress={handlePlayPause}>
-              <Ionicons name={isPlaying ? 'pause' : 'play'} size={30} color={isLight ? '#111827' : '#FFF'} />
+              <Ionicons name={isPlaying ? 'pause' : 'play'} size={30} color={colors.onAccent} />
             </ScalePressable>
-            <ScalePressable style={[styles.mainControl, { backgroundColor: mainControlBg, borderColor: mainControlBorder }]} onPress={handleNext}>
+            <ScalePressable style={[styles.mainControl, { backgroundColor: colors.mainControlBackground, borderColor: colors.mainControlBorder }]} onPress={handleNext}>
               <Ionicons name="play-skip-forward" size={24} color={colors.text} />
             </ScalePressable>
             <ScalePressable style={styles.smallControl} onPress={onToggleRepeat}>
               <View>
-                <Ionicons name="repeat" size={22} color={repeatMode !== 'off' ? colors.accent : mutedIconColor} />
+                <Ionicons name="repeat" size={22} color={repeatMode !== 'off' ? colors.accent : colors.mutedIcon} />
                 {repeatMode === 'one' ? <Text style={[styles.repeatOne, { color: colors.accent }]}>1</Text> : null}
               </View>
             </ScalePressable>
           </View>
         </View>
 
-        <View style={[styles.queueCard, { borderColor: queueCardBorder, backgroundColor: queueCardBg }]}>
+        <View style={[styles.queueCard, { borderColor: colors.queueCardBorder, backgroundColor: colors.queueCardBackground }]}>
           <View style={styles.queueHeader}>
             <Text style={[styles.queueHeaderText, { color: colors.text }]}>Up Next ({queue.length})</Text>
             {nowPlayingContext?.playlistId ? (
@@ -321,13 +303,13 @@ export default function FullPlayerScreen() {
             return (
               <TouchableOpacity
                 key={`${song.id}-${actualIndex}`}
-                style={[styles.queueRow, isCurrent && { borderColor: colors.accent, backgroundColor: isLight ? 'rgba(59,130,246,0.10)' : 'rgba(255,255,255,0.07)' }]}
+                style={[styles.queueRow, isCurrent && { borderColor: colors.accent, backgroundColor: colors.activeRowBackground }]}
                 onPress={() => startQueuePlayback(queue, actualIndex, nowPlayingContext)}
               >
-                <Text style={[styles.queueIndex, { color: isCurrent ? colors.accent : mutedIconColor }]}>{actualIndex + 1}</Text>
+                <Text style={[styles.queueIndex, { color: isCurrent ? colors.accent : colors.mutedIcon }]}>{actualIndex + 1}</Text>
                 <View style={styles.queueMetaWrap}>
                   <Text numberOfLines={1} style={[styles.queueSongName, { color: isCurrent ? colors.accent : colors.text }]}>{song.filename}</Text>
-                  <Text style={[styles.queueDuration, { color: mutedIconColor }]}>{Math.floor(song.duration / 60)}:{(song.duration % 60).toFixed(0).padStart(2, '0')}</Text>
+                  <Text style={[styles.queueDuration, { color: colors.mutedIcon }]}>{Math.floor(song.duration / 60)}:{(song.duration % 60).toFixed(0).padStart(2, '0')}</Text>
                 </View>
                 {isCurrent ? <Ionicons name="musical-note" size={15} color={colors.accent} /> : null}
               </TouchableOpacity>
@@ -401,7 +383,7 @@ export default function FullPlayerScreen() {
         message={noticeState.message}
         onClose={() => setNoticeState((prev) => ({ ...prev, visible: false }))}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -413,16 +395,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   headerCenter: {
     flex: 1,
@@ -435,7 +416,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   headerTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     marginTop: 2,
   },
@@ -443,11 +424,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   artworkWrap: {
-    marginHorizontal: 24,
+    marginHorizontal: 20,
     borderWidth: 1,
-    borderRadius: 28,
-    padding: 14,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 30,
+    padding: 16,
     alignItems: 'center',
   },
   artwork: {
@@ -455,7 +435,7 @@ const styles = StyleSheet.create({
   },
   songBlock: {
     marginTop: 18,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   songTitleRow: {
     flexDirection: 'row',
@@ -483,7 +463,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sliderWrap: {
-    marginTop: 14,
+    marginTop: 16,
   },
   slider: {
     width: '100%',
@@ -501,7 +481,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   controlRow: {
-    marginTop: 10,
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -536,10 +516,10 @@ const styles = StyleSheet.create({
   },
   queueCard: {
     marginTop: 22,
-    marginHorizontal: 24,
-    borderRadius: 18,
+    marginHorizontal: 20,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 12,
+    padding: 14,
   },
   queueHeader: {
     flexDirection: 'row',
@@ -560,11 +540,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'transparent',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   queueIndex: {
     width: 24,
