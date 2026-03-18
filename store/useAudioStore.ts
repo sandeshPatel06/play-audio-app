@@ -13,7 +13,7 @@ export interface Playlist {
 }
 
 export type NowPlayingContext = {
-    type: 'library' | 'playlist' | 'liked' | 'suggested' | 'remote';
+    type: 'library' | 'playlist' | 'liked' | 'remote';
     title: string;
     playlistId?: string;
 } | null;

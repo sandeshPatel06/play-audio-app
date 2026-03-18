@@ -10,10 +10,4 @@ export interface BundledTrack {
     filename: string;
 }
 
-export const BUNDLED_SUGGESTED_TRACKS: BundledTrack[] = [
-    {
-        id: 'night-changes-woh-din',
-        module: require('../assets/audio/Night Changes X Woh Din ｜ Slower Version ｜ Shybu Mashup [xmNukxEHLlA].mp3'),
-        filename: 'Night Changes X Woh Din - Slower Version.mp3',
-    },
-];
+export const BUNDLED_SUGGESTED_TRACKS: BundledTrack[] = [];

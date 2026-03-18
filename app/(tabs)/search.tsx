@@ -12,7 +12,6 @@ import MiniPlayer from '../../components/MiniPlayer';
 import PaginationControls from '../../components/PaginationControls';
 import PlaylistNameModal from '../../components/PlaylistNameModal';
 import ScalePressable from '../../components/ScalePressable';
-import { SUGGESTED_PLAYLISTS, getSuggestedPlaylistTracks } from '../../constants/suggestedPlaylists';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
@@ -71,14 +70,6 @@ export default function SearchScreen() {
         const start = (currentPage - 1) * SONGS_PER_PAGE;
         return filteredItems.slice(start, start + SONGS_PER_PAGE);
     }, [filteredItems, currentPage]);
-    const suggestedWithTracks = useMemo(
-        () =>
-            SUGGESTED_PLAYLISTS.map((playlist) => ({
-                ...playlist,
-                tracks: getSuggestedPlaylistTracks(library, playlist.keywords, playlist.id),
-            })),
-        [library]
-    );
 
     useEffect(() => {
         setCurrentPage(1);
@@ -115,21 +106,6 @@ export default function SearchScreen() {
         setNoticeState({ visible: true, title, message });
     };
 
-    const handleSuggestedPlay = async (suggestedId: string) => {
-        const suggested = suggestedWithTracks.find((item) => item.id === suggestedId);
-        if (!suggested) return;
-
-        const tracks = suggested.tracks;
-        if (tracks.length === 0) {
-            showNotice('No Matching Songs', 'No local songs match this suggested vibe yet.');
-            return;
-        }
-
-        await startQueuePlayback(tracks, 0);
-        if (autoOpenPlayerOnPlay) {
-            openPlayerSafely();
-        }
-    };
 
     const handleCreatePlaylist = (name: string) => {
         const beforeCount = playlists.length;
@@ -184,32 +160,6 @@ export default function SearchScreen() {
                     {likedIds.length} tracks
                 </Text>
             </ScalePressable>
-
-            <View style={styles.playlistHeader}>
-                <Text style={[styles.playlistHeaderText, { color: colors.text }]}>Suggested For You</Text>
-            </View>
-
-            {suggestedWithTracks.map((item) => {
-                const count = item.tracks.length;
-                return (
-                    <ScalePressable
-                        key={item.id}
-                        style={[styles.suggestedItem, { backgroundColor: panelBg, borderColor: panelBorder }]}
-                        onPress={() => handleSuggestedPlay(item.id)}
-                    >
-                        <View style={[styles.playlistIcon, { backgroundColor: panelBgStrong }]}>
-                            <Ionicons name={item.icon} size={20} color={colors.accent} />
-                        </View>
-                        <View style={styles.playlistInfo}>
-                            <Text style={[styles.playlistName, { color: colors.text }]}>{item.name}</Text>
-                            <Text style={[styles.playlistMeta, { color: colors.textMuted }]}>
-                                {count > 0 ? `${count} local matches` : item.subtitle}
-                            </Text>
-                        </View>
-                        <Ionicons name="play-circle" size={24} color={colors.textMuted} />
-                    </ScalePressable>
-                );
-            })}
 
             <View style={styles.playlistHeader}>
                 <Text style={[styles.playlistHeaderText, { color: colors.text }]}>Your Playlists</Text>
@@ -449,14 +399,6 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
     playlistItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 14,
-        borderWidth: 1,
-        marginBottom: 8,
-    },
-    suggestedItem: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 12,

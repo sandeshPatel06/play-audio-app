@@ -6,7 +6,6 @@ import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { useCallback, useEffect } from 'react';
-import { BUNDLED_SUGGESTED_TRACKS } from '../constants/bundledTracks';
 import { NowPlayingContext } from '../store/useAudioStore';
 import { useAudioStore } from '../store/useAudioStore';
 
@@ -82,22 +81,6 @@ const scanLocalDirectory = async (root: string, depth = 0): Promise<MediaLibrary
     return result;
 };
 
-const loadBundledTracks = async (): Promise<MediaLibrary.Asset[]> => {
-    const result: MediaLibrary.Asset[] = [];
-    for (const bundled of BUNDLED_SUGGESTED_TRACKS) {
-        try {
-            const asset = Asset.fromModule(bundled.module);
-            await asset.downloadAsync();
-            const uri = asset.localUri || asset.uri;
-            if (!uri || !isSupportedAudioFile(uri)) continue;
-            result.push(trackFromUri(uri, `bundle:${bundled.id}`, bundled.filename, Date.now()));
-        } catch {
-            // Keep app functional if a bundled file path is invalid.
-        }
-    }
-    return result;
-};
-
 const LOCK_SCREEN_OPTIONS = {
     showSeekBackward: true,
     showSeekForward: true,
@@ -107,10 +90,9 @@ export const useAudio = () => {
     const store = useAudioStore();
 
     const resolvePlayableUri = async (asset: MediaLibrary.Asset) => {
-        // Local/bundled/remote tracks already carry a direct playable URI.
+        // Local/remote tracks already carry a direct playable URI.
         if (
             asset.id.startsWith('local:') ||
-            asset.id.startsWith('bundle:') ||
             asset.id.startsWith('remote:')
         ) {
             return asset.uri;
@@ -139,13 +121,22 @@ export const useAudio = () => {
     const loadAudio = async (asset: MediaLibrary.Asset, shouldPlay = true) => {
         try {
             const playableUri = await resolvePlayableUri(asset);
-            const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
-            await artworkAsset.downloadAsync();
+            
+            // Handle artwork with extra care for production environments
+            let artworkUrl: string | undefined;
+            try {
+                const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
+                await artworkAsset.downloadAsync();
+                artworkUrl = artworkAsset.localUri || artworkAsset.uri;
+            } catch (artworkError) {
+                console.warn('Failed to load placeholder artwork:', artworkError);
+            }
+
             const metadata = {
                 title: asset.filename,
                 artist: 'Sonic Flow',
                 albumTitle: 'Local Library',
-                artworkUrl: artworkAsset.localUri || artworkAsset.uri,
+                artworkUrl,
             };
 
             if (!store.player) {
@@ -299,15 +290,22 @@ export const useAudio = () => {
                 return;
             }
 
-            const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
-            await artworkAsset.downloadAsync();
+            let artworkUrl: string | undefined;
+            try {
+                const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
+                await artworkAsset.downloadAsync();
+                artworkUrl = artworkAsset.localUri || artworkAsset.uri;
+            } catch {
+                // Ignore artwork failure for lock screen to keep playback functional
+            }
+
             if (cancelled) return;
 
             const metadata = {
                 title: store.currentSong?.filename,
                 artist: 'Sonic Flow',
                 albumTitle: 'Local Library',
-                artworkUrl: artworkAsset.localUri || artworkAsset.uri,
+                artworkUrl,
             };
 
             store.player?.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
@@ -367,8 +365,8 @@ export const useAudio = () => {
             const localTracks = (
                 await Promise.all(LOCAL_SCAN_ROOTS.map((root) => scanLocalDirectory(root)))
             ).flat();
-            const bundledTracks = await loadBundledTracks();
-            const merged = [...filteredAssets, ...localTracks, ...bundledTracks];
+            
+            const merged = [...filteredAssets, ...localTracks];
             const dedupedByUri = new Map<string, MediaLibrary.Asset>();
             for (const track of merged) {
                 if (!dedupedByUri.has(track.uri)) {
