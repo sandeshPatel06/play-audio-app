@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
+import { FlatList } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
@@ -8,7 +8,6 @@ import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'reac
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
 import MiniPlayer from '../../components/MiniPlayer';
-import PaginationControls from '../../components/PaginationControls';
 import PlaylistNameModal from '../../components/PlaylistNameModal';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
@@ -16,7 +15,7 @@ import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 import { useAudioStore } from '../../store/useAudioStore';
 
-const SONGS_PER_PAGE = 20;
+
 
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
@@ -32,6 +31,7 @@ export default function SearchScreen() {
         playlists,
         createPlaylist,
         deletePlaylist,
+        currentSong,
     } = useAudio();
     const safePush = useSafeRouterPush();
     const [query, setQuery] = useState('');
@@ -56,22 +56,7 @@ export default function SearchScreen() {
         [library, query]
     );
 
-    const totalPages = Math.max(1, Math.ceil(filteredItems.length / SONGS_PER_PAGE));
 
-    const pagedFilteredItems = useMemo(() => {
-        const start = (currentPage - 1) * SONGS_PER_PAGE;
-        return filteredItems.slice(start, start + SONGS_PER_PAGE);
-    }, [filteredItems, currentPage]);
-
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [query]);
-
-    useEffect(() => {
-        if (currentPage > totalPages) {
-            setCurrentPage(totalPages);
-        }
-    }, [currentPage, totalPages]);
 
     const openPlayerSafely = useCallback(() => {
         safePush('/player');
@@ -132,54 +117,60 @@ export default function SearchScreen() {
     const renderSections = () => (
         <View style={styles.sections}>
             <ScalePressable
-                style={[styles.sectionCard, { backgroundColor: colors.accentSurface }]}
+                style={[styles.sectionCard, { backgroundColor: colors.accentSurface, borderColor: colors.accent + '33' }]}
                 onPress={async () => {
                     const started = await playLikedSongs();
                     if (started) {
-                        if (autoOpenPlayerOnPlay) {
-                            openPlayerSafely();
-                        }
+                        if (autoOpenPlayerOnPlay) openPlayerSafely();
                     } else {
                         showNotice('No Liked Songs', 'Like songs first, then play them from here.');
                     }
                 }}
             >
                 <View style={[styles.sectionIcon, { backgroundColor: colors.accent }]}>
-                    <Ionicons name="heart" size={24} color={colors.onAccent} />
+                    <Ionicons name="heart" size={26} color={colors.onAccent} />
                 </View>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Liked Songs</Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                    {likedIds.length} tracks
-                </Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Liked Songs</Text>
+                    <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
+                        {likedIds.length} tracks · Tap to play
+                    </Text>
+                </View>
+                <View style={[styles.countPill, { backgroundColor: colors.accent }]}>
+                    <Text style={[styles.countPillText, { color: colors.onAccent }]}>{likedIds.length}</Text>
+                </View>
             </ScalePressable>
 
             <View style={styles.playlistHeader}>
-                <Text style={[styles.playlistHeaderText, { color: colors.text }]}>Your Playlists</Text>
-                <TouchableOpacity onPress={() => setIsCreatePlaylistVisible(true)}>
-                    <Ionicons name="add-circle-outline" size={24} color={colors.accent} />
-                </TouchableOpacity>
+                <View>
+                    <Text style={[styles.playlistHeaderText, { color: colors.text }]}>Your Playlists</Text>
+                    <Text style={[styles.playlistCountText, { color: colors.textMuted }]}>{playlists.length} playlists</Text>
+                </View>
+                <ScalePressable
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsCreatePlaylistVisible(true); }}
+                    style={[styles.addBtn, { backgroundColor: colors.accentSurface, borderColor: colors.accent + '44' }]}
+                >
+                    <Ionicons name="add" size={20} color={colors.accent} />
+                    <Text style={{ color: colors.accent, fontWeight: '700', fontSize: 13, marginLeft: 4 }}>New</Text>
+                </ScalePressable>
             </View>
 
             {playlists.map(p => (
-                <View
+                <ScalePressable
                     key={p.id}
                     style={[styles.playlistItem, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                    onPress={() => safePush(`/playlist/${p.id}`)}
                 >
-                    <ScalePressable
-                        style={styles.playlistMain}
-                        onPress={() => safePush(`/playlist/${p.id}`)}
-                    >
-                        <View style={[styles.playlistIcon, { backgroundColor: colors.cardBackgroundStrong }]}>
-                            <Ionicons name="musical-notes" size={20} color={colors.accent} />
-                        </View>
-                        <View style={styles.playlistInfo}>
-                            <Text style={[styles.playlistName, { color: colors.text }]}>{p.name}</Text>
-                            <Text style={[styles.playlistMeta, { color: colors.textMuted }]}>
-                                {p.assetIds.length} songs
-                            </Text>
-                        </View>
-                    </ScalePressable>
-
+                    <View style={[styles.playlistIcon, { backgroundColor: colors.cardBackgroundStrong }]}>
+                        <Ionicons name="musical-notes" size={20} color={colors.accent} />
+                    </View>
+                    <View style={styles.playlistInfo}>
+                        <Text numberOfLines={1} style={[styles.playlistName, { color: colors.text }]}>{p.name}</Text>
+                        <Text numberOfLines={1} style={[styles.playlistMeta, { color: colors.textMuted }]}>
+                            {p.assetIds.length} songs
+                        </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginRight: 4 }} />
                     <TouchableOpacity
                         onPress={() => openPlaylistActions(p.id)}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -187,12 +178,13 @@ export default function SearchScreen() {
                     >
                         <Ionicons name="ellipsis-vertical" size={18} color={colors.textMuted} />
                     </TouchableOpacity>
-                </View>
+                </ScalePressable>
             ))}
 
             {playlists.length === 0 && (
-                <View style={[styles.emptyPlaylist, { borderColor: colors.border }]}>
-                    <Text style={{ color: colors.textMuted }}>Create your first playlist to get started.</Text>
+                <View style={[styles.emptyPlaylist, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
+                    <Ionicons name="journal-outline" size={40} color={colors.textMuted} style={{ opacity: 0.3, marginBottom: 12 }} />
+                    <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center' }}>Create your first playlist to get started.</Text>
                 </View>
             )}
         </View>
@@ -204,14 +196,17 @@ export default function SearchScreen() {
         >
             <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
 
+            <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
+
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+                <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Browse</Text>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Discover</Text>
             </View>
 
-            <View style={[styles.searchContainer, { backgroundColor: colors.cardBackgroundStrong, borderColor: colors.cardBorder }]}>
+            <View style={[styles.searchContainer, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
                 <Ionicons name="search" size={20} color={colors.textMuted} />
                 <TextInput
-                    placeholder="Artists, Songs, or Albums"
+                    placeholder="Search songs, artists..."
                     placeholderTextColor={colors.textMuted}
                     style={[styles.searchInput, { color: colors.text }]}
                     selectionColor={colors.accent}
@@ -219,38 +214,27 @@ export default function SearchScreen() {
                     onChangeText={setQuery}
                 />
                 {query.length > 0 && (
-                    <TouchableOpacity onPress={() => setQuery('')}>
+                    <ScalePressable onPress={() => setQuery('')}>
                         <Ionicons name="close-circle" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
+                    </ScalePressable>
                 )}
             </View>
 
-            <FlashList
-                data={query ? pagedFilteredItems : []}
+            <FlatList
+                data={query ? filteredItems : []}
                 renderItem={renderSearchItem}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item: any) => item.id || item.filename}
+                extraData={[currentSong?.id, likedIds, showVideoBadges, colors.text]}
                 ListHeaderComponent={!query ? renderSections : null}
                 ListEmptyComponent={query ? (
                     <View style={styles.empty}>
-                        <Ionicons name="search-outline" size={60} color={colors.textMuted} style={{ opacity: 0.5 }} />
-                        <Text style={{ color: colors.textMuted, marginTop: 20, fontSize: 16 }}>
-                            No matching songs found
-                        </Text>
+                        <Ionicons name="search-outline" size={56} color={colors.textMuted} style={{ opacity: 0.4 }} />
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>No Results</Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 14, marginTop: 4 }}>Try a different search term</Text>
                     </View>
                 ) : null}
-                contentContainerStyle={{ paddingBottom: 168 + insets.bottom, paddingHorizontal: 20 }}
+                contentContainerStyle={{ paddingBottom: 168 + insets.bottom, paddingHorizontal: 16 }}
                 showsVerticalScrollIndicator={false}
-                ListFooterComponent={
-                    query && filteredItems.length > 0 ? (
-                        <PaginationControls
-                            currentPage={currentPage}
-                            totalPages={totalPages}
-                            onPrev={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                            onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                            colors={colors}
-                        />
-                    ) : null
-                }
             />
 
             <PlaylistNameModal
@@ -308,22 +292,59 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        paddingHorizontal: 20,
-        marginBottom: 14,
+        paddingHorizontal: 16,
+        marginBottom: 16,
+    },
+    bgGlow: {
+        position: 'absolute',
+        top: -140,
+        right: -80,
+        width: 360,
+        height: 360,
+        borderRadius: 180,
+        opacity: 0.1,
+    },
+    headerEyebrow: {
+        fontSize: 12,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+        marginBottom: 2,
     },
     headerTitle: {
-        fontSize: 32,
+        fontSize: 28,
         fontWeight: '800',
+    },
+    countPill: {
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    countPillText: {
+        fontSize: 14,
+        fontWeight: '800',
+    },
+    playlistCountText: {
+        fontSize: 12,
+        fontWeight: '500',
+        marginTop: 1,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginTop: 16,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: 20,
-        borderRadius: 16,
+        marginHorizontal: 16,
+        borderRadius: 14,
         borderWidth: 1,
-        height: 54,
-        paddingHorizontal: 16,
-        marginBottom: 18,
+        height: 46,
+        paddingHorizontal: 14,
+        marginBottom: 14,
     },
     searchInput: {
         flex: 1,
@@ -334,70 +355,73 @@ const styles = StyleSheet.create({
     resultItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        borderWidth: 1,
+        padding: 8,
         borderRadius: 16,
-        marginBottom: 10,
+        marginBottom: 8,
     },
     thumbnail: {
-        width: 52,
-        height: 52,
+        width: 48,
+        height: 48,
         borderRadius: 12,
-        marginRight: 14,
+        marginRight: 12,
     },
     resultInfo: {
         flex: 1,
-        marginRight: 10,
     },
     empty: {
         alignItems: 'center',
         marginTop: 72,
     },
     sections: {
-        marginBottom: 24,
+        marginBottom: 16,
     },
     sectionCard: {
-        padding: 18,
-        borderRadius: 18,
+        padding: 16,
+        borderRadius: 20,
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 24,
+        elevation: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
     },
     sectionIcon: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
+        marginRight: 14,
     },
     sectionTitle: {
         fontSize: 17,
         fontWeight: '700',
-        flex: 1,
     },
     sectionSubtitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '600',
         opacity: 0.7,
+        marginTop: 2,
     },
     playlistHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 14,
+        marginBottom: 10,
     },
     playlistHeaderText: {
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: '800',
     },
     playlistItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 14,
-        borderRadius: 16,
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        borderRadius: 14,
         borderWidth: 1,
-        marginBottom: 10,
+        marginBottom: 8,
     },
     playlistMain: {
         flex: 1,
@@ -408,12 +432,12 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     playlistIcon: {
-        width: 44,
-        height: 44,
+        width: 42,
+        height: 42,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 15,
+        marginRight: 12,
     },
     playlistInfo: {
         flex: 1,
@@ -424,26 +448,28 @@ const styles = StyleSheet.create({
     },
     playlistMeta: {
         fontSize: 12,
+        fontWeight: '500',
         marginTop: 2,
+    },
+    addBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
     },
     emptyPlaylist: {
         borderWidth: 1,
-        borderStyle: 'dashed',
-        borderRadius: 16,
-        padding: 18,
+        borderRadius: 20,
+        padding: 24,
         alignItems: 'center',
         marginTop: 10,
     },
     videoBadge: {
-        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 6,
-        paddingVertical: 2,
-    },
-    videoBadgeText: {
-        fontSize: 10,
-        fontWeight: '800',
-        letterSpacing: 0.5,
+        paddingVertical: 4,
     },
 });
 
@@ -451,31 +477,31 @@ const SearchItemComponent = ({ item, onPress, onLike, isLiked, showVideoBadges, 
     <View>
         <ScalePressable
             onPress={onPress}
-            style={[styles.resultItem, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}
+            style={[styles.resultItem, { backgroundColor: colors.screenSurface }]}
         >
             <Image
                 source={require('../../assets/images/placeholder.png')}
                 style={styles.thumbnail}
             />
             <View style={styles.resultInfo}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text numberOfLines={1} style={{ color: colors.text, fontSize: 16, fontWeight: '600', flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text numberOfLines={1} style={{ color: colors.text, fontSize: 16, fontWeight: '700', flex: 1 }}>
                         {item.filename}
                     </Text>
                     {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(`${item.filename} ${item.uri}`) && (
-                        <View style={[styles.videoBadge, { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}>
-                            <Text style={[styles.videoBadgeText, { color: colors.accent }]}>VIDEO</Text>
+                        <View style={[styles.videoBadge, { backgroundColor: colors.accentSurface }]}>
+                            <Ionicons name="videocam" size={12} color={colors.accent} />
                         </View>
                     )}
                 </View>
-                <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: 13, marginTop: 4 }}>
-                    Sonic Flow • {Math.floor(item.duration / 60)}:{(item.duration % 60).toFixed(0).padStart(2, '0')}
+                <Text style={[styles.itemSub, { color: colors.textMuted, fontSize: 13, fontWeight: '500', marginTop: 2 }]}>
+                    {Math.floor(item.duration / 60)}:{(item.duration % 60).toFixed(0).padStart(2, '0')}
                 </Text>
             </View>
-            <ScalePressable onPress={onLike} style={{ padding: 12 }}>
+            <ScalePressable onPress={onLike} style={{ padding: 12, marginLeft: 4 }}>
                 <Ionicons
                     name={isLiked ? 'heart' : 'heart-outline'}
-                    size={20}
+                    size={22}
                     color={isLiked ? colors.accent : colors.textMuted}
                 />
             </ScalePressable>

@@ -10,6 +10,7 @@ import {
   Dimensions,
   Image,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -233,10 +234,12 @@ export default function FullPlayerScreen() {
 
         <View style={styles.songBlock}>
           <View style={styles.songTitleRow}>
-            <View style={styles.songMetaWrap}>
-              <Text numberOfLines={1} style={[styles.songTitle, { color: colors.text }]}>{currentSong.filename}</Text>
-              <Text numberOfLines={1} style={[styles.songSub, { color: colors.mutedText }]}>Sonic Flow</Text>
-            </View>
+                <View style={[styles.currentSongInfo, { opacity: isVideoTrack ? 0.3 : 1 }]}>
+                  <Text numberOfLines={1} style={[styles.songTitle, { color: colors.text }]}>{currentSong.filename}</Text>
+                  <Text numberOfLines={1} style={[styles.songSub, { color: colors.mutedText, marginTop: 4 }]}>
+                    Unknown Artist
+                  </Text>
+                </View>
             <ScalePressable
               style={[styles.likeBtn, { backgroundColor: colors.likeButtonBackground, borderColor: liked ? colors.accentBorder : colors.mainControlBorder }]}
               onPress={() => {
@@ -341,6 +344,8 @@ export default function FullPlayerScreen() {
       <ActionDialog
         visible={isActionVisible}
         title={currentSong.filename}
+        subtitle={`${Math.floor(currentSong.duration / 60)}:${(currentSong.duration % 60).toFixed(0).padStart(2, '0')}`}
+        imageSource={require('../assets/images/placeholder.png')}
         message="Manage this song"
         onClose={() => setIsActionVisible(false)}
         actions={[
@@ -351,6 +356,20 @@ export default function FullPlayerScreen() {
             onPress: () => {
               setIsActionVisible(false);
               setIsAddPlaylistVisible(true);
+            },
+          },
+          {
+            key: 'share',
+            label: 'Share',
+            icon: 'share-social-outline',
+            onPress: async () => {
+              setIsActionVisible(false);
+              try {
+                await Share.share({
+                  message: currentSong.filename,
+                  url: currentSong.uri,
+                });
+              } catch {}
             },
           },
           {

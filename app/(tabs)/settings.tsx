@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
@@ -35,8 +34,6 @@ export default function SettingsScreen() {
     refreshLibrary,
     clearAudio,
     playFromUrl,
-    clearLikedSongs,
-    clearPlaylists,
   } = useAudio();
 
   const [isLinkModalVisible, setIsLinkModalVisible] = useState(false);
@@ -76,12 +73,10 @@ export default function SettingsScreen() {
   const handleRescan = async () => {
     const ok = await refreshLibrary();
     if (ok) showNotice('Library Updated', 'Rescan completed successfully.');
-    else showNotice('Rescan Skipped', 'Library permission is missing or unavailable in this runtime.');
+    else showNotice('Rescan Skipped', 'Library permission is missing or unavailable.');
   };
 
-  const openPlayerSafely = () => {
-    safePush('/player');
-  };
+  const openPlayerSafely = () => safePush('/player');
 
   const handlePlayFromLink = async (link: string) => {
     const ok = await playFromUrl(link);
@@ -93,42 +88,19 @@ export default function SettingsScreen() {
     openPlayerSafely();
   };
 
-  const askClearLiked = () => {
-    setConfirmState({
-      visible: true,
-      title: 'Clear Liked Songs',
-      message: 'Remove all liked songs?',
-      onConfirm: () => {
-        clearLikedSongs();
-        setConfirmState((prev) => ({ ...prev, visible: false }));
-        showNotice('Done', 'Liked songs cleared.');
-      },
-    });
-  };
-
-  const askClearPlaylists = () => {
-    setConfirmState({
-      visible: true,
-      title: 'Delete All Playlists',
-      message: 'Delete all playlists and their song mappings?',
-      onConfirm: () => {
-        clearPlaylists();
-        setConfirmState((prev) => ({ ...prev, visible: false }));
-        showNotice('Done', 'All playlists deleted.');
-      },
-    });
-  };
-
-  const repeatText = repeatMode === 'off' ? 'Off' : repeatMode === 'all' ? 'Repeat All' : 'Repeat One';
-  const runtimeText = Constants.executionEnvironment === ExecutionEnvironment.StoreClient ? 'Expo Go' : 'Development/Standalone';
+  const repeatLabel = repeatMode === 'off' ? 'Off' : repeatMode === 'all' ? 'All' : 'One';
+  const repeatIcon = repeatMode === 'one' ? 'repeat-outline' : 'repeat';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
       <StatusBar barStyle={resolvedTheme === 'dark' ? 'light-content' : 'dark-content'} />
 
+      {/* Ambient glow */}
+      <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
+
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Personalize</Text>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
-        <Text style={[styles.headerSub, { color: colors.textMuted }]}>Personalize playback, tools, and app behavior</Text>
       </View>
 
       <ScrollView
@@ -136,272 +108,285 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingBottom: 160 + insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Stats ─────────────────────────────── */}
         <View style={styles.section}>
-          <View style={[styles.statsCard, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}> 
-            <StatPill label="Tracks" value={library.length.toString()} color={colors} bgColor={colors.cardBackgroundStrong} />
-            <StatPill label="Liked" value={likedIds.length.toString()} color={colors} bgColor={colors.cardBackgroundStrong} />
-            <StatPill label="Playlists" value={playlists.length.toString()} color={colors} bgColor={colors.cardBackgroundStrong} />
+          <View style={[styles.statsCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+            <StatPill icon="musical-notes" label="Tracks" value={library.length} colors={colors} />
+            <View style={[styles.statDivider, { backgroundColor: colors.cardBorder }]} />
+            <StatPill icon="heart" label="Liked" value={likedIds.length} colors={colors} />
+            <View style={[styles.statDivider, { backgroundColor: colors.cardBorder }]} />
+            <StatPill icon="list" label="Playlists" value={playlists.length} colors={colors} />
           </View>
         </View>
 
+        {/* ── Appearance ────────────────────────── */}
         <View style={styles.section}>
-          <SectionTitle text="Appearance" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}>
-            <View style={styles.themeHeader}>
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
-                  <Ionicons name="color-palette-outline" size={18} color={colors.text} />
-                </View>
-                <View>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>Theme Mode</Text>
-                  <Text style={[styles.rowHint, { color: colors.textMuted }]}>Choose light, dark, or follow device settings</Text>
-                </View>
+          <SectionLabel text="Appearance" color={colors.textMuted} />
+
+          {/* Live Preview Card */}
+          <View style={[styles.previewCard, { backgroundColor: resolvedTheme === 'dark' ? '#111827' : '#F4F7FC', borderColor: colors.cardBorder }]}>
+            <View style={[styles.previewBar, { backgroundColor: resolvedTheme === 'dark' ? '#192234' : '#ffffff' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={[styles.previewDot, { backgroundColor: accentColor }]} />
+                <View style={[styles.previewLine, { width: 80, backgroundColor: resolvedTheme === 'dark' ? '#9BA8C2' : '#6b7280' }]} />
+              </View>
+              <View style={[styles.previewPlayBtn, { backgroundColor: accentColor }]}>
+                <Ionicons name="play" size={10} color="#fff" />
               </View>
             </View>
-            <View style={styles.themeModeRow}>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}>
+              {[80, 60, 70].map((w, i) => (
+                <View key={i} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: i === 0 ? accentColor : (resolvedTheme === 'dark' ? '#192234' : '#e5e7eb') }} />
+                  <View style={{ gap: 4 }}>
+                    <View style={[styles.previewLine, { width: w, backgroundColor: resolvedTheme === 'dark' ? '#EEF4FF' : '#111827' }]} />
+                    <View style={[styles.previewLine, { width: w * 0.6, backgroundColor: resolvedTheme === 'dark' ? '#9BA8C2' : '#6b7280' }]} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Theme cards */}
+          <View style={styles.themeCardRow}>
+            {(['system', 'light', 'dark'] as const).map((opt) => {
+              const selected = theme === opt;
+              const isDarkPreview = opt === 'dark' || (opt === 'system' && resolvedTheme === 'dark');
+              return (
+                <ScalePressable
+                  key={opt}
+                  style={[
+                    styles.themeCard,
+                    {
+                      borderColor: selected ? accentColor : colors.cardBorder,
+                      backgroundColor: colors.cardBackground,
+                    },
+                  ]}
+                  onPress={() => handleThemeChange(opt)}
+                >
+                  {/* Mini theme preview */}
+                  <View style={[styles.themePreviewMini, { backgroundColor: isDarkPreview ? '#111827' : '#F4F7FC' }]}>
+                    <View style={[styles.themePreviewTopBar, { backgroundColor: isDarkPreview ? '#192234' : '#fff' }]} />
+                    <View style={{ padding: 4, gap: 3 }}>
+                      {[1, 2].map(i => (
+                        <View key={i} style={{ flexDirection: 'row', gap: 3, alignItems: 'center' }}>
+                          <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: i === 1 ? accentColor : (isDarkPreview ? '#192234' : '#e5e7eb') }} />
+                          <View style={[styles.previewLine, { width: i === 1 ? 28 : 20, height: 3, backgroundColor: isDarkPreview ? '#EEF4FF' : '#111827' }]} />
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                  {/* Label */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                    <Ionicons
+                      name={opt === 'dark' ? 'moon' : opt === 'light' ? 'sunny' : 'phone-portrait-outline'}
+                      size={12}
+                      color={selected ? accentColor : colors.textMuted}
+                    />
+                    <Text style={[styles.themeCardLabel, { color: selected ? accentColor : colors.textMuted }]}>
+                      {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                    </Text>
+                  </View>
+                  {selected && (
+                    <View style={[styles.themeSelectedBadge, { backgroundColor: accentColor }]}>
+                      <Ionicons name="checkmark" size={10} color="#fff" />
+                    </View>
+                  )}
+                </ScalePressable>
+              );
+            })}
+          </View>
+
+          {/* Accent Color */}
+          <View style={[styles.card, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground, marginTop: 12 }]}>
+            <View style={styles.accentHeader}>
+              <View>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Accent Color</Text>
+                <Text style={[styles.rowHint, { color: colors.textMuted }]}>Highlights, buttons, and active states</Text>
+              </View>
+              <View style={[styles.accentCurrentDot, { backgroundColor: accentColor }]} />
+            </View>
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <View style={styles.accentGrid}>
               {([
-                { key: 'system', label: 'System' },
-                { key: 'light', label: 'Light' },
-                { key: 'dark', label: 'Dark' },
-              ] as const).map((option) => {
-                const isSelected = theme === option.key;
+                { key: 'teal', color: '#14B8A6', label: 'Teal' },
+                { key: 'classic', color: '#3B82F6', label: 'Sky' },
+                { key: 'purple', color: '#8B5CF6', label: 'Purple' },
+                { key: 'spotify', color: '#22C55E', label: 'Lime' },
+                { key: 'sunset', color: '#F97316', label: 'Sunset' },
+              ]).map(({ key, color, label }) => {
+                const isSelected = accentColor === color;
                 return (
                   <ScalePressable
-                    key={option.key}
+                    key={key}
                     style={[
-                      styles.themeModePill,
+                      styles.accentSwatch,
                       {
-                        backgroundColor: isSelected ? colors.accentSurface : colors.cardBackgroundSubtle,
-                        borderColor: isSelected ? colors.accent : colors.border,
+                        backgroundColor: color + '22',
+                        borderColor: isSelected ? color : colors.cardBorder,
+                        borderWidth: isSelected ? 2 : 1,
                       },
                     ]}
-                    onPress={() => handleThemeChange(option.key)}
+                    onPress={() => handleAccentChange(color)}
                   >
-                    <Text style={[styles.themeModeText, { color: isSelected ? colors.accent : colors.textMuted }]}>
-                      {option.label}
+                    <View style={[styles.accentSwatchDot, { backgroundColor: color }]}>
+                      {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                    </View>
+                    <Text style={[styles.accentSwatchLabel, { color: isSelected ? color : colors.textMuted }]}>
+                      {label}
                     </Text>
                   </ScalePressable>
                 );
               })}
             </View>
-            <Text style={[styles.themeStatus, { color: colors.textMuted }]}>
-              Active appearance: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
-            </Text>
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <Text style={[styles.inlineLabel, { color: colors.text }]}>Accent Color</Text>
-            <View style={styles.colorGrid}>
-              {Object.entries(ACCENT_COLORS).map(([name, color]) => (
-                <TouchableOpacity
-                  key={name}
-                  activeOpacity={0.85}
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: color },
-                    accentColor === color && { borderColor: colors.text, borderWidth: 3 },
-                  ]}
-                  onPress={() => handleAccentChange(color)}
-                >
-                  {accentColor === color ? <Ionicons name="checkmark" size={18} color={colors.onAccent} /> : null}
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         </View>
 
+        {/* ── Playback ──────────────────────────── */}
         <View style={styles.section}>
-          <SectionTitle text="Playback" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}>
-            <SettingRow
+          <SectionLabel text="Playback" color={colors.textMuted} />
+          <View style={[styles.card, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
+            <ToggleRow
               icon="open-outline"
               label="Auto-open Player"
+              hint="Jump to player when song starts"
+              value={autoOpenPlayerOnPlay}
+              onToggle={setAutoOpenPlayerOnPlay}
               colors={colors}
-              iconBg={colors.iconBackground}
-              right={
-                <Switch
-                  value={autoOpenPlayerOnPlay}
-                  onValueChange={setAutoOpenPlayerOnPlay}
-                  trackColor={{ false: colors.switchTrackOff, true: colors.accent }}
-                  thumbColor={colors.switchThumb}
-                />
-              }
             />
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <SettingRow
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <ToggleRow
               icon="videocam-outline"
-              label="Show VIDEO Badges"
+              label="Video Badges"
+              hint="Show icon on video files in library"
+              value={showVideoBadges}
+              onToggle={setShowVideoBadges}
               colors={colors}
-              iconBg={colors.iconBackground}
-              right={
-                <Switch
-                  value={showVideoBadges}
-                  onValueChange={setShowVideoBadges}
-                  trackColor={{ false: colors.switchTrackOff, true: colors.accent }}
-                  thumbColor={colors.switchThumb}
-                />
-              }
             />
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <SettingRow
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <ToggleRow
               icon="phone-portrait-outline"
               label="Lock-screen Controls"
+              hint="Control playback from lock screen"
+              value={enableLockScreenControls}
+              onToggle={setEnableLockScreenControls}
               colors={colors}
-              iconBg={colors.iconBackground}
-              right={
-                <Switch
-                  value={enableLockScreenControls}
-                  onValueChange={setEnableLockScreenControls}
-                  trackColor={{ false: colors.switchTrackOff, true: colors.accent }}
-                  thumbColor={colors.switchThumb}
-                />
-              }
             />
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <TouchableOpacity style={styles.actionRow} onPress={cycleRepeatMode}>
-                <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
-                  <Ionicons name="repeat" size={18} color={colors.text} />
-                </View>
-                <Text style={[styles.rowLabel, { color: colors.text }]}>Repeat Mode</Text>
-              </View>
-              <Text style={[styles.valueText, { color: colors.accent }]}>{repeatText}</Text>
-            </TouchableOpacity>
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <TouchableOpacity style={styles.actionRow} onPress={() => setShuffle(!shuffle)}>
-                <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
-                  <Ionicons name="shuffle" size={18} color={colors.text} />
-                </View>
-                <Text style={[styles.rowLabel, { color: colors.text }]}>Shuffle</Text>
-              </View>
-              <Text style={[styles.valueText, { color: shuffle ? colors.accent : colors.textMuted }]}>
-                {shuffle ? 'On' : 'Off'}
-              </Text>
-            </TouchableOpacity>
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
 
-            <View style={[styles.divider, { borderColor: colors.border }]} />
+            {/* Repeat */}
+            <ScalePressable style={styles.actionRow} onPress={cycleRepeatMode}>
+              <View style={[styles.iconBox, { backgroundColor: colors.iconBackground }]}>
+                <Ionicons name={repeatIcon} size={18} color={colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Repeat Mode</Text>
+                <Text style={[styles.rowHint, { color: colors.textMuted }]}>Tap to cycle through modes</Text>
+              </View>
+              <View style={[styles.valueBadge, { backgroundColor: colors.accentSurface }]}>
+                <Text style={[styles.valueBadgeText, { color: colors.accent }]}>{repeatLabel}</Text>
+              </View>
+            </ScalePressable>
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+
+            {/* Shuffle */}
+            <ScalePressable style={styles.actionRow} onPress={() => { Haptics.selectionAsync(); setShuffle(!shuffle); }}>
+              <View style={[styles.iconBox, { backgroundColor: colors.iconBackground }]}>
+                <Ionicons name="shuffle" size={18} color={colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Shuffle</Text>
+                <Text style={[styles.rowHint, { color: colors.textMuted }]}>Randomize playback queue order</Text>
+              </View>
+              <View style={[styles.valueBadge, { backgroundColor: shuffle ? colors.accentSurface : colors.cardBackgroundSubtle }]}>
+                <Text style={[styles.valueBadgeText, { color: shuffle ? colors.accent : colors.textMuted }]}>
+                  {shuffle ? 'On' : 'Off'}
+                </Text>
+              </View>
+            </ScalePressable>
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+
+            {/* Speed */}
             <Text style={[styles.inlineLabel, { color: colors.text }]}>Playback Speed</Text>
             <View style={styles.speedRow}>
-              {[0.75, 1, 1.25, 1.5].map((rate) => (
-                <TouchableOpacity
-                  key={rate}
-                  onPress={() => setPlaybackRate(rate)}
-                  style={[
-                    styles.speedPill,
-                    {
-                      borderColor: playbackRate === rate ? colors.accent : colors.border,
-                      backgroundColor: playbackRate === rate ? colors.accentSurface : colors.cardBackgroundSubtle,
-                    },
-                  ]}
-                >
-                  <Text style={{ color: playbackRate === rate ? colors.accent : colors.textMuted, fontSize: 12, fontWeight: '700' }}>
-                    {rate}x
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {([0.75, 1, 1.25, 1.5, 2] as const).map((rate) => {
+                const selected = playbackRate === rate;
+                return (
+                  <ScalePressable
+                    key={rate}
+                    onPress={() => { Haptics.selectionAsync(); setPlaybackRate(rate); }}
+                    style={[
+                      styles.speedPill,
+                      {
+                        borderColor: selected ? colors.accent : colors.cardBorder,
+                        backgroundColor: selected ? colors.accentSurface : colors.cardBackgroundSubtle,
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: selected ? colors.accent : colors.textMuted, fontSize: 13, fontWeight: '700' }}>
+                      {rate === 1 ? 'Normal' : `${rate}×`}
+                    </Text>
+                  </ScalePressable>
+                );
+              })}
             </View>
           </View>
         </View>
 
+        {/* ── Tools ─────────────────────────────── */}
         <View style={styles.section}>
-          <SectionTitle text="Tools" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}>
-            <TouchableOpacity style={styles.actionRow} onPress={handleRescan}>
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
-                  <Ionicons name="refresh" size={18} color={colors.text} />
-                </View>
-                <View>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>Rescan Library</Text>
-                  <Text style={[styles.rowHint, { color: colors.textMuted }]}>Find newly downloaded tracks</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <TouchableOpacity style={styles.actionRow} onPress={() => setIsLinkModalVisible(true)}>
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
-                  <Ionicons name="link" size={18} color={colors.text} />
-                </View>
-                <View>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>Play From Link</Text>
-                  <Text style={[styles.rowHint, { color: colors.textMuted }]}>Paste direct audio/video URL</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <TouchableOpacity style={styles.actionRow} onPress={openPlayerSafely}>
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
-                  <Ionicons name="play-circle-outline" size={18} color={colors.text} />
-                </View>
-                <View>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>Open Player</Text>
-                  <Text style={[styles.rowHint, { color: colors.textMuted }]}>Jump to current playback screen</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <TouchableOpacity style={styles.actionRow} onPress={clearAudio}>
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.iconBackground }]}>
-                  <Ionicons name="stop-circle-outline" size={18} color={colors.text} />
-                </View>
-                <View>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>Stop Playback</Text>
-                  <Text style={[styles.rowHint, { color: colors.textMuted }]}>Clear active player and queue</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
+          <SectionLabel text="Tools" color={colors.textMuted} />
+          <View style={[styles.card, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
+            <ToolRow
+              icon="refresh"
+              iconBg="#1a7f4b"
+              label="Rescan Library"
+              hint="Find newly downloaded tracks"
+              colors={colors}
+              onPress={handleRescan}
+            />
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <ToolRow
+              icon="link"
+              iconBg="#1a5fa8"
+              label="Play From Link"
+              hint="Paste a direct audio/video URL"
+              colors={colors}
+              onPress={() => setIsLinkModalVisible(true)}
+            />
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <ToolRow
+              icon="play-circle-outline"
+              iconBg="#5a3da8"
+              label="Open Player"
+              hint="Jump to current playback screen"
+              colors={colors}
+              onPress={openPlayerSafely}
+            />
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <ToolRow
+              icon="stop-circle-outline"
+              iconBg="#a83d3d"
+              label="Stop Playback"
+              hint="Clear active player and queue"
+              colors={colors}
+              onPress={clearAudio}
+              danger
+            />
           </View>
         </View>
 
+        {/* ── About ─────────────────────────────── */}
         <View style={styles.section}>
-          <SectionTitle text="Danger Zone" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.dangerBorder, backgroundColor: colors.dangerSurfaceStrong }]}>
-            <TouchableOpacity style={styles.actionRow} onPress={askClearLiked}>
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.warningSurface }]}>
-                  <Ionicons name="heart-dislike" size={18} color={colors.warning} />
-                </View>
-                <View>
-                  <Text style={[styles.rowLabel, { color: colors.warningText } ]}>Clear Liked Songs</Text>
-                  <Text style={[styles.rowHint, { color: colors.textMuted }]}>Removes all liked entries</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-            <View style={[styles.divider, { borderColor: colors.dangerDivider }]} />
-            <TouchableOpacity style={styles.actionRow} onPress={askClearPlaylists}>
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.dangerSurface }]}>
-                  <Ionicons name="trash" size={18} color={colors.danger} />
-                </View>
-                <View>
-                  <Text style={[styles.rowLabel, { color: colors.dangerText }]}>Delete All Playlists</Text>
-                  <Text style={[styles.rowHint, { color: colors.textMuted }]}>Cannot be undone</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <SectionTitle text="About" color={colors.text} />
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}>
-            <View style={styles.infoRow}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>Version</Text>
-              <Text style={[styles.valueText, { color: colors.textMuted }]}>1.0.0</Text>
+          <SectionLabel text="About" color={colors.textMuted} />
+          <View style={[styles.aboutCard, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
+            <View style={[styles.aboutIcon, { backgroundColor: colors.accentSurface }]}>
+              <Ionicons name="musical-notes" size={32} color={colors.accent} />
             </View>
-            <View style={[styles.divider, { borderColor: colors.border }]} />
-            <View style={styles.infoRow}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>Runtime</Text>
-              <Text style={[styles.valueText, { color: colors.textMuted }]}>{runtimeText}</Text>
+            <Text style={[styles.aboutAppName, { color: colors.text }]}>Play-Veee</Text>
+            <Text style={[styles.aboutTagline, { color: colors.textMuted }]}>Your local media, beautifully organized</Text>
+            <View style={[styles.aboutBadge, { backgroundColor: colors.cardBackgroundSubtle }]}>
+              <Text style={[styles.aboutVersion, { color: colors.textMuted }]}>Version 1.0.0</Text>
             </View>
           </View>
         </View>
@@ -436,103 +421,138 @@ export default function SettingsScreen() {
   );
 }
 
-function SectionTitle({ text, color }: { text: string; color: string }) {
-  return <Text style={[styles.sectionTitle, { color }]}>{text}</Text>;
+// ── Sub-components ────────────────────────────────────────
+
+function SectionLabel({ text, color }: { text: string; color: string }) {
+  return (
+    <Text style={[styles.sectionLabel, { color }]}>{text.toUpperCase()}</Text>
+  );
 }
 
-function StatPill({
-  label,
-  value,
-  color,
-  bgColor,
-}: {
-  label: string;
-  value: string;
-  color: { text: string; textMuted: string; accent: string };
-  bgColor: string;
-}) {
+function StatPill({ icon, label, value, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: number; colors: any }) {
   return (
-    <View style={[styles.statPill, { backgroundColor: bgColor }]}>
-      <Text style={[styles.statValue, { color: color.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: color.textMuted }]}>{label}</Text>
+    <View style={styles.statPill}>
+      <Ionicons name={icon} size={18} color={colors.accent} style={{ marginBottom: 4 }} />
+      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textMuted }]}>{label}</Text>
     </View>
   );
 }
 
-function SettingRow({
-  icon,
-  label,
-  colors,
-  iconBg,
-  right,
-}: {
+function ToggleRow({ icon, label, hint, value, onToggle, colors }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  colors: { text: string };
-  iconBg: string;
-  right: React.ReactNode;
+  hint: string;
+  value: boolean;
+  onToggle: (v: boolean) => void;
+  colors: any;
 }) {
   return (
-    <View style={styles.settingRow}>
-      <View style={styles.rowLeft}>
-        <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
-          <Ionicons name={icon} size={18} color={colors.text} />
-        </View>
-        <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
+    <View style={styles.toggleRow}>
+      <View style={[styles.iconBox, { backgroundColor: colors.iconBackground }]}>
+        <Ionicons name={icon} size={18} color={colors.text} />
       </View>
-      {right}
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
+        <Text style={[styles.rowHint, { color: colors.textMuted }]}>{hint}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={(v) => { Haptics.selectionAsync(); onToggle(v); }}
+        trackColor={{ false: colors.switchTrackOff, true: colors.accent }}
+        thumbColor={colors.switchThumb}
+      />
     </View>
   );
 }
+
+function ToolRow({ icon, iconBg, label, hint, colors, onPress, danger }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconBg: string;
+  label: string;
+  hint: string;
+  colors: any;
+  onPress: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <ScalePressable style={styles.actionRow} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}>
+      <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon} size={18} color="#fff" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowLabel, { color: danger ? colors.danger : colors.text }]}>{label}</Text>
+        <Text style={[styles.rowHint, { color: colors.textMuted }]}>{hint}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </ScalePressable>
+  );
+}
+
+// ── Styles ───────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  bgGlow: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    opacity: 0.07,
+  },
   header: {
     paddingHorizontal: 20,
     marginBottom: 16,
+  },
+  headerEyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginBottom: 2,
   },
   headerTitle: {
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
-  headerSub: {
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: '500',
-  },
   scrollView: {
     flex: 1,
   },
   section: {
     marginBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
-  sectionTitle: {
-    fontSize: 12,
+  sectionLabel: {
+    fontSize: 11,
     fontWeight: '800',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    opacity: 0.9,
+    letterSpacing: 1.4,
+    marginBottom: 8,
+    marginLeft: 4,
   },
   statsCard: {
     flexDirection: 'row',
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 14,
-    gap: 10,
+    paddingVertical: 18,
+    paddingHorizontal: 8,
   },
   statPill: {
     flex: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
     alignItems: 'center',
   },
+  statDivider: {
+    width: 1,
+    height: '80%',
+    alignSelf: 'center',
+    opacity: 0.4,
+  },
   statValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '800',
   },
   statLabel: {
@@ -543,59 +563,33 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 18,
     borderWidth: 1,
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     overflow: 'hidden',
   },
-  settingRow: {
+  cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 50,
+    minHeight: 56,
   },
-  themeHeader: {
-    minHeight: 50,
-    justifyContent: 'center',
-  },
-  themeModeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  themeModePill: {
-    flex: 1,
-    minHeight: 42,
-    borderWidth: 1,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  themeModeText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  themeStatus: {
-    marginTop: 10,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  divider: {
-    borderBottomWidth: 1,
-    marginVertical: 12,
-  },
-  rowLeft: {
+  toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    marginRight: 10,
+    minHeight: 56,
+    gap: 12,
   },
-  iconContainer: {
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 56,
+    gap: 12,
+  },
+  iconBox: {
     width: 38,
     height: 38,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
   },
   rowLabel: {
     fontSize: 15,
@@ -606,15 +600,41 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
+  divider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginVertical: 2,
+  },
+  themeModeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 8,
+    marginLeft: 50,
+  },
+  themeModePill: {
+    flex: 1,
+    minHeight: 58,
+    borderWidth: 1,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  themeModeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   inlineLabel: {
     fontSize: 13,
     fontWeight: '700',
+    marginTop: 6,
     marginBottom: 12,
   },
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    marginBottom: 8,
   },
   colorDot: {
     width: 46,
@@ -623,32 +643,163 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  actionRow: {
+  // Live preview card
+  previewCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  previewBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 58,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  previewDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+  },
+  previewLine: {
+    height: 6,
+    borderRadius: 3,
+  },
+  previewPlayBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 44,
   },
-  valueText: {
-    fontSize: 14,
+  // Theme cards
+  themeCardRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 0,
+  },
+  themeCard: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+    padding: 10,
+  },
+  themePreviewMini: {
+    width: '100%',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  themePreviewTopBar: {
+    height: 14,
+    width: '100%',
+  },
+  themeCardLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  themeSelectedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Accent swatches
+  accentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 56,
+  },
+  accentCurrentDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  accentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  accentSwatch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  accentSwatchDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  accentSwatchLabel: {
+    fontSize: 13,
     fontWeight: '700',
   },
   speedRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: 8,
-    columnGap: 8,
+    gap: 8,
+    marginBottom: 8,
   },
   speedPill: {
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  valueBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  valueBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  aboutCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    padding: 28,
+    gap: 6,
+  },
+  aboutIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aboutAppName: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  aboutTagline: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  aboutBadge: {
+    marginTop: 8,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+  },
+  aboutVersion: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

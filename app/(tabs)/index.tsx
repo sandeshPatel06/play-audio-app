@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { FlatList } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
@@ -17,7 +16,11 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    ScrollView,
+    TextInput,
+    PanResponder,
+    Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddToPlaylistModal from '../../components/AddToPlaylistModal';
@@ -29,13 +32,15 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
-const SONGS_PER_PAGE = 20;
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 32 - 24) / 3; // 3 columns, 16px lateral padding, 4px margin around items
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
     const { colors, resolvedTheme } = useTheme();
     const safePush = useSafeRouterPush();
     const {
+        permissionGranted,
         setPermissionGranted,
         library,
         currentSong,
@@ -58,6 +63,7 @@ export default function LibraryScreen() {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sortBy, setSortBy] = useState<'name' | 'date' | 'duration'>('name');
+    const [filterType, setFilterType] = useState<'all' | 'audio' | 'video'>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [isActionVisible, setIsActionVisible] = useState(false);
     const [confirmState, setConfirmState] = useState<{ visible: boolean; title: string; message: string; onConfirm: () => void }>({
@@ -72,8 +78,25 @@ export default function LibraryScreen() {
         message: '',
     });
 
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isGrid, setIsGrid] = useState(false);
+    const flatListRef = React.useRef<FlatList>(null);
+    const scrubberContainerLayout = React.useRef({ y: 0, height: 100 });
+
     const sortedSongs = useMemo(() => {
-        const sorted = [...library];
+        let filtered = library;
+        if (filterType === 'audio') {
+            filtered = library.filter(a => a.mediaType === 'audio');
+        } else if (filterType === 'video') {
+            filtered = library.filter(a => a.mediaType === 'video');
+        }
+
+        if (searchQuery.trim()) {
+            const query = searchQuery.trim().toLowerCase();
+            filtered = filtered.filter(a => a.filename.toLowerCase().includes(query));
+        }
+
+        const sorted = [...filtered];
         if (sortBy === 'name') {
             sorted.sort((a, b) => a.filename.localeCompare(b.filename));
         } else if (sortBy === 'date') {
@@ -82,48 +105,58 @@ export default function LibraryScreen() {
             sorted.sort((a, b) => b.duration - a.duration);
         }
         return sorted;
-    }, [library, sortBy]);
-
-    const totalPages = Math.max(1, Math.ceil(sortedSongs.length / SONGS_PER_PAGE));
-
-    const pagedSongs = useMemo(() => {
-        const start = (currentPage - 1) * SONGS_PER_PAGE;
-        return sortedSongs.slice(start, start + SONGS_PER_PAGE);
-    }, [sortedSongs, currentPage]);
+    }, [library, sortBy, filterType, searchQuery]);
 
     const sectionedData = useMemo(() => {
-        const sorted = pagedSongs;
-
+        const sorted = sortedSongs;
         const items: (MediaLibrary.Asset | { type: 'header'; title: string; id: string })[] = [];
         const indices: number[] = [];
+        const alphabetMap: Record<string, number> = {};
 
         if (sortBy === 'name') {
             let lastLetter = '';
-            sorted.forEach((asset) => {
+            sorted.forEach((asset, index) => {
                 const letter = asset.filename[0].toUpperCase();
                 if (letter !== lastLetter) {
-                    indices.push(items.length);
-                    items.push({ type: 'header', title: letter, id: `header-${letter}` });
+                    if (!isGrid) {
+                        indices.push(items.length);
+                        items.push({ type: 'header', title: letter, id: `header-${letter}` });
+                    }
+                    alphabetMap[letter] = isGrid ? index : (items.length - 1);
                     lastLetter = letter;
                 }
-                items.push(asset);
+                if (!isGrid) items.push(asset);
             });
+            if (isGrid) items.push(...sorted);
         } else {
-            // For Date or Duration, just flat but we could add a "All Songs" header
-            return { items: sorted, indices: [] };
+            return { items: sorted, indices: [], alphabetMap: {} };
         }
-        return { items, indices };
-    }, [pagedSongs, sortBy]);
+        return { items, indices, alphabetMap };
+    }, [sortedSongs, sortBy, isGrid]);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [sortBy, library.length]);
+    const availableLetters = useMemo(() => Object.keys(sectionedData.alphabetMap), [sectionedData.alphabetMap]);
 
-    useEffect(() => {
-        if (currentPage > totalPages) {
-            setCurrentPage(totalPages);
+    const scrubberPanResponder = useMemo(() => PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => handleScrub(evt.nativeEvent.pageY),
+        onPanResponderMove: (evt) => handleScrub(evt.nativeEvent.pageY)
+    }), [availableLetters, sectionedData.alphabetMap]);
+
+    const handleScrub = useCallback((pageY: number) => {
+        if (availableLetters.length === 0) return;
+        const { y, height } = scrubberContainerLayout.current;
+        const relativeY = pageY - y;
+        const ratio = Math.max(0, Math.min(1, relativeY / height));
+        const letterIndex = Math.min(Math.floor(ratio * availableLetters.length), availableLetters.length - 1);
+        const letter = availableLetters[letterIndex];
+        const flatIndex = sectionedData.alphabetMap[letter];
+        
+        if (flatIndex !== undefined && flatListRef.current) {
+            flatListRef.current.scrollToIndex({ index: flatIndex, animated: false });
+            Haptics.selectionAsync();
         }
-    }, [currentPage, totalPages]);
+    }, [availableLetters, sectionedData.alphabetMap]);
 
     const toggleSelection = useCallback((id: string) => {
         Haptics.selectionAsync();
@@ -184,16 +217,6 @@ export default function LibraryScreen() {
     };
 
     const checkPermissions = useCallback(async () => {
-        if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
-            setPermissionGranted(false);
-            setNoticeState({
-                visible: true,
-                title: 'Expo Go Limitation',
-                message: 'Audio media permission is not available in Expo Go. Install a development build to scan songs.',
-            });
-            setLoading(false);
-            return;
-        }
 
         try {
             const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -263,6 +286,24 @@ export default function LibraryScreen() {
             return <SectionHeader title={item.title} colors={colors} styles={styles} />;
         }
 
+        if (isGrid) {
+            return (
+                <GridItem
+                    asset={item as MediaLibrary.Asset}
+                    isActive={currentSong?.id === item.id}
+                    isSelected={selectedIds.has(item.id)}
+                    isSelectionMode={isSelectionMode}
+                    onPress={() => {
+                        if (isSelectionMode) toggleSelection(item.id);
+                        else onSongPress(item);
+                    }}
+                    onLongPress={() => !isSelectionMode && enterSelectionMode(item.id)}
+                    colors={colors}
+                    styles={styles}
+                />
+            );
+        }
+
         return (
             <SongItem
                 asset={item as MediaLibrary.Asset}
@@ -297,7 +338,7 @@ export default function LibraryScreen() {
         <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
             <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
 
-            <View style={[styles.bgGlow, { backgroundColor: colors.sectionGlow }]} />
+            <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
 
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                 {isSelectionMode ? (
@@ -317,79 +358,123 @@ export default function LibraryScreen() {
                 ) : (
                     <>
                         <View style={styles.headerTop}>
-                            <View>
-                                <Text style={[styles.headerSubtitle, { color: colors.accent }]}>Library</Text>
-                                <Text style={[styles.headerTitle, { color: colors.text }]}>Your Library</Text>
+                            <View style={{ flex: 1, marginRight: 16 }}>
+                                <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Your Media</Text>
+                                <Text style={[styles.headerTitle, { color: colors.text }]}>Library</Text>
+                            </View>
+                            <View style={[styles.countBadge, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                                <Text style={[styles.countBadgeText, { color: colors.accent }]}>{sortedSongs.length}</Text>
                             </View>
                             <ScalePressable
                                 style={[styles.iconBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                                onPress={() => safePush('/search')}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsGrid(!isGrid); }}
                             >
-                                <Ionicons name="search" size={24} color={colors.text} />
+                                <Ionicons name={isGrid ? "list" : "grid"} size={20} color={colors.text} />
                             </ScalePressable>
                         </View>
-                        <View style={styles.sortContainer}>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    setSortBy('name');
-                                }}
+                        <View style={[styles.searchBar, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                            <Ionicons name="search" size={20} color={colors.textMuted} style={{ marginRight: 8 }} />
+                            <TextInput 
+                                style={[styles.searchInput, { color: colors.text }]} 
+                                placeholder="Search your library..." 
+                                placeholderTextColor={colors.textMuted} 
+                                value={searchQuery} 
+                                onChangeText={setSearchQuery} 
+                            />
+                            {searchQuery.length > 0 && (
+                                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                    <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortContainer}>
+                            <ScalePressable
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSortBy('name'); }}
                                 style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'name' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="text-outline" size={14} color={sortBy === 'name' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'name' ? colors.accent : colors.textMuted }]}>Name</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    setSortBy('date');
-                                }}
+                            </ScalePressable>
+                            <ScalePressable
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSortBy('date'); }}
                                 style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'date' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="calendar-outline" size={14} color={sortBy === 'date' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'date' ? colors.accent : colors.textMuted }]}>Recent</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    setSortBy('duration');
-                                }}
+                            </ScalePressable>
+                            <ScalePressable
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSortBy('duration'); }}
                                 style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'duration' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
                             >
                                 <Ionicons name="time-outline" size={14} color={sortBy === 'duration' ? colors.accent : colors.textMuted} />
                                 <Text style={[styles.sortText, { color: sortBy === 'duration' ? colors.accent : colors.textMuted }]}>Length</Text>
-                            </TouchableOpacity>
-                        </View>
+                            </ScalePressable>
+
+                            <View style={{ width: 1, height: 20, backgroundColor: colors.textMuted, marginHorizontal: 4, alignSelf: 'center', opacity: 0.3 }} />
+
+                            <ScalePressable
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterType('all'); }}
+                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, filterType === 'all' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
+                            >
+                                <Ionicons name="albums-outline" size={14} color={filterType === 'all' ? colors.accent : colors.textMuted} />
+                                <Text style={[styles.sortText, { color: filterType === 'all' ? colors.accent : colors.textMuted }]}>All</Text>
+                            </ScalePressable>
+                            <ScalePressable
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterType('audio'); }}
+                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, filterType === 'audio' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
+                            >
+                                <Ionicons name="musical-notes-outline" size={14} color={filterType === 'audio' ? colors.accent : colors.textMuted} />
+                                <Text style={[styles.sortText, { color: filterType === 'audio' ? colors.accent : colors.textMuted }]}>Audio</Text>
+                            </ScalePressable>
+                            <ScalePressable
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterType('video'); }}
+                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, filterType === 'video' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
+                            >
+                                <Ionicons name="videocam-outline" size={14} color={filterType === 'video' ? colors.accent : colors.textMuted} />
+                                <Text style={[styles.sortText, { color: filterType === 'video' ? colors.accent : colors.textMuted }]}>Video</Text>
+                            </ScalePressable>
+                        </ScrollView>
                     </>
                 )}
             </View>
 
-            <FlashList
+            <FlatList
+                ref={flatListRef}
+                key={isGrid ? 'grid' : 'list'}
+                numColumns={isGrid ? 3 : 1}
                 data={sectionedData.items as any}
                 renderItem={renderItem}
                 keyExtractor={(item: any) => item.id || item.filename}
-                getItemType={(item: any) => (item.type === 'header' ? 'header' : 'row')}
-                stickyHeaderIndices={sectionedData.indices}
+                extraData={[currentSong?.id, selectedIds, isSelectionMode, likedIds, showVideoBadges, colors.text, isGrid]}
+                stickyHeaderIndices={isGrid ? [] : sectionedData.indices}
                 contentContainerStyle={[styles.listContent, { paddingBottom: 168 + insets.bottom }]}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="musical-notes" size={80} color={colors.textMuted} />
-                        <Text style={{ color: colors.textMuted, marginTop: 20 }}>No songs found on this device</Text>
+                        <Ionicons name={permissionGranted ? "musical-notes" : "lock-closed"} size={80} color={colors.textMuted} />
+                        <Text style={{ color: colors.textMuted, marginTop: 20 }}>
+                            {permissionGranted ? "No songs found on this device" : "Permission required to load songs"}
+                        </Text>
+                        {!permissionGranted && (
+                            <TouchableOpacity onPress={checkPermissions} style={{ marginTop: 16 }}>
+                                <Text style={{ color: colors.accent, fontWeight: '700' }}>Grant Permission</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 }
-                ListFooterComponent={
-                    sectionedData.items.length > 0 ? (
-                        <PaginationControls
-                            currentPage={currentPage}
-                            totalPages={totalPages}
-                            onPrev={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                            onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                            colors={colors}
-                        />
-                    ) : null
-                }
             />
+
+            {!isGrid && sortBy === 'name' && availableLetters.length > 0 && (
+                <View 
+                    style={styles.scrubberContainer}
+                    onLayout={(e) => { scrubberContainerLayout.current = { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }; }}
+                    {...scrubberPanResponder.panHandlers}
+                >
+                    {availableLetters.map(letter => (
+                        <Text key={letter} style={[styles.scrubberLetter, { color: colors.accent }]}>{letter}</Text>
+                    ))}
+                </View>
+            )}
 
             {isSelectionMode && (
                 <View style={[styles.selectionBar, { bottom: 100 + insets.bottom, backgroundColor: colors.surface }]}>
@@ -406,19 +491,6 @@ export default function LibraryScreen() {
                 </View>
             )}
 
-            <AddToPlaylistModal
-                visible={isAddPlaylistVisible}
-                onClose={() => setIsAddPlaylistVisible(false)}
-                playlists={playlists}
-                onSelect={(playlistId: string) => {
-                    if (selectedAsset) {
-                        addToPlaylist(playlistId, selectedAsset.id);
-                        setIsAddPlaylistVisible(false);
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    }
-                }}
-            />
-
             <ActionDialog
                 visible={isActionVisible}
                 title={selectedAsset?.filename || 'Song'}
@@ -431,7 +503,8 @@ export default function LibraryScreen() {
                         icon: 'add-circle-outline',
                         onPress: () => {
                             setIsActionVisible(false);
-                            setIsAddPlaylistVisible(true);
+                            // Give Android time to fully dismiss the first modal before opening the next
+                            setTimeout(() => setIsAddPlaylistVisible(true), 500);
                         },
                     },
                     {
@@ -447,6 +520,19 @@ export default function LibraryScreen() {
                         },
                     },
                 ]}
+            />
+
+            <AddToPlaylistModal
+                visible={isAddPlaylistVisible}
+                onClose={() => setIsAddPlaylistVisible(false)}
+                playlists={playlists}
+                onSelect={(playlistId: string) => {
+                    if (selectedAsset) {
+                        addToPlaylist(playlistId, selectedAsset.id);
+                        setIsAddPlaylistVisible(false);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                }}
             />
 
             <ConfirmDialog
@@ -486,14 +572,14 @@ const styles = StyleSheet.create({
         opacity: 0.11,
     },
     header: {
-        paddingHorizontal: 20,
-        paddingBottom: 16,
+        paddingHorizontal: 16,
+        paddingBottom: 10,
     },
     headerTop: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 10,
     },
     selectionHeader: {
         flex: 1,
@@ -524,7 +610,26 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     headerTitle: {
-        fontSize: 32,
+        fontSize: 28,
+        fontWeight: '800',
+    },
+    headerEyebrow: {
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+        marginBottom: 1,
+    },
+    countBadge: {
+        borderRadius: 12,
+        borderWidth: 1,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        marginRight: 8,
+        justifyContent: 'center',
+    },
+    countBadgeText: {
+        fontSize: 14,
         fontWeight: '800',
     },
     iconBtn: {
@@ -536,23 +641,23 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     listContent: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
     },
     songItem: {
-        marginBottom: 12,
+        marginBottom: 8,
         borderRadius: 16,
         overflow: 'hidden',
     },
     songContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
+        padding: 8,
     },
     thumbnailContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 14,
-        marginRight: 14,
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        marginRight: 10,
         overflow: 'hidden',
         elevation: 5,
         shadowOffset: { width: 0, height: 4 },
@@ -640,28 +745,84 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         minHeight: 38,
-        paddingHorizontal: 13,
+        paddingHorizontal: 16,
         paddingVertical: 8,
-        borderRadius: 13,
+        borderRadius: 20,
         borderWidth: 1,
         gap: 6,
+    },
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 16,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 16,
+        fontWeight: '500',
+        padding: 0,
+        paddingVertical: 0, // Android fix
+    },
+    scrubberContainer: {
+        position: 'absolute',
+        right: 2,
+        top: '25%', 
+        bottom: '25%', 
+        width: 28,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        zIndex: 50,
+        paddingVertical: 10,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        borderRadius: 14,
+    },
+    scrubberLetter: {
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    gridItem: {
+        width: GRID_ITEM_WIDTH,
+        marginHorizontal: 4,
+        marginBottom: 16,
+        borderRadius: 12,
+        padding: 6,
+        alignItems: 'flex-start'
+    },
+    gridThumbnailContainer: {
+        width: '100%',
+        aspectRatio: 1,
+        borderRadius: 10,
+        marginBottom: 8,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(0,0,0,0.03)',
+    },
+    gridTitle: {
+        fontSize: 12,
+        fontWeight: '600',
+        lineHeight: 16,
+        paddingHorizontal: 2,
+    },
+    gridSubTitle: {
+        fontSize: 10,
+        fontWeight: '500',
+        marginTop: 2,
+        paddingHorizontal: 2,
     },
     sortText: {
         fontSize: 12,
         fontWeight: '700',
     },
     videoBadge: {
-        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 6,
-        paddingVertical: 2,
+        paddingVertical: 4,
         marginLeft: 8,
     },
-    videoBadgeText: {
-        fontSize: 10,
-        fontWeight: '800',
-        letterSpacing: 0.5,
-    },
+
 });
 
 const SectionHeaderComponent = ({ title, colors, styles }: any) => (
@@ -691,7 +852,7 @@ const SongItemComponent = ({
         <ScalePressable
             style={[
                 styles.songItem,
-                isActive && !isSelectionMode && { backgroundColor: colors.activeRowBackground, borderColor: colors.accent, borderWidth: 1 },
+                isActive && !isSelectionMode && { backgroundColor: colors.activeRowBackground },
                 isSelected && { backgroundColor: colors.accentSurface, borderColor: colors.accent, borderWidth: 1 }
             ]}
             onPress={onPress}
@@ -728,13 +889,13 @@ const SongItemComponent = ({
                             {asset.filename}
                         </Text>
                         {showVideoBadges && /\.(mp4|m4v|mov|webm|m3u8)$/i.test(`${asset.filename} ${asset.uri}`) && (
-                            <View style={[styles.videoBadge, { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}>
-                                <Text style={[styles.videoBadgeText, { color: colors.accent }]}>VIDEO</Text>
+                            <View style={[styles.videoBadge, { backgroundColor: colors.accentSurface }]}>
+                                <Ionicons name="videocam" size={12} color={colors.accent} />
                             </View>
                         )}
                     </View>
-                    <Text style={[styles.songSubtitle, { color: colors.textMuted }]}>
-                        Sonic Flow • {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toFixed(0).padStart(2, '0')}
+                    <Text style={[styles.itemSub, { color: colors.textMuted }]}>
+                        {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toFixed(0).padStart(2, '0')}
                     </Text>
                 </View>
 
@@ -767,3 +928,41 @@ const SongItemComponent = ({
 
 const SongItem = memo(SongItemComponent);
 SongItem.displayName = 'SongItem';
+
+const GridItemComponent = ({ asset, isActive, isSelected, isSelectionMode, onPress, onLongPress, colors, styles }: any) => {
+    return (
+        <ScalePressable
+            style={[
+                styles.gridItem,
+                isActive && !isSelectionMode && { backgroundColor: colors.activeRowBackground },
+                isSelected && { backgroundColor: colors.accentSurface, borderColor: colors.accent, borderWidth: 1 }
+            ]}
+            onPress={onPress}
+            onLongPress={onLongPress}
+        >
+            <View style={[styles.gridThumbnailContainer, isSelected && { borderWidth: 2, borderColor: colors.accent }]}>
+                <Image source={require('../../assets/images/placeholder.png')} style={styles.thumbnail} />
+                {isActive && !isSelectionMode && (
+                    <View style={[styles.activeOverlay, { backgroundColor: colors.activeOverlay }]}>
+                         <Ionicons name="stats-chart" size={24} color={colors.accent} />
+                    </View>
+                )}
+                {isSelectionMode && (
+                     <View style={[styles.selectionOverlay, { backgroundColor: isSelected ? colors.accent : colors.selectionOverlay }]}>
+                         <Ionicons name={isSelected ? "checkmark-circle" : "ellipse-outline"} size={22} color={isSelected ? colors.onAccent : colors.text} />
+                     </View>
+                )}
+            </View>
+            <View style={{ width: '100%' }}>
+                <Text numberOfLines={1} style={[styles.gridTitle, { color: (isActive && !isSelectionMode) || isSelected ? colors.accent : colors.text }]}>
+                    {asset.filename}
+                </Text>
+                <Text style={[styles.gridSubTitle, { color: colors.textMuted }]}>
+                    {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toFixed(0).padStart(2, '0')}
+                </Text>
+            </View>
+        </ScalePressable>
+    )
+};
+const GridItem = memo(GridItemComponent);
+GridItem.displayName = 'GridItem';

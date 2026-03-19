@@ -1,83 +1,123 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import React from 'react';
-import { Image, Platform, StyleSheet, Text, View } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import React, { useEffect } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../hooks/useAudio';
 import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 import ScalePressable from './ScalePressable';
 
+function MiniVideoThumbnail({ uri, isPlaying }: { uri: string, isPlaying: boolean }) {
+    const videoPlayer = useVideoPlayer(uri, (player) => {
+        player.muted = true;
+        player.loop = false;
+        player.showNowPlayingNotification = false;
+        player.staysActiveInBackground = false;
+    });
+
+    useEffect(() => {
+        if (isPlaying) {
+            videoPlayer.play();
+        } else {
+            videoPlayer.pause();
+        }
+    }, [isPlaying, videoPlayer]);
+
+    return (
+        <VideoView
+            player={videoPlayer}
+            style={StyleSheet.absoluteFill}
+            nativeControls={false}
+            contentFit="cover"
+        />
+    );
+}
+
 export default function MiniPlayer() {
     const insets = useSafeAreaInsets();
-    const { colors, resolvedTheme } = useTheme();
-    const { currentSong, isPlaying, handlePlayPause, position, duration } = useAudio();
+    const { colors } = useTheme();
+    const { 
+        currentSong, isPlaying, handlePlayPause, handleNext, handlePrevious, 
+        position, duration
+    } = useAudio();
     const safePush = useSafeRouterPush();
 
     if (!currentSong) return null;
 
-    const progress = duration > 0 ? (position / duration) : 0;
+    const isVideo = currentSong.mediaType === 'video';
+    
+    // Protect against NaN or undefined preventing the progress bar from rendering
+    const safePosition = isNaN(position) ? 0 : Math.max(0, position);
+    const safeDuration = isNaN(duration) || duration <= 0 ? 1 : duration;
+    const progress = Math.min(1, safePosition / safeDuration);
+
+    const formatTime = (seconds: number) => {
+        if (isNaN(seconds) || seconds < 0) return '0:00';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
 
     const onPlayPause = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         handlePlayPause();
     };
 
-    const containerStyle = [
-        styles.container,
-        {
-            bottom: insets.bottom + 88,
-            backgroundColor: Platform.OS === 'android' ? colors.floatingBackground : colors.transparent,
-            borderColor: colors.floatingBorder,
-            shadowColor: colors.floatingShadow,
-        }
-    ];
+    const onNext = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        handleNext();
+    };
 
-    const Content = (
-        <>
-            <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBarContainerBg, { backgroundColor: colors.progressTrack }]} />
-                <View style={[styles.progressBar, { width: `${progress * 100}%`, backgroundColor: colors.accent }]} />
-            </View>
-            <ScalePressable
-                style={styles.content}
-                onPress={() => safePush('/player')}
-                scaleTo={0.98}
-            >
-                <Image
-                    source={require('../assets/images/placeholder.png')}
-                    style={styles.artwork}
-                />
-                <View style={styles.info}>
-                    <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>
-                        {currentSong.filename}
-                    </Text>
-                    <Text style={[styles.artist, { color: colors.textMuted }]}>Sonic Flow</Text>
-                </View>
-            </ScalePressable>
-            <ScalePressable
-                style={[styles.playBtn, { backgroundColor: colors.accent }]}
-                onPress={onPlayPause}
-            >
-                <Ionicons name={isPlaying ? "pause" : "play"} size={24} color={colors.onAccent} />
-            </ScalePressable>
-        </>
-    );
+    const onPrev = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        handlePrevious();
+    };
 
     return (
-        <View style={[containerStyle, { overflow: 'hidden' }]}>
-            {Platform.OS === 'ios' ? (
-                <BlurView
-                    intensity={80}
-                    tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-                    style={StyleSheet.absoluteFill}
-                >
-                    <View style={styles.contentWrapper}>{Content}</View>
-                </BlurView>
-            ) : (
-                <View style={styles.contentWrapper}>{Content}</View>
-            )}
+        <View style={[styles.container, { bottom: (insets.bottom || 0) + 96, shadowColor: colors.floatingShadow }]}>
+            <View style={[styles.backgroundPanel, { backgroundColor: colors.floatingBackground, borderColor: colors.floatingBorder }]}>
+                <View style={styles.contentWrapper}>
+                    <View style={styles.mainRow}>
+                        <Pressable onPress={() => safePush('/player')} style={styles.leftSection}>
+                            {isVideo && currentSong.uri ? (
+                                <View style={styles.artwork} pointerEvents="none">
+                                    <MiniVideoThumbnail uri={currentSong.uri} isPlaying={isPlaying} />
+                                </View>
+                            ) : (
+                                <Image source={require('../assets/images/placeholder.png')} style={styles.artwork} />
+                            )}
+                            <View style={styles.info}>
+                                <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>{currentSong.filename}</Text>
+                                <Text numberOfLines={1} style={[styles.artist, { color: colors.textMuted }]}>Unknown Artist</Text>
+                            </View>
+                        </Pressable>
+
+                        <View style={styles.controlsSide}>
+                            <View style={styles.primaryControls}>
+                                <ScalePressable onPress={onPrev} hitSlop={15} style={styles.skipBtn}>
+                                    <Ionicons name="play-skip-back" size={24} color={colors.text} />
+                                </ScalePressable>
+                                <ScalePressable onPress={onPlayPause} hitSlop={15} style={styles.playBtn}>
+                                    <Ionicons name={isPlaying ? "pause" : "play"} size={28} color={colors.text} />
+                                </ScalePressable>
+                                <ScalePressable onPress={onNext} hitSlop={15} style={styles.skipBtn}>
+                                    <Ionicons name="play-skip-forward" size={24} color={colors.text} />
+                                </ScalePressable>
+                            </View>
+                        </View>
+                    </View>
+
+                    <Pressable onPress={() => safePush('/player')} style={styles.progressRow}>
+                        <Text style={[styles.timeText, { color: colors.textMuted }]} numberOfLines={1}>{formatTime(safePosition)}</Text>
+                        <View style={[styles.progressBarContainer, { backgroundColor: colors.progressTrack }]}>
+                            <View style={[styles.progressBar, { width: `${progress * 100}%`, backgroundColor: colors.accent }]} />
+                        </View>
+                        <Text style={[styles.timeText, { color: colors.textMuted }]} numberOfLines={1}>{formatTime(duration)}</Text>
+                    </Pressable>
+                </View>
+            </View>
         </View>
     );
 }
@@ -85,74 +125,101 @@ export default function MiniPlayer() {
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        left: 20,
-        right: 20,
-        height: 76,
+        left: 8,
+        right: 8,
+        height: 86,
         zIndex: 50,
-        borderRadius: 20,
-        borderWidth: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 0,
         elevation: 10,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.2,
-        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
     },
-    progressBarContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 4,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+    backgroundPanel: {
+        flex: 1,
+        borderRadius: 8,
+        borderWidth: 1,
         overflow: 'hidden',
     },
-    progressBarContainerBg: {
+    contentWrapper: {
+        flex: 1,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        justifyContent: 'center',
+    },
+    mainRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    artwork: {
+        width: 44,
+        height: 44,
+        borderRadius: 4,
+        marginRight: 10,
+        overflow: 'hidden',
+    },
+    leftSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        paddingRight: 10,
+    },
+    info: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    title: {
+        fontSize: 13,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    artist: {
+        fontSize: 11,
+        fontWeight: '500',
+    },
+    controlsSide: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 110,
+    },
+    primaryControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        paddingHorizontal: 6,
+    },
+    skipBtn: {
+        padding: 4,
+    },
+    playBtn: {
+        padding: 4,
+    },
+    progressRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 14,
+        marginTop: 6,
+    },
+    timeText: {
+        fontSize: 10,
+        fontWeight: '500',
+        fontVariant: ['tabular-nums'],
+        width: 36,
+        textAlign: 'center',
+    },
+    progressBarContainer: {
+        flex: 1,
+        height: 4,
+        borderRadius: 2,
+        marginHorizontal: 4,
+        overflow: 'hidden',
+    },
+    progressBarBg: {
         ...StyleSheet.absoluteFillObject,
     },
     progressBar: {
         height: '100%',
-    },
-    contentWrapper: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 4,
-    },
-    content: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    artwork: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 14,
-    },
-    info: {
-        flex: 1,
-    },
-    title: {
-        fontSize: 15,
-        fontWeight: '800',
-    },
-    artist: {
-        fontSize: 12,
-        fontWeight: '500',
-        marginTop: 2,
-    },
-    playBtn: {
-        width: 46,
-        height: 46,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 10,
+        borderRadius: 2,
     },
 });

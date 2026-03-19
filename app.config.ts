@@ -5,7 +5,7 @@ const darkColors = getThemeColors('dark', ACCENT_COLORS.teal);
 const lightColors = getThemeColors('light', ACCENT_COLORS.teal);
 
 const config: ExpoConfig = {
-    name: 'play',
+    name: 'play-buzz',
     slug: 'ghhghg',
     version: '1.0.0',
     orientation: 'portrait',
@@ -63,18 +63,23 @@ const config: ExpoConfig = {
         [
             'expo-av',
             {
-                microphonePermission: 'Allow Sonic Flow to access your microphone.',
+                microphonePermission: 'Allow Play-Buzz to access your microphone.',
                 backgroundAudio: true,
             },
         ],
         'expo-audio',
-        'expo-video',
+        [
+            'expo-video',
+            {
+                supportsPictureInPicture: true,
+            },
+        ],
         'expo-asset',
         [
             'expo-media-library',
             {
-                photosPermission: 'Allow Sonic Flow to access your photos.',
-                savePhotosPermission: 'Allow Sonic Flow to save photos.',
+                photosPermission: 'Allow Play-Buzz to access your photos.',
+                savePhotosPermission: 'Allow Play-Buzz to save photos.',
                 isAccessMediaLocationEnabled: true,
                 granularPermissions: ['audio', 'photo', 'video'],
             },

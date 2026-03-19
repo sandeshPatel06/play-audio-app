@@ -1,6 +1,5 @@
 import { AudioStatus, createAudioPlayer } from 'expo-audio';
 import { Asset } from 'expo-asset';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as FileSystem from 'expo-file-system';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
@@ -86,9 +85,10 @@ const LOCK_SCREEN_OPTIONS = {
     showSeekForward: true,
 };
 
+let globalHasTriggeredTrackEnd = false;
+
 export const useAudio = () => {
     const store = useAudioStore();
-    const hasTriggeredTrackEndRef = useRef(false);
 
     const disposePlayer = useCallback(() => {
         store.player?.remove();
@@ -105,7 +105,7 @@ export const useAudio = () => {
         store.setNowPlayingContext(null);
         store.setPosition(0);
         store.setDuration(0);
-        hasTriggeredTrackEndRef.current = false;
+        globalHasTriggeredTrackEnd = false;
     }, [disposePlayer, store]);
 
     const resolvePlayableUri = async (asset: MediaLibrary.Asset) => {
@@ -179,7 +179,12 @@ export const useAudio = () => {
     const loadAudio = async (asset: MediaLibrary.Asset, shouldPlay = true) => {
         try {
             const playableUri = await resolvePlayableUri(asset);
-            hasTriggeredTrackEndRef.current = false;
+            
+            // Set immediately so UI responds and doesn't get blocked by slow artwork fetching or player init errors
+            store.setCurrentSong({ ...asset, uri: playableUri } as MediaLibrary.Asset);
+            store.setIsPlaying(shouldPlay);
+
+            globalHasTriggeredTrackEnd = false;
             
             // Handle artwork with extra care for production environments
             let artworkUrl: string | undefined;
@@ -193,12 +198,13 @@ export const useAudio = () => {
 
             const metadata = {
                 title: asset.filename,
-                artist: 'Sonic Flow',
+                artist: 'Unknown Artist',
                 albumTitle: 'Local Library',
                 artworkUrl,
             };
 
-            if (!store.player) {
+            const freshPlayer = useAudioStore.getState().player;
+            if (!freshPlayer) {
                 const newPlayer = createAudioPlayer(playableUri);
                 store.setPlayer(newPlayer);
                 if (store.enableLockScreenControls) {
@@ -209,18 +215,16 @@ export const useAudio = () => {
                 newPlayer.setPlaybackRate(store.playbackRate);
                 if (shouldPlay) newPlayer.play();
             } else {
-                store.player.replace(playableUri);
+                freshPlayer.replace(playableUri);
                 if (store.enableLockScreenControls) {
-                    store.player.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
-                    store.player.updateLockScreenMetadata(metadata);
+                    freshPlayer.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
+                    freshPlayer.updateLockScreenMetadata(metadata);
                 } else {
-                    store.player.clearLockScreenControls();
+                    freshPlayer.clearLockScreenControls();
                 }
-                store.player.setPlaybackRate(store.playbackRate);
-                if (shouldPlay) store.player.play();
+                freshPlayer.setPlaybackRate(store.playbackRate);
+                if (shouldPlay) freshPlayer.play();
             }
-            store.setCurrentSong({ ...asset, uri: playableUri } as MediaLibrary.Asset);
-            store.setIsPlaying(shouldPlay);
         } catch (error) {
             console.error('Error loading audio:', error);
         }
@@ -321,14 +325,14 @@ export const useAudio = () => {
 
         const nearTrackEnd = status.playing && status.duration > 0 && status.currentTime >= (status.duration - 0.5);
 
-        if (nearTrackEnd && !hasTriggeredTrackEndRef.current) {
-            hasTriggeredTrackEndRef.current = true;
+        if (nearTrackEnd && !globalHasTriggeredTrackEnd) {
+            globalHasTriggeredTrackEnd = true;
             handleNext();
             return;
         }
 
         if (!nearTrackEnd || status.currentTime < Math.max(status.duration - 1, 0)) {
-            hasTriggeredTrackEndRef.current = false;
+            globalHasTriggeredTrackEnd = false;
         }
     }, [handleNext]);
 
@@ -370,7 +374,7 @@ export const useAudio = () => {
 
             const metadata = {
                 title: store.currentSong?.filename,
-                artist: 'Sonic Flow',
+                artist: 'Unknown Artist',
                 albumTitle: 'Local Library',
                 artworkUrl,
             };
@@ -399,9 +403,6 @@ export const useAudio = () => {
     };
 
     const refreshLibrary = useCallback(async () => {
-        if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
-            return false;
-        }
         try {
             const { status } = await MediaLibrary.requestPermissionsAsync();
             if (status !== 'granted') return false;
@@ -444,7 +445,6 @@ export const useAudio = () => {
 
             const state = useAudioStore.getState();
             state.setLibrary(mergedAssets);
-            state.reconcileAssetReferences(mergedAssets.map((asset) => asset.id));
 
             if (state.currentSong) {
                 const refreshedCurrent = mergedAssets.find((asset) => asset.id === state.currentSong?.id);
@@ -459,7 +459,7 @@ export const useAudio = () => {
                     state.setNowPlayingContext(null);
                     state.setPosition(0);
                     state.setDuration(0);
-                    hasTriggeredTrackEndRef.current = false;
+                    globalHasTriggeredTrackEnd = false;
                 } else {
                     state.setCurrentSong(refreshedCurrent);
                     const refreshedQueue = state.queue
@@ -501,7 +501,7 @@ export const useAudio = () => {
 
     const seekTo = async (positionSeconds: number) => {
         if (store.player) {
-            hasTriggeredTrackEndRef.current = false;
+            globalHasTriggeredTrackEnd = false;
             await store.player.seekTo(positionSeconds);
         }
     };

@@ -1,17 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
+    Image,
     Modal,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import ScalePressable from './ScalePressable';
 
 interface BaseDialogProps {
     visible: boolean;
     title: string;
+    subtitle?: string;
+    imageSource?: any;
     message?: string;
     onClose: () => void;
 }
@@ -39,20 +43,25 @@ interface ActionDialogProps extends BaseDialogProps {
     actions: ActionItem[];
 }
 
-export function ActionDialog({ visible, title, message, actions, onClose }: ActionDialogProps) {
+export function ActionDialog({ visible, title, subtitle, imageSource, message, actions, onClose }: ActionDialogProps) {
     const { colors } = useTheme();
+    const insets = useSafeAreaInsets();
 
     return (
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
-                <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.modalBorder }]}>
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View style={[styles.overlaySheet, { backgroundColor: colors.modalOverlay }]}>
+                <View style={[styles.sheet, { backgroundColor: colors.surface, borderTopColor: colors.modalBorder, paddingBottom: Math.max(insets.bottom, 24) }]}>
                     <View style={styles.headerRow}>
-                        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+                        {!!imageSource && <Image source={imageSource} style={styles.headerImage} />}
+                        <View style={{ flex: 1, paddingRight: 12 }}>
+                            <Text numberOfLines={1} style={[styles.title, { color: colors.text, paddingRight: 0 }]}>{title}</Text>
+                            {!!subtitle && <Text numberOfLines={1} style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>}
+                        </View>
                         <ScalePressable style={styles.closeButton} onPress={onClose} hitSlop={8}>
                             <Ionicons name="close" size={22} color={colors.textMuted} />
                         </ScalePressable>
                     </View>
-                    {!!message && <Text style={[styles.message, { color: colors.textMuted }]}>{message}</Text>}
+                    <View style={[styles.divider, { borderBottomColor: colors.border }]} />
 
                     <View style={styles.actionsWrap}>
                         {actions.map((action) => (
@@ -60,14 +69,14 @@ export function ActionDialog({ visible, title, message, actions, onClose }: Acti
                                 key={action.key}
                                 style={[
                                     styles.actionRow,
-                                    { borderBottomColor: colors.border, backgroundColor: action.danger ? colors.dangerSurface : colors.cardBackgroundSubtle },
+                                    { backgroundColor: action.danger ? colors.dangerSurface : 'transparent' },
                                 ]}
                                 onPress={action.onPress}
                             >
                                 <Ionicons
                                     name={action.icon}
-                                    size={18}
-                                    color={action.danger ? colors.danger : colors.accent}
+                                    size={24}
+                                    color={action.danger ? colors.danger : colors.text}
                                 />
                                 <Text
                                     style={[
@@ -160,10 +169,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         padding: 20,
     },
+    overlaySheet: {
+        flex: 1,
+        justifyContent: 'flex-end',
+    },
     sheet: {
-        borderRadius: 28,
-        padding: 22,
-        borderWidth: 1,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        borderTopWidth: 1,
     },
     dialog: {
         borderRadius: 28,
@@ -176,19 +191,32 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     title: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '800',
-        flex: 1,
-        paddingRight: 12,
+    },
+    subtitle: {
+        fontSize: 13,
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    headerImage: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        marginRight: 12,
     },
     message: {
         marginTop: 10,
         fontSize: 14,
         lineHeight: 21,
     },
+    divider: {
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        marginVertical: 16,
+    },
     actionsWrap: {
-        marginTop: 16,
-        gap: 10,
+        marginTop: 4,
+        gap: 6,
     },
     closeButton: {
         width: 36,
@@ -200,16 +228,14 @@ const styles = StyleSheet.create({
     actionRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        minHeight: 54,
-        paddingHorizontal: 14,
-        paddingVertical: 14,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        minHeight: 56,
+        paddingHorizontal: 8,
         borderRadius: 16,
     },
     actionLabel: {
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: '600',
-        marginLeft: 10,
+        marginLeft: 16,
     },
     buttonRow: {
         marginTop: 22,
