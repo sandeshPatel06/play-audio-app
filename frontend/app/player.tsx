@@ -92,6 +92,7 @@ export default function FullPlayerScreen() {
     player.loop = false;
     player.showNowPlayingNotification = false;
     player.staysActiveInBackground = false;
+    player.play();
   });
 
   useEffect(() => {
@@ -460,7 +461,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  songMetaWrap: {
+  currentSongInfo: {
     flex: 1,
     marginRight: 10,
   },

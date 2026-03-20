@@ -1,10 +1,10 @@
-import type { ExpoConfig } from 'expo/config';
 const { getThemeColors, ACCENT_COLORS } = require('./constants/colors.config');
 
 const darkColors = getThemeColors('dark', ACCENT_COLORS.teal);
 const lightColors = getThemeColors('light', ACCENT_COLORS.teal);
 
-const config: ExpoConfig = {
+/** @type {import('expo/config').ExpoConfig} */
+const config = {
     name: 'play-buzz',
     slug: 'ghhghg',
     version: '1.0.0',
@@ -86,17 +86,15 @@ const config: ExpoConfig = {
         ],
         'expo-secure-store',
     ],
-    experiments: {
-        typedRoutes: true,
-        reactCompiler: true,
-    },
     extra: {
         router: {},
         eas: {
             projectId: 'f07ce253-8e73-4807-a760-2e89501b156c',
         },
+        EXPO_PUBLIC_WS_URL: process.env.EXPO_PUBLIC_WS_URL,
+        EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
     },
     owner: 'reakuser',
 };
 
-export default config;
+module.exports = config;

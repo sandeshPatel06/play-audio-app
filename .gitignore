@@ -1,46 +1,50 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
+frontend/node_modules/
 node_modules/
 
 # Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+frontend/expo-env.d.ts
 
 # Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+frontend/.kotlin/
+frontend/*.orig.*
+frontend/*.jks
+frontend/*.p8
+frontend/*.p12
+frontend/*.key
+frontend/*.mobileprovision
 
 # Metro
 .metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
 
 # macOS
 .DS_Store
 *.pem
 
-# local env files
+# Environment
+.env
 .env*.local
+frontend/.env
+backend/.env
 
-# typescript
-*.tsbuildinfo
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+backend/.venv/
 
-app-example
-# Keep large local audio library ignored by default, but allow explicitly bundled files.
-/assets/audio/*
-!/assets/audio/
-!/assets/audio/Night Changes X Woh Din*xmNukxEHLlA*.mp3
-# generated native folders
-/ios
-/android
+# Database
+#backend/db.sqlite3
+
+# Asset Overrides
+frontend/assets/audio/*
+!frontend/assets/audio/
+!frontend/assets/audio/Night Changes X Woh Din*xmNukxEHLlA*.mp3
+
+# Generated native folders
+frontend/ios/
+frontend/android/

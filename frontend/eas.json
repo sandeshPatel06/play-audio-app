@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 16.32.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_WS_URL": "ws://your-backend-url.com/ws/stream/",
+        "EXPO_PUBLIC_API_URL": "http://your-backend-url.com/listen/"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_WS_URL": "ws://your-backend-url.com/ws/stream/",
+        "EXPO_PUBLIC_API_URL": "http://your-backend-url.com/listen/"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

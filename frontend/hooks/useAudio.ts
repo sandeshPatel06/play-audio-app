@@ -1,10 +1,10 @@
 import { AudioStatus, createAudioPlayer } from 'expo-audio';
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
-import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { NowPlayingContext } from '../store/useAudioStore';
 import { useAudioStore } from '../store/useAudioStore';
 
@@ -15,7 +15,10 @@ const SUPPORTED_EXTENSIONS = new Set([
     'dsf', 'dff', 'pcm'
 ]);
 
-const LOCAL_SCAN_ROOTS = [FileSystem.Paths.document.uri, FileSystem.Paths.cache.uri].filter(Boolean) as string[];
+const LOCAL_SCAN_ROOTS = Platform.OS === 'web' 
+    ? [] 
+    : [FileSystem.documentDirectory, FileSystem.cacheDirectory].filter(Boolean) as string[];
+
 const LOCAL_SCAN_MAX_DEPTH = 3;
 
 const fileNameFromUri = (uri: string) => {
@@ -55,13 +58,13 @@ const trackFromUri = (
     };
 
 const scanLocalDirectory = async (root: string, depth = 0): Promise<MediaLibrary.Asset[]> => {
-    if (depth > LOCAL_SCAN_MAX_DEPTH) return [];
+    if (Platform.OS === 'web' || depth > LOCAL_SCAN_MAX_DEPTH) return [];
     const result: MediaLibrary.Asset[] = [];
     try {
-        const entries = await FileSystemLegacy.readDirectoryAsync(root);
+        const entries = await FileSystem.readDirectoryAsync(root);
         for (const entry of entries) {
             const uri = `${root}${entry}`;
-            const info = await FileSystemLegacy.getInfoAsync(uri);
+            const info = await FileSystem.getInfoAsync(uri);
             if (!info.exists) continue;
 
             if (info.isDirectory) {
@@ -108,11 +111,12 @@ export const useAudio = () => {
         globalHasTriggeredTrackEnd = false;
     }, [disposePlayer, store]);
 
-    const resolvePlayableUri = async (asset: MediaLibrary.Asset) => {
+    const resolvePlayableUri = useCallback(async (asset: MediaLibrary.Asset) => {
         // Local/remote tracks already carry a direct playable URI.
         if (
             asset.id.startsWith('local:') ||
-            asset.id.startsWith('remote:')
+            asset.id.startsWith('remote:') ||
+            Platform.OS === 'web'
         ) {
             return asset.uri;
         }
@@ -123,9 +127,10 @@ export const useAudio = () => {
         } catch {
             return asset.uri;
         }
-    };
+    }, []);
 
-    const ensureDeletePermission = async () => {
+    const ensureDeletePermission = useCallback(async () => {
+        if (Platform.OS === 'web') return false;
         const existing = await MediaLibrary.getPermissionsAsync(false, ['audio', 'video']);
         if (existing.status === 'granted') return true;
 
@@ -135,9 +140,9 @@ export const useAudio = () => {
         // Fallback for runtimes that honor writeOnly differently.
         const writeRequested = await MediaLibrary.requestPermissionsAsync(true, ['audio', 'video']);
         return writeRequested.status === 'granted';
-    };
+    }, []);
 
-    const deleteSongInternal = async (
+    const deleteSongInternal = useCallback(async (
         asset: MediaLibrary.Asset,
         options: {
             refreshAfterDelete?: boolean;
@@ -146,8 +151,8 @@ export const useAudio = () => {
     ) => {
         const { refreshAfterDelete = true, mediaLibraryPermissionGranted = false } = options;
 
-        if (asset.id.startsWith('local:') && asset.uri.startsWith('file://')) {
-            await FileSystemLegacy.deleteAsync(asset.uri, { idempotent: true });
+        if (Platform.OS !== 'web' && asset.id.startsWith('local:') && asset.uri.startsWith('file://')) {
+            await FileSystem.deleteAsync(asset.uri, { idempotent: true });
             if (refreshAfterDelete) {
                 await refreshLibrary();
             }
@@ -156,6 +161,8 @@ export const useAudio = () => {
             }
             return true;
         }
+
+        if (Platform.OS === 'web') return false;
 
         const allowed = mediaLibraryPermissionGranted || await ensureDeletePermission();
         if (!allowed) {
@@ -174,9 +181,9 @@ export const useAudio = () => {
         }
 
         return false;
-    };
+    }, [clearPlaybackState, ensureDeletePermission, refreshLibrary, store.currentSong?.id]);
 
-    const loadAudio = async (asset: MediaLibrary.Asset, shouldPlay = true) => {
+    const loadAudio = useCallback(async (asset: MediaLibrary.Asset, shouldPlay = true) => {
         try {
             const playableUri = await resolvePlayableUri(asset);
             
@@ -228,9 +235,9 @@ export const useAudio = () => {
         } catch (error) {
             console.error('Error loading audio:', error);
         }
-    };
+    }, [resolvePlayableUri, store]);
 
-    const startQueuePlayback = async (
+    const startQueuePlayback = useCallback(async (
         playbackQueue: MediaLibrary.Asset[],
         startIndex = 0,
         context: NowPlayingContext = { type: 'library', title: 'Library Queue' }
@@ -242,7 +249,7 @@ export const useAudio = () => {
         store.setCurrentIndex(safeIndex);
         store.setNowPlayingContext(context ?? { type: 'library', title: 'Library Queue' });
         await loadAudio(playbackQueue[safeIndex]);
-    };
+    }, [loadAudio, store]);
 
     const handleNext = useCallback(async () => {
         if (store.queue.length === 0) return;
@@ -270,9 +277,9 @@ export const useAudio = () => {
         const nextSong = store.queue[nextIndex];
         store.setCurrentIndex(nextIndex);
         await loadAudio(nextSong);
-    }, [store.currentIndex, store.queue, store.repeatMode, store.shuffle, store.player]);
+    }, [store, loadAudio]);
 
-    const handlePrevious = async () => {
+    const handlePrevious = useCallback(async () => {
         if (store.queue.length === 0) return;
 
         let prevIndex = store.currentIndex - 1;
@@ -287,21 +294,23 @@ export const useAudio = () => {
         const prevSong = store.queue[prevIndex];
         store.setCurrentIndex(prevIndex);
         await loadAudio(prevSong);
-    };
+    }, [loadAudio, store]);
 
-    const toggleLike = (id: string) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const toggleLike = useCallback((id: string) => {
+        if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         store.toggleLike(id);
-    };
+    }, [store]);
 
-    const playLikedSongs = async () => {
+    const playLikedSongs = useCallback(async () => {
         const likedSongs = store.library.filter((song) => store.likedIds.includes(song.id));
         if (likedSongs.length === 0) return false;
         await startQueuePlayback(likedSongs, 0, { type: 'liked', title: 'Liked Songs' });
         return true;
-    };
+    }, [startQueuePlayback, store.library, store.likedIds]);
 
-    const playPlaylist = async (playlistId: string) => {
+    const playPlaylist = useCallback(async (playlistId: string) => {
         const playlist = store.playlists.find((p) => p.id === playlistId);
         if (!playlist) return false;
 
@@ -316,7 +325,7 @@ export const useAudio = () => {
             playlistId: playlist.id,
         });
         return true;
-    };
+    }, [startQueuePlayback, store.library, store.playlists]);
 
     const onPlaybackStatusUpdate = useCallback((status: AudioStatus) => {
         store.setPosition(status.currentTime);
@@ -334,7 +343,7 @@ export const useAudio = () => {
         if (!nearTrackEnd || status.currentTime < Math.max(status.duration - 1, 0)) {
             globalHasTriggeredTrackEnd = false;
         }
-    }, [handleNext]);
+    }, [handleNext, store]);
 
     useEffect(() => {
         if (store.player) {
@@ -390,19 +399,22 @@ export const useAudio = () => {
         return () => {
             cancelled = true;
         };
-    }, [store.player, store.currentSong?.id, store.enableLockScreenControls]);
+    }, [store.player, store.currentSong, store.enableLockScreenControls]);
 
-    const handlePlayPause = async () => {
+    const handlePlayPause = useCallback(async () => {
         if (!store.player) return;
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         if (store.isPlaying) {
             store.player.pause();
         } else {
             store.player.play();
         }
-    };
+    }, [store.player, store.isPlaying]);
 
     const refreshLibrary = useCallback(async () => {
+        if (Platform.OS === 'web') return false;
         try {
             const { status } = await MediaLibrary.requestPermissionsAsync();
             if (status !== 'granted') return false;
@@ -477,7 +489,7 @@ export const useAudio = () => {
         }
     }, []);
 
-    const deleteSong = async (asset: MediaLibrary.Asset) => {
+    const deleteSong = useCallback(async (asset: MediaLibrary.Asset) => {
         try {
             return await deleteSongInternal(asset);
         } catch (error) {
@@ -497,16 +509,16 @@ export const useAudio = () => {
             console.error('Delete failed:', error);
             return false;
         }
-    };
+    }, [deleteSongInternal, ensureDeletePermission]);
 
-    const seekTo = async (positionSeconds: number) => {
+    const seekTo = useCallback(async (positionSeconds: number) => {
         if (store.player) {
             globalHasTriggeredTrackEnd = false;
             await store.player.seekTo(positionSeconds);
         }
-    };
+    }, [store.player]);
 
-    const deleteSongs = async (assets: MediaLibrary.Asset[]) => {
+    const deleteSongs = useCallback(async (assets: MediaLibrary.Asset[]) => {
         if (assets.length === 0) {
             return { success: true, deletedCount: 0, failedCount: 0 };
         }
@@ -552,9 +564,9 @@ export const useAudio = () => {
             deletedCount,
             failedCount: assets.length - deletedCount,
         };
-    };
+    }, [deleteSongInternal, ensureDeletePermission, refreshLibrary]);
 
-    const playFromUrl = async (url: string) => {
+    const playFromUrl = useCallback(async (url: string) => {
         const trimmed = url.trim();
         if (!/^https?:\/\//i.test(trimmed)) return false;
 
@@ -574,7 +586,7 @@ export const useAudio = () => {
         } catch {
             return false;
         }
-    };
+    }, [loadAudio, store]);
 
     return {
         ...store,
