@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Switch, Text, View } from 'react-native';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
 import LinkInputModal from '../../components/LinkInputModal';
 import MiniPlayer from '../../components/MiniPlayer';
 import ScalePressable from '../../components/ScalePressable';
-import { ACCENT_COLORS, useTheme } from '../../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
+
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 

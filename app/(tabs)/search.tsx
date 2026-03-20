@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList } from 'react-native';
+
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { memo, useCallback, useMemo, useState } from 'react';
+import { FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
 import MiniPlayer from '../../components/MiniPlayer';
@@ -39,7 +40,6 @@ export default function SearchScreen() {
     const [isPlaylistActionVisible, setIsPlaylistActionVisible] = useState(false);
     const [isDeletePlaylistVisible, setDeletePlaylistVisible] = useState(false);
     const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
-    const [currentPage, setCurrentPage] = useState(1);
     const [noticeState, setNoticeState] = useState<{ visible: boolean; title: string; message: string }>({
         visible: false,
         title: '',

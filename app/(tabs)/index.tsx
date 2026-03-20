@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
@@ -12,27 +11,27 @@ import React, {
 } from 'react';
 import {
     ActivityIndicator,
+    Dimensions,
+    FlatList,
     Image,
+    PanResponder,
+    ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
-    ScrollView,
-    TextInput,
-    PanResponder,
-    Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddToPlaylistModal from '../../components/AddToPlaylistModal';
 import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
 import MiniPlayer from '../../components/MiniPlayer';
-import PaginationControls from '../../components/PaginationControls';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 32 - 24) / 3; // 3 columns, 16px lateral padding, 4px margin around items
 
 export default function LibraryScreen() {
@@ -64,7 +63,7 @@ export default function LibraryScreen() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sortBy, setSortBy] = useState<'name' | 'date' | 'duration'>('name');
     const [filterType, setFilterType] = useState<'all' | 'audio' | 'video'>('all');
-    const [currentPage, setCurrentPage] = useState(1);
+
     const [isActionVisible, setIsActionVisible] = useState(false);
     const [confirmState, setConfirmState] = useState<{ visible: boolean; title: string; message: string; onConfirm: () => void }>({
         visible: false,
@@ -141,7 +140,7 @@ export default function LibraryScreen() {
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (evt) => handleScrub(evt.nativeEvent.pageY),
         onPanResponderMove: (evt) => handleScrub(evt.nativeEvent.pageY)
-    }), [availableLetters, sectionedData.alphabetMap]);
+    }), [handleScrub]);
 
     const handleScrub = useCallback((pageY: number) => {
         if (availableLetters.length === 0) return;
@@ -323,7 +322,8 @@ export default function LibraryScreen() {
                 styles={styles}
             />
         );
-    }, [currentSong, selectedIds, isSelectionMode, likedIds, colors, toggleSelection, onSongPress, enterSelectionMode, toggleLike, onMenuPress, showVideoBadges]);
+    }, [currentSong, selectedIds, isSelectionMode, isGrid, likedIds, colors, toggleSelection, onSongPress, enterSelectionMode, toggleLike, onMenuPress, showVideoBadges]);
+
 
     if (loading) {
         return (
