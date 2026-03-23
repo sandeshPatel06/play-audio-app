@@ -1,7 +1,20 @@
 import asyncio
+from django.conf import settings
+from django.http import JsonResponse
 from django.http import StreamingHttpResponse
 
 from .queues import get_room_queue
+
+
+def health_check(request):
+    return JsonResponse(
+        {
+            'status': 'ok',
+            'debug': settings.DEBUG,
+            'firebase_configured': bool(getattr(settings, 'FIREBASE_DB', None)),
+        }
+    )
+
 
 async def stream_audio(request, room_id):
     queue = get_room_queue(room_id)
