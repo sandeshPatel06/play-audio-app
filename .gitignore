@@ -48,3 +48,6 @@ frontend/assets/audio/*
 # Generated native folders
 frontend/ios/
 frontend/android/
+/backend/.env
+/backend/staticfiles
+/play-veee-firebase-admin.json

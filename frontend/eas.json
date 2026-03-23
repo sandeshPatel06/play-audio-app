@@ -6,20 +6,24 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_WS_URL": "wss://song-app-7hf3.onrender.com/ws/stream/",
+        "EXPO_PUBLIC_API_URL": "https://song-app-7hf3.onrender.com/listen/"
+      }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_WS_URL": "ws://your-backend-url.com/ws/stream/",
-        "EXPO_PUBLIC_API_URL": "http://your-backend-url.com/listen/"
+        "EXPO_PUBLIC_WS_URL": "wss://song-app-7hf3.onrender.com/ws/stream/",
+        "EXPO_PUBLIC_API_URL": "https://song-app-7hf3.onrender.com/listen/"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_WS_URL": "ws://your-backend-url.com/ws/stream/",
-        "EXPO_PUBLIC_API_URL": "http://your-backend-url.com/listen/"
+        "EXPO_PUBLIC_WS_URL": "wss://song-app-7hf3.onrender.com/ws/stream/",
+        "EXPO_PUBLIC_API_URL": "https://song-app-7hf3.onrender.com/listen/"
       }
     }
   },

@@ -17,6 +17,7 @@ const SUPPORTED_EXTENSIONS = new Set([
 
 const LOCAL_SCAN_ROOTS = Platform.OS === 'web' 
     ? [] 
+    // @ts-ignore - documentDirectory exists at runtime for Expo
     : [FileSystem.documentDirectory, FileSystem.cacheDirectory].filter(Boolean) as string[];
 
 const LOCAL_SCAN_MAX_DEPTH = 3;
@@ -142,46 +143,7 @@ export const useAudio = () => {
         return writeRequested.status === 'granted';
     }, []);
 
-    const deleteSongInternal = useCallback(async (
-        asset: MediaLibrary.Asset,
-        options: {
-            refreshAfterDelete?: boolean;
-            mediaLibraryPermissionGranted?: boolean;
-        } = {}
-    ) => {
-        const { refreshAfterDelete = true, mediaLibraryPermissionGranted = false } = options;
 
-        if (Platform.OS !== 'web' && asset.id.startsWith('local:') && asset.uri.startsWith('file://')) {
-            await FileSystem.deleteAsync(asset.uri, { idempotent: true });
-            if (refreshAfterDelete) {
-                await refreshLibrary();
-            }
-            if (store.currentSong?.id === asset.id) {
-                clearPlaybackState();
-            }
-            return true;
-        }
-
-        if (Platform.OS === 'web') return false;
-
-        const allowed = mediaLibraryPermissionGranted || await ensureDeletePermission();
-        if (!allowed) {
-            return false;
-        }
-
-        const success = await MediaLibrary.deleteAssetsAsync([asset]);
-        if (success) {
-            if (refreshAfterDelete) {
-                await refreshLibrary();
-            }
-            if (store.currentSong?.id === asset.id) {
-                clearPlaybackState();
-            }
-            return true;
-        }
-
-        return false;
-    }, [clearPlaybackState, ensureDeletePermission, refreshLibrary, store.currentSong?.id]);
 
     const loadAudio = useCallback(async (asset: MediaLibrary.Asset, shouldPlay = true) => {
         try {
@@ -488,6 +450,47 @@ export const useAudio = () => {
             return false;
         }
     }, []);
+
+    const deleteSongInternal = useCallback(async (
+        asset: MediaLibrary.Asset,
+        options: {
+            refreshAfterDelete?: boolean;
+            mediaLibraryPermissionGranted?: boolean;
+        } = {}
+    ) => {
+        const { refreshAfterDelete = true, mediaLibraryPermissionGranted = false } = options;
+
+        if (Platform.OS !== 'web' && asset.id.startsWith('local:') && asset.uri.startsWith('file://')) {
+            await FileSystem.deleteAsync(asset.uri, { idempotent: true });
+            if (refreshAfterDelete) {
+                await refreshLibrary();
+            }
+            if (store.currentSong?.id === asset.id) {
+                clearPlaybackState();
+            }
+            return true;
+        }
+
+        if (Platform.OS === 'web') return false;
+
+        const allowed = mediaLibraryPermissionGranted || await ensureDeletePermission();
+        if (!allowed) {
+            return false;
+        }
+
+        const success = await MediaLibrary.deleteAssetsAsync([asset]);
+        if (success) {
+            if (refreshAfterDelete) {
+                await refreshLibrary();
+            }
+            if (store.currentSong?.id === asset.id) {
+                clearPlaybackState();
+            }
+            return true;
+        }
+
+        return false;
+    }, [clearPlaybackState, ensureDeletePermission, refreshLibrary, store.currentSong?.id]);
 
     const deleteSong = useCallback(async (asset: MediaLibrary.Asset) => {
         try {

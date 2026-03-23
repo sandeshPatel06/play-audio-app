@@ -25,7 +25,6 @@ const config = {
             backgroundColor: darkColors.screenBackground,
             foregroundImage: './assets/images/android-icon-foreground.png',
         },
-        edgeToEdgeEnabled: true,
         predictiveBackGestureEnabled: false,
         permissions: [
             'android.permission.RECORD_AUDIO',
@@ -60,13 +59,7 @@ const config = {
                 },
             },
         ],
-        [
-            'expo-av',
-            {
-                microphonePermission: 'Allow Play-Buzz to access your microphone.',
-                backgroundAudio: true,
-            },
-        ],
+
         'expo-audio',
         [
             'expo-video',
@@ -84,7 +77,7 @@ const config = {
                 granularPermissions: ['audio', 'photo', 'video'],
             },
         ],
-        'expo-secure-store',
+        'expo-font',
     ],
     extra: {
         router: {},

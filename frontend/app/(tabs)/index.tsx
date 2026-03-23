@@ -135,13 +135,6 @@ export default function LibraryScreen() {
 
     const availableLetters = useMemo(() => Object.keys(sectionedData.alphabetMap), [sectionedData.alphabetMap]);
 
-    const scrubberPanResponder = useMemo(() => PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (evt) => handleScrub(evt.nativeEvent.pageY),
-        onPanResponderMove: (evt) => handleScrub(evt.nativeEvent.pageY)
-    }), [handleScrub]);
-
     const handleScrub = useCallback((pageY: number) => {
         if (availableLetters.length === 0) return;
         const { y, height } = scrubberContainerLayout.current;
@@ -156,6 +149,13 @@ export default function LibraryScreen() {
             Haptics.selectionAsync();
         }
     }, [availableLetters, sectionedData.alphabetMap]);
+
+    const scrubberPanResponder = useMemo(() => PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => handleScrub(evt.nativeEvent.pageY),
+        onPanResponderMove: (evt) => handleScrub(evt.nativeEvent.pageY)
+    }), [handleScrub]);
 
     const toggleSelection = useCallback((id: string) => {
         Haptics.selectionAsync();
