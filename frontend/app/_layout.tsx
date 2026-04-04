@@ -1,28 +1,43 @@
 import { setAudioModeAsync } from 'expo-audio';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { BackHandler, View, ActivityIndicator, StyleSheet, LogBox } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
+import { BackHandler, StyleSheet, LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 
-// Ignore non-critical warnings in development
 LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state',
 ]);
 
-function LoadingScreen() {
-  return (
-    <View style={styles.loading}>
-      <ActivityIndicator size="large" color="#14B8A6" />
-    </View>
-  );
-}
-
 function RootLayoutContent() {
   const { colors, resolvedTheme, isReady } = useTheme();
   const router = useRouter();
+
+  // Handle splash screen - fail-safe pattern
+  useEffect(() => {
+    // Prevent auto-hide on mount
+    const preventHide = async () => {
+      try {
+        await SplashScreen.preventAutoHideAsync();
+      } catch {}
+    };
+    preventHide();
+
+    // Force hide splash after 3 seconds max (guaranteed fallback)
+    const forceHideTimer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 3000);
+
+    // Hide when ready
+    if (isReady) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+
+    return () => clearTimeout(forceHideTimer);
+  }, [isReady]);
 
   useEffect(() => {
     setAudioModeAsync({
@@ -44,15 +59,6 @@ function RootLayoutContent() {
 
     return () => backHandler.remove();
   }, [router]);
-
-  if (!isReady) {
-    return (
-      <>
-        <StatusBar style="light" />
-        <LoadingScreen />
-      </>
-    );
-  }
 
   return (
     <>
@@ -95,7 +101,7 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
         <ThemeProvider>
           <RootLayoutContent />
@@ -106,10 +112,8 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  loading: {
+  container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#070B14',
   },
 });

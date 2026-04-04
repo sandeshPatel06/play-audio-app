@@ -24,9 +24,7 @@ export { ACCENT_COLORS };
 
 const defaultTheme: ThemeType = 'system';
 const defaultAccent = ACCENT_COLORS.teal;
-
-// Pre-computed default colors to avoid any issues
-const defaultColors = getThemeColors('dark', defaultAccent);
+const defaultResolvedTheme: ThemeName = 'dark';
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const systemTheme = useColorScheme();
@@ -34,28 +32,40 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const [accentColor, setAccentColorState] = useState<string>(defaultAccent);
     const [isReady, setIsReady] = useState(false);
 
-    // Resolve theme synchronously
-    const resolvedTheme: ThemeName = theme === 'system'
-        ? (systemTheme === 'light' ? 'light' : 'dark')
-        : theme;
+    // Resolve theme synchronously - always default to dark if systemTheme is null
+    const resolvedTheme: ThemeName = (theme === 'system' ? (systemTheme || defaultResolvedTheme) : theme) as ThemeName;
 
-    // Compute colors - memoized to avoid recreation
-    const colors = React.useMemo(
-        () => getThemeColors(resolvedTheme, accentColor),
-        [resolvedTheme, accentColor]
-    );
+    // Always compute colors - available immediately
+    const colors = getThemeColors(resolvedTheme, accentColor);
 
     useEffect(() => {
         let mounted = true;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const loadPreferences = async () => {
             try {
-                const [savedTheme, savedAccent] = await Promise.all([
+                // Set a timeout for AsyncStorage - if it takes too long, use defaults
+                const timeoutPromise = new Promise<'timeout'>((resolve) => {
+                    timeoutId = setTimeout(() => resolve('timeout'), 2000);
+                });
+
+                const storagePromise = Promise.all([
                     AsyncStorage.getItem(THEME_STORAGE_KEY),
                     AsyncStorage.getItem(ACCENT_STORAGE_KEY),
                 ]);
 
+                const result = await Promise.race([storagePromise, timeoutPromise]);
+
                 if (!mounted) return;
+
+                // If timeout, use defaults
+                if (result === 'timeout') {
+                    console.log('[ThemeContext] Storage timeout, using defaults');
+                    setIsReady(true);
+                    return;
+                }
+
+                const [savedTheme, savedAccent] = result as [string | null, string | null];
 
                 if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
                     setThemeState(savedTheme);
@@ -80,6 +90,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
         return () => {
             mounted = false;
+            if (timeoutId) clearTimeout(timeoutId);
         };
     }, []);
 
