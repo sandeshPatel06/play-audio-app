@@ -5,8 +5,7 @@ import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import { NowPlayingContext } from '../store/useAudioStore';
-import { useAudioStore } from '../store/useAudioStore';
+import { NowPlayingContext, useAudioStore } from '../store/useAudioStore';
 
 const SUPPORTED_EXTENSIONS = new Set([
     'mp3', 'aac', 'm4a', 'wav', 'aiff', 'aif', 'flac',
@@ -15,10 +14,13 @@ const SUPPORTED_EXTENSIONS = new Set([
     'dsf', 'dff', 'pcm'
 ]);
 
-const LOCAL_SCAN_ROOTS = Platform.OS === 'web' 
-    ? [] 
-    // @ts-ignore - documentDirectory exists at runtime for Expo
-    : [FileSystem.documentDirectory, FileSystem.cacheDirectory].filter(Boolean) as string[];
+const getScanRoots = () => {
+    if (Platform.OS === 'web') return [];
+    const fs = FileSystem as { documentDirectory?: string; cacheDirectory?: string };
+    return [fs.documentDirectory, fs.cacheDirectory].filter(Boolean) as string[];
+};
+
+const LOCAL_SCAN_ROOTS = getScanRoots();
 
 const LOCAL_SCAN_MAX_DEPTH = 3;
 
