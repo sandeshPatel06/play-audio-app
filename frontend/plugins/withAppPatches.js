@@ -74,7 +74,7 @@ import com.facebook.react.uimanager.UIManagerHelper;
 import com.facebook.react.uimanager.UIManagerModule;
 import com.facebook.react.uimanager.common.UIManagerType;
 import com.swmansion.worklets.WorkletsModule;
-import com.swmansion.reanimated.BuildConfig;
+import com.facebook.proguard.annotations.DoNotStrip;
 import java.util.ArrayList;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -103,8 +103,7 @@ public class ReanimatedModule extends NativeReanimatedModuleSpec
     ReactApplicationContext reactCtx = getReactApplicationContext();
     reactCtx.addLifecycleEventListener(this);
     
-    int uiManagerType = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED ? UIManagerType.FABRIC : UIManagerType.DEFAULT;
-    UIManager uiManager = UIManagerHelper.getUIManager(reactCtx, uiManagerType);
+    UIManager uiManager = UIManagerHelper.getUIManager(reactCtx, UIManagerHelper.getUIManagerType(reactCtx));
     if (uiManager != null) {
       uiManager.addUIManagerEventListener(this);
     }
@@ -179,14 +178,20 @@ public class ReanimatedModule extends NativeReanimatedModuleSpec
   }
 
   @ReactMethod(isBlockingSynchronousMethod = true)
+  @DoNotStrip
+  @Override
   public boolean installTurboModule() {
     return true;
   }
 
   @ReactMethod
+  @DoNotStrip
+  @Override
   public void addListener(String ignoredEventName) {}
 
   @ReactMethod
+  @DoNotStrip
+  @Override
   public void removeListeners(Integer ignoredCount) {}
 }
 `;
