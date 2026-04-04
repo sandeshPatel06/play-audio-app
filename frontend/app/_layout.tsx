@@ -51,6 +51,8 @@ function RootLayoutContent() {
       shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
       shouldRouteThroughEarpiece: false,
+      
+
     }).catch(e => console.warn('[Layout] Audio setup error:', e));
   }, []);
 

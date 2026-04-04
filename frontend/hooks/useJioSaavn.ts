@@ -48,44 +48,59 @@ export const useJioSaavnPlayer = () => {
     const { loadAudio } = useAudio();
 
     const playSong = useCallback(async (song: JioSaavnSong) => {
-        const asset: MediaLibrary.Asset = {
-            id: `jiosaavn:${song.id}`,
-            uri: song.streamingUrl,
-            filename: song.title,
-            mediaType: MediaLibrary.MediaType.audio,
-            creationTime: Date.now(),
-            modificationTime: Date.now(),
-            duration: song.duration,
-            width: 0,
-            height: 0,
-        };
+        try {
+            const asset: MediaLibrary.Asset = {
+                id: `jiosaavn:${song.id}`,
+                uri: song.streamingUrl,
+                filename: song.title,
+                mediaType: MediaLibrary.MediaType.audio,
+                creationTime: Date.now(),
+                modificationTime: Date.now(),
+                duration: song.duration,
+                width: 0,
+                height: 0,
+                imageUrl: song.imageUrl,
+                artists: song.artists,
+                album: song.album,
+            } as any;
 
-        store.setQueue([asset]);
-        store.setCurrentIndex(0);
-        store.setNowPlayingContext({ type: 'jiosaavn', title: song.title });
-        
-        await loadAudio(asset, true);
+            store.setQueue([asset]);
+            store.setCurrentIndex(0);
+            store.setNowPlayingContext({ type: 'jiosaavn', title: song.title });
+            
+            await loadAudio(asset, true);
+        } catch (error) {
+            console.error('[JioSaavn] Play song failed:', error);
+        }
     }, [loadAudio, store]);
 
     const playAll = useCallback(async (songs: JioSaavnSong[], startIndex = 0) => {
-        const assets: MediaLibrary.Asset[] = songs.map((song) => ({
-            id: `jiosaavn:${song.id}`,
-            uri: song.streamingUrl,
-            filename: song.title,
-            mediaType: MediaLibrary.MediaType.audio,
-            creationTime: Date.now(),
-            modificationTime: Date.now(),
-            duration: song.duration,
-            width: 0,
-            height: 0,
-        }));
+        try {
+            if (!songs || songs.length === 0) return;
+            const assets: MediaLibrary.Asset[] = songs.map((song) => ({
+                id: `jiosaavn:${song.id}`,
+                uri: song.streamingUrl,
+                filename: song.title,
+                mediaType: MediaLibrary.MediaType.audio,
+                creationTime: Date.now(),
+                modificationTime: Date.now(),
+                duration: song.duration,
+                width: 0,
+                height: 0,
+                imageUrl: song.imageUrl,
+                artists: song.artists,
+                album: song.album,
+            } as any));
 
-        store.setQueue(assets);
-        store.setCurrentIndex(startIndex);
-        store.setNowPlayingContext({ type: 'jiosaavn', title: 'JioSaavn Queue' });
-        
-        if (assets.length > 0) {
-            await loadAudio(assets[startIndex], true);
+            store.setQueue(assets);
+            store.setCurrentIndex(startIndex);
+            store.setNowPlayingContext({ type: 'jiosaavn', title: 'JioSaavn Queue' });
+            
+            if (assets.length > 0) {
+                await loadAudio(assets[startIndex], true);
+            }
+        } catch (error) {
+            console.error('[JioSaavn] Play all failed:', error);
         }
     }, [loadAudio, store]);
 

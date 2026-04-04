@@ -195,20 +195,27 @@ export const useAudio = () => {
         try {
             const playableUri = await resolvePlayableUri(asset);
             
+            if (!playableUri) {
+                console.error('[Audio] No playable URI found for asset:', asset.id);
+                return;
+            }
+
             store.setCurrentSong({ ...asset, uri: playableUri } as MediaLibrary.Asset);
             store.setIsPlaying(shouldPlay);
             globalHasTriggeredTrackEnd = false;
 
             const metadata = {
                 title: asset.filename,
-                artist: 'Unknown Artist',
-                albumTitle: 'Local Library',
-                artworkUrl: cachedArtworkUrl || undefined,
+                artist: (asset as any).artists || 'Unknown Artist',
+                albumTitle: (asset as any).album || (asset.id.startsWith('jiosaavn:') ? 'Saavn' : 'Files'),
+                artworkUrl: (asset as any).imageUrl || cachedArtworkUrl || undefined,
             };
 
             const freshPlayer = useAudioStore.getState().player;
             if (!freshPlayer) {
-                const newPlayer = createAudioPlayer(playableUri);
+                const newPlayer = createAudioPlayer(playableUri, {
+                    keepAudioSessionActive: true,
+                });
                 store.setPlayer(newPlayer);
                 playerRef.current = newPlayer;
                 await setupLockScreenControls(newPlayer, metadata);
@@ -218,6 +225,7 @@ export const useAudio = () => {
                 }
             } else {
                 await freshPlayer.replace(playableUri);
+                // On some versions, we might need to reset lock screen status after replace
                 await setupLockScreenControls(freshPlayer, metadata);
                 freshPlayer.setPlaybackRate(store.playbackRate);
                 if (shouldPlay) {
