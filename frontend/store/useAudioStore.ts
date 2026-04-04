@@ -72,29 +72,33 @@ interface AudioState {
     clearAudio: () => void;
 }
 
+const audioStoreInitialState = {
+    player: null,
+    isPlaying: false,
+    currentSong: null,
+    library: [],
+    queue: [],
+    currentIndex: -1,
+    nowPlayingContext: null,
+    position: 0,
+    duration: 0,
+    shuffle: false,
+    repeatMode: 'off' as RepeatMode,
+    playbackRate: 1,
+    permissionGranted: false,
+    likedIds: [],
+    playlists: [],
+    autoOpenPlayerOnPlay: true,
+    showVideoBadges: true,
+    enableLockScreenControls: true,
+    onlineSourceEnabled: false,
+    onlineSourcePreference: 'both' as const,
+};
+
 export const useAudioStore = create<AudioState>()(
     persist(
         (set) => ({
-            player: null,
-            isPlaying: false,
-            currentSong: null,
-            library: [],
-            queue: [],
-            currentIndex: -1,
-            nowPlayingContext: null,
-            position: 0,
-            duration: 0,
-            shuffle: false,
-            repeatMode: 'off',
-            playbackRate: 1,
-            permissionGranted: false,
-            likedIds: [],
-            playlists: [],
-            autoOpenPlayerOnPlay: true,
-            showVideoBadges: true,
-            enableLockScreenControls: true,
-            onlineSourceEnabled: false,
-            onlineSourcePreference: 'both',
+            ...audioStoreInitialState,
 
             setPlayer: (player) => set({ player }),
             setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -173,7 +177,11 @@ export const useAudioStore = create<AudioState>()(
             }),
 
             clearAudio: () => set((state) => {
-                state.player?.remove();
+                try {
+                    state.player?.remove();
+                } catch (e) {
+                    console.warn('[AudioStore] Error removing player:', e);
+                }
                 return {
                     player: null,
                     isPlaying: false,
@@ -201,6 +209,13 @@ export const useAudioStore = create<AudioState>()(
                 onlineSourceEnabled: state.onlineSourceEnabled,
                 onlineSourcePreference: state.onlineSourcePreference,
             }),
+            onRehydrateStorage: () => (state, error) => {
+                if (error) {
+                    console.warn('[AudioStore] Rehydration error:', error);
+                } else {
+                    console.log('[AudioStore] Rehydrated successfully');
+                }
+            },
         }
     )
 );

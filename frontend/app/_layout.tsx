@@ -1,14 +1,27 @@
 import { setAudioModeAsync } from 'expo-audio';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { BackHandler } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, View, ActivityIndicator, StyleSheet, LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 
+// Ignore non-critical warnings in development
+LogBox.ignoreLogs([
+  'Non-serializable values were found in the navigation state',
+]);
+
+function LoadingScreen() {
+  return (
+    <View style={styles.loading}>
+      <ActivityIndicator size="large" color="#14B8A6" />
+    </View>
+  );
+}
+
 function RootLayoutContent() {
-  const { colors, resolvedTheme } = useTheme();
+  const { colors, resolvedTheme, isReady } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -31,6 +44,15 @@ function RootLayoutContent() {
 
     return () => backHandler.remove();
   }, [router]);
+
+  if (!isReady) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <LoadingScreen />
+      </>
+    );
+  }
 
   return (
     <>
@@ -82,3 +104,12 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#070B14',
+  },
+});
