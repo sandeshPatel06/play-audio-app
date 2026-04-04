@@ -48,18 +48,6 @@ function RootLayoutContent() {
     }).catch(e => console.warn('[Layout] Audio setup error:', e));
   }, []);
 
-  // 2. Back handler
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (router.canGoBack()) {
-        router.back();
-        return true;
-      }
-      return false;
-    });
-    return () => backHandler.remove();
-  }, [router]);
-
   // Always render SOMETHING to the system, but gate the stack on theme readiness
   if (!isReady) {
     return <LoadingView />;
@@ -80,6 +68,7 @@ function RootLayoutContent() {
           },
           animation: 'fade',
           gestureEnabled: true,
+          gestureDirection: 'horizontal',
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

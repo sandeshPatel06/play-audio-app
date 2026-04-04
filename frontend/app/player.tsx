@@ -304,18 +304,54 @@ export default function FullPlayerScreen() {
           {pagedQueue.map((song, index) => {
             const actualIndex = (queuePage - 1) * SONGS_PER_PAGE + index;
             const isCurrent = actualIndex === currentIndex;
+            const track = song as any;
             return (
               <TouchableOpacity
                 key={`${song.id}-${actualIndex}`}
-                style={[styles.queueRow, isCurrent && { borderColor: colors.accent, backgroundColor: colors.activeRowBackground }]}
+                style={[
+                  styles.queueRow,
+                  isCurrent && { 
+                    borderColor: colors.accent, 
+                    backgroundColor: colors.activeRowBackground,
+                    borderWidth: 1 
+                  }
+                ]}
                 onPress={() => startQueuePlayback(queue, actualIndex, nowPlayingContext)}
               >
-                <Text style={[styles.queueIndex, { color: isCurrent ? colors.accent : colors.mutedIcon }]}>{actualIndex + 1}</Text>
-                <View style={styles.queueMetaWrap}>
-                  <Text numberOfLines={1} style={[styles.queueSongName, { color: isCurrent ? colors.accent : colors.text }]}>{song.filename}</Text>
-                  <Text style={[styles.queueDuration, { color: colors.mutedIcon }]}>{Math.floor(song.duration / 60)}:{(song.duration % 60).toFixed(0).padStart(2, '0')}</Text>
+                <View style={styles.queueIndexWrap}>
+                   {isCurrent ? (
+                     <Ionicons name="stats-chart" size={14} color={colors.accent} />
+                   ) : (
+                     <Text style={[styles.queueIndex, { color: colors.mutedIcon }]}>{actualIndex + 1}</Text>
+                   )}
                 </View>
-                {isCurrent ? <Ionicons name="musical-note" size={15} color={colors.accent} /> : null}
+
+                <View style={styles.queueThumbWrap}>
+                  <Image 
+                    source={track.imageUrl ? { uri: track.imageUrl } : require('../assets/images/placeholder.png')} 
+                    style={styles.queueThumb} 
+                  />
+                </View>
+
+                <View style={styles.queueMetaWrap}>
+                  <Text numberOfLines={1} style={[styles.queueSongName, { color: isCurrent ? colors.accent : colors.text }]}>
+                    {song.filename}
+                  </Text>
+                  <View style={styles.queueSubRow}>
+                    {track.artists ? (
+                      <Text numberOfLines={1} style={[styles.queueArtists, { color: colors.mutedIcon }]}>
+                        {track.artists}
+                      </Text>
+                    ) : null}
+                    {song.duration > 0 && (
+                      <Text style={[styles.queueDuration, { color: colors.mutedIcon }]}>
+                        {track.artists ? ' • ' : ''}
+                        {Math.floor(song.duration / 60)}:{(song.duration % 60).toFixed(0).padStart(2, '0')}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                {isCurrent && <Ionicons name="volume-medium" size={16} color={colors.accent} />}
               </TouchableOpacity>
             );
           })}

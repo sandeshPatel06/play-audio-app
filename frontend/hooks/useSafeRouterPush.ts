@@ -10,11 +10,11 @@ export const useSafeRouterPush = () => {
             const currentSong = useAudioStore.getState().currentSong;
             const isVideo = currentSong && /\.(mp4|m4v|mov|webm|m3u8)(\?.*)?$/i.test(currentSong.uri || currentSong.filename);
             if (isVideo) {
-                router.push('/video_player');
+                router.navigate('/video_player');
                 return;
             }
         }
-        router.push(href as any);
+        router.navigate(href as any);
     }, [router]);
 
     return safePush;

@@ -129,9 +129,11 @@ export const SongItem = memo<SongItemProps>(({
                             </View>
                         )}
                     </View>
-                    <Text style={styles.songSubtitle}>
-                        {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toFixed(0).padStart(2, '0')}
-                    </Text>
+                    {asset.duration > 0 && (
+                        <Text style={[styles.songSubtitle, { color: colors.textMuted }]}>
+                            {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toFixed(0).padStart(2, '0')}
+                        </Text>
+                    )}
                 </View>
 
                 {!isSelectionMode && (
@@ -209,9 +211,11 @@ export const GridItem = memo<GridItemProps>(({
             <Text numberOfLines={1} style={[styles.gridTitle, { color: (isActive && !isSelectionMode) || isSelected ? colors.accent : colors.text }]}>
                 {asset.filename}
             </Text>
-            <Text style={[styles.gridSubTitle, { color: colors.textMuted }]}>
-                {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toFixed(0).padStart(2, '0')}
-            </Text>
+            {asset.duration > 0 && (
+                <Text style={[styles.gridSubTitle, { color: colors.textMuted }]}>
+                    {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toFixed(0).padStart(2, '0')}
+                </Text>
+            )}
         </View>
     </ScalePressable>
 ));

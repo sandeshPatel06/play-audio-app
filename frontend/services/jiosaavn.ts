@@ -19,21 +19,35 @@ export interface JioSaavnSearchResult {
     totalResults: number;
 }
 
-const DEFAULT_API_BASE = 'https://saavn.sumit.co';
+const DEFAULT_API_BASE = 'https://jiosaavn-api.vercel.app';
 
-const mapApiResponseToSong = (item: any): JioSaavnSong => ({
-    id: item.id || item.songId || '',
-    title: item.title || item.song || '',
-    subtitle: item.subtitle || item.artist || item.title || '',
-    artists: item.artists || item.artist || item.subtitle || 'Unknown Artist',
-    album: item.album || item.albumName || '',
-    imageUrl: item.image || item.imageUrl || item.thumbnail || '',
-    streamingUrl: item.mediaUrl || item.streamingUrl || item.downloadUrl || item.url || '',
-    duration: parseInt(item.duration, 10) || parseInt(item.time, 10) || 0,
-    year: item.year || '',
-    language: item.language || 'english',
-    permaUrl: item.permaUrl || item.link || '',
-});
+const mapApiResponseToSong = (item: any): JioSaavnSong => {
+    // New API format uses more_info for singers and vlink
+    const moreInfo = item.more_info || {};
+    
+    // Artwork handling: prefer high-res from 'images' object if available
+    const imageUrl = item.images?.['500x500'] || item.image || item.imageUrl || item.thumbnail || '';
+    
+    // Streaming URL handling: new API uses vlink, old uses mediaUrl/downloadUrl
+    const streamingUrl = moreInfo.vlink || item.mediaUrl || item.streamingUrl || item.downloadUrl || item.url || '';
+    
+    // Artist handling: new uses singers, old uses artists/artist
+    const artists = moreInfo.singers || item.artists || item.artist || item.subtitle || 'Unknown Artist';
+
+    return {
+        id: item.id || item.songId || '',
+        title: item.title || item.song || '',
+        subtitle: moreInfo.singers || item.subtitle || item.artist || item.title || '',
+        artists,
+        album: item.album || item.albumName || '',
+        imageUrl,
+        streamingUrl,
+        duration: parseInt(item.duration, 10) || parseInt(item.time, 10) || 0,
+        year: item.year || moreInfo.year || '',
+        language: item.language || moreInfo.language || 'english',
+        permaUrl: item.permaUrl || item.perma_url || item.link || '',
+    };
+};
 
 export const createJioSaavnClient = (baseUrl: string = DEFAULT_API_BASE) => {
     const search = async (query: string, limit: number = 20): Promise<JioSaavnSearchResult> => {
@@ -104,7 +118,7 @@ export const createJioSaavnClient = (baseUrl: string = DEFAULT_API_BASE) => {
         }
     };
 
-    const toAsset = (song: JioSaavnSong): Asset => ({
+    const toAsset = (song: JioSaavnSong): Asset & { imageUrl?: string; artists?: string } => ({
         id: `jiosaavn:${song.id}`,
         uri: song.streamingUrl,
         filename: song.title,
@@ -114,6 +128,8 @@ export const createJioSaavnClient = (baseUrl: string = DEFAULT_API_BASE) => {
         duration: song.duration,
         width: 0,
         height: 0,
+        imageUrl: song.imageUrl,
+        artists: song.artists,
     });
 
     return {

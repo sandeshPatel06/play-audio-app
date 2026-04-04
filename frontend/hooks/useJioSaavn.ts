@@ -1,6 +1,6 @@
-import { createAudioPlayer, AudioPlayer } from 'expo-audio';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { jioSaavn, JioSaavnSong } from '../services/jiosaavn';
+import { useAudio } from './useAudio';
 import { useAudioStore } from '../store/useAudioStore';
 import * as MediaLibrary from 'expo-media-library';
 
@@ -45,21 +45,7 @@ export const useJioSaavnSearch = () => {
 
 export const useJioSaavnPlayer = () => {
     const store = useAudioStore();
-    const previousPlayerRef = useCallback(() => store.player, [store]);
-
-    useEffect(() => {
-        return () => {
-            const oldPlayer = store.player;
-            if (oldPlayer) {
-                try {
-                    oldPlayer.pause();
-                    oldPlayer.remove();
-                } catch {
-                    // Player already removed
-                }
-            }
-        };
-    }, [store.player]);
+    const { loadAudio } = useAudio();
 
     const playSong = useCallback(async (song: JioSaavnSong) => {
         const asset: MediaLibrary.Asset = {
@@ -77,14 +63,9 @@ export const useJioSaavnPlayer = () => {
         store.setQueue([asset]);
         store.setCurrentIndex(0);
         store.setNowPlayingContext({ type: 'jiosaavn', title: song.title });
-        store.setCurrentSong(asset);
-        store.setIsPlaying(true);
-
-        const { createAudioPlayer } = await import('expo-audio');
-        const player = createAudioPlayer(song.streamingUrl);
-        store.setPlayer(player);
-        player.play();
-    }, [store]);
+        
+        await loadAudio(asset, true);
+    }, [loadAudio, store]);
 
     const playAll = useCallback(async (songs: JioSaavnSong[], startIndex = 0) => {
         const assets: MediaLibrary.Asset[] = songs.map((song) => ({
@@ -104,15 +85,9 @@ export const useJioSaavnPlayer = () => {
         store.setNowPlayingContext({ type: 'jiosaavn', title: 'JioSaavn Queue' });
         
         if (assets.length > 0) {
-            store.setCurrentSong(assets[startIndex]);
-            store.setIsPlaying(true);
-
-            const { createAudioPlayer } = await import('expo-audio');
-            const player = createAudioPlayer(assets[startIndex].uri);
-            store.setPlayer(player);
-            player.play();
+            await loadAudio(assets[startIndex], true);
         }
-    }, [store]);
+    }, [loadAudio, store]);
 
     return {
         playSong,
