@@ -51,7 +51,7 @@ module.exports = function withAppPatches(config) {
       fs.writeFileSync(networkConfigPath, NETWORK_SECURITY_XML);
       console.log('✅ [withAppPatches] Created network_security_config.xml');
 
-      // --- Reanimated Hermes Fix ---
+      // --- Reanimated Hermes Fix (CMake) ---
       const reanimatedCmake = path.join(
         config.modRequest.projectRoot,
         'node_modules/react-native-reanimated/android/src/main/cpp/worklets/CMakeLists.txt'
@@ -69,8 +69,67 @@ module.exports = function withAppPatches(config) {
         if (content.includes(oldText) && !content.includes('hermesvm')) {
           content = content.replace(oldText, newText);
           fs.writeFileSync(reanimatedCmake, content);
-          console.log('✅ [withAppPatches] Patched Reanimated for hermesvm target.');
+          console.log('✅ [withAppPatches] Patched Reanimated CMake (hermesvm).');
         }
+      }
+
+      // --- Reanimated Java Fixes (RN 0.83.4 compatibility) ---
+      const projectRoot = config.modRequest.projectRoot;
+      
+      // 1. BorderRadiiDrawableUtils.java
+      const borderRadiiPath = path.join(
+        projectRoot,
+        'node_modules/react-native-reanimated/android/src/reactNativeVersionPatch/BorderRadiiDrawableUtils/latest/com/swmansion/reanimated/BorderRadiiDrawableUtils.java'
+      );
+      if (fs.existsSync(borderRadiiPath)) {
+        let content = fs.readFileSync(borderRadiiPath, 'utf8');
+        const oldCall = 'return length.resolve(bounds.width(), bounds.height()).toPixelFromDIP().getHorizontal();';
+        const newCall = 'return length.resolve((float)Math.max(bounds.width(), bounds.height()));';
+        if (content.includes(oldCall)) {
+          content = content.replace(oldCall, newCall);
+          fs.writeFileSync(borderRadiiPath, content);
+          console.log('✅ [withAppPatches] Patched BorderRadiiDrawableUtils.java');
+        }
+      }
+
+      // 2. ReanimatedModule.java
+      const modPath = path.join(
+        projectRoot,
+        'node_modules/react-native-reanimated/android/src/main/java/com/swmansion/reanimated/ReanimatedModule.java'
+      );
+      if (fs.existsSync(modPath)) {
+        let content = fs.readFileSync(modPath, 'utf8');
+        
+        // Remove failing import
+        content = content.replace('import com.facebook.react.uimanager.UIManagerModuleListener;', '');
+        
+        // Remove implementation of removed interface
+        content = content.replace('implements LifecycleEventListener, UIManagerModuleListener, UIManagerListener', 
+                                 'implements LifecycleEventListener, UIManagerListener');
+        
+        // Fix listener methods
+        content = content.replace('uiManager.addUIManagerListener(this);', 'uiManager.addUIManagerEventListener(this);');
+        content = content.replace('uiManager.removeUIManagerListener(this)', 'uiManager.removeUIManagerEventListener(this)');
+        
+        // Fix Paper-specific willDispatchViewUpdates signature mismatch
+        content = content.replace('@Override\n  public void willDispatchViewUpdates(final UIManagerModule uiManager)', 
+                                 'public void willDispatchViewUpdates(final UIManagerModule uiManager)');
+
+        fs.writeFileSync(modPath, content);
+        console.log('✅ [withAppPatches] Patched ReanimatedModule.java');
+      }
+
+      // 3. ReanimatedPackage.java
+      const packPath = path.join(
+        projectRoot,
+        'node_modules/react-native-reanimated/android/src/main/java/com/swmansion/reanimated/ReanimatedPackage.java'
+      );
+      if (fs.existsSync(packPath)) {
+        let content = fs.readFileSync(packPath, 'utf8');
+        // Fix Systrace constant
+        content = content.replace(/Systrace\.TRACE_TAG_REACT_JAVA_BRIDGE/g, 'Systrace.TRACE_TAG_REACT');
+        fs.writeFileSync(packPath, content);
+        console.log('✅ [withAppPatches] Patched ReanimatedPackage.java');
       }
 
       return config;
