@@ -298,7 +298,7 @@ export const useAudio = () => {
     }, [store]);
 
     const playLikedSongs = useCallback(async () => {
-        const likedSongs = store.library.filter((song) => store.likedIds.includes(song.id));
+        const likedSongs = store.library.filter((song) => store.likedIds.has(song.id));
         if (likedSongs.length === 0) return false;
         await startQueuePlayback(likedSongs, 0, { type: 'liked', title: 'Liked Songs' });
         return true;

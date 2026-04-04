@@ -317,7 +317,7 @@ export default function LibraryScreen() {
                 onLongPress={() => !isSelectionMode && enterSelectionMode(item.id)}
                 onLike={() => toggleLike(item.id)}
                 onMenu={() => onMenuPress(item)}
-                isLiked={likedIds.includes(item.id)}
+                isLiked={likedIds.has(item.id)}
                 showVideoBadges={showVideoBadges}
                 colors={colors}
                 styles={styles}

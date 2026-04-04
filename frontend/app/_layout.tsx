@@ -1,8 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import { setAudioModeAsync } from 'expo-audio';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { BackHandler, View, ActivityIndicator, StyleSheet, LogBox } from 'react-native';
+import { BackHandler, View, ActivityIndicator, StyleSheet, LogBox, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
@@ -29,7 +30,12 @@ function LoadingView() {
   console.log('[Layout] Rendering LoadingView');
   return (
     <View style={styles.loading}>
-      <ActivityIndicator size="large" color="#14B8A6" />
+      <View style={styles.loadingContent}>
+        <Ionicons name="musical-notes" size={56} color="#14B8A6" />
+        <Text style={styles.loadingTitle}>Sonic Flow</Text>
+        <ActivityIndicator size="small" color="#14B8A6" style={styles.loadingIndicator} />
+        <Text style={styles.loadingSubtitle}>Loading your music...</Text>
+      </View>
     </View>
   );
 }
@@ -117,5 +123,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#070B14',
+  },
+  loadingContent: {
+    alignItems: 'center',
+  },
+  loadingTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#EEF4FF',
+    marginTop: 16,
+  },
+  loadingIndicator: {
+    marginTop: 24,
+  },
+  loadingSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 8,
   },
 });

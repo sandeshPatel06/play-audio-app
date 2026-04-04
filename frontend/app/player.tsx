@@ -151,7 +151,7 @@ export default function FullPlayerScreen() {
     );
   }
 
-  const liked = likedIds.includes(currentSong.id);
+  const liked = likedIds.has(currentSong.id);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

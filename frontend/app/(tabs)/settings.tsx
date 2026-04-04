@@ -52,7 +52,7 @@ export default function SettingsScreen() {
     visible: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const showNotice = (title: string, message: string) => {
@@ -119,7 +119,7 @@ export default function SettingsScreen() {
           <View style={[styles.statsCard, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
             <StatPill icon="musical-notes" label="Tracks" value={library.length} colors={colors} />
             <View style={[styles.statDivider, { backgroundColor: colors.cardBorder }]} />
-            <StatPill icon="heart" label="Liked" value={likedIds.length} colors={colors} />
+            <StatPill icon="heart" label="Liked" value={likedIds.size} colors={colors} />
             <View style={[styles.statDivider, { backgroundColor: colors.cardBorder }]} />
             <StatPill icon="list" label="Playlists" value={playlists.length} colors={colors} />
           </View>
@@ -128,30 +128,6 @@ export default function SettingsScreen() {
         {/* ── Appearance ────────────────────────── */}
         <View style={styles.section}>
           <SectionLabel text="Appearance" color={colors.textMuted} />
-
-          {/* Live Preview Card */}
-          <View style={[styles.previewCard, { backgroundColor: resolvedTheme === 'dark' ? '#111827' : '#F4F7FC', borderColor: colors.cardBorder }]}>
-            <View style={[styles.previewBar, { backgroundColor: resolvedTheme === 'dark' ? '#192234' : '#ffffff' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={[styles.previewDot, { backgroundColor: accentColor }]} />
-                <View style={[styles.previewLine, { width: 80, backgroundColor: resolvedTheme === 'dark' ? '#9BA8C2' : '#6b7280' }]} />
-              </View>
-              <View style={[styles.previewPlayBtn, { backgroundColor: accentColor }]}>
-                <Ionicons name="play" size={10} color="#fff" />
-              </View>
-            </View>
-            <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}>
-              {[80, 60, 70].map((w, i) => (
-                <View key={i} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: i === 0 ? accentColor : (resolvedTheme === 'dark' ? '#192234' : '#e5e7eb') }} />
-                  <View style={{ gap: 4 }}>
-                    <View style={[styles.previewLine, { width: w, backgroundColor: resolvedTheme === 'dark' ? '#EEF4FF' : '#111827' }]} />
-                    <View style={[styles.previewLine, { width: w * 0.6, backgroundColor: resolvedTheme === 'dark' ? '#9BA8C2' : '#6b7280' }]} />
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
 
           {/* Theme cards */}
           <View style={styles.themeCardRow}>

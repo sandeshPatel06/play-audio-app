@@ -147,7 +147,7 @@ export default function PlaylistDetailsScreen() {
                 }
                 renderItem={({ item, index }) => {
                     const isActive = currentSong?.id === item.id;
-                    const isLiked = likedIds.includes(item.id);
+                    const isLiked = likedIds.has(item.id);
                     const isVideo = /\.(mp4|m4v|mov|webm|m3u8)$/i.test(`${item.filename} ${item.uri}`);
                     const dur = `${Math.floor(item.duration / 60)}:${(item.duration % 60).toFixed(0).padStart(2, '0')}`;
                     return (

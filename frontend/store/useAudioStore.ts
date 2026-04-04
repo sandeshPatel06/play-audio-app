@@ -34,7 +34,7 @@ interface AudioState {
     repeatMode: RepeatMode;
     playbackRate: number;
     permissionGranted: boolean;
-    likedIds: string[]; // Asset IDs
+    likedIds: Set<string>; // Asset IDs - using Set for O(1) lookups
     playlists: Playlist[];
     autoOpenPlayerOnPlay: boolean;
     showVideoBadges: boolean;
@@ -86,7 +86,7 @@ const audioStoreInitialState = {
     repeatMode: 'off' as RepeatMode,
     playbackRate: 1,
     permissionGranted: false,
-    likedIds: [],
+    likedIds: new Set<string>(),
     playlists: [],
     autoOpenPlayerOnPlay: true,
     showVideoBadges: true,
@@ -119,11 +119,15 @@ export const useAudioStore = create<AudioState>()(
             setOnlineSourceEnabled: (onlineSourceEnabled) => set({ onlineSourceEnabled }),
             setOnlineSourcePreference: (onlineSourcePreference) => set({ onlineSourcePreference }),
 
-            toggleLike: (id) => set((state) => ({
-                likedIds: state.likedIds.includes(id)
-                    ? state.likedIds.filter(i => i !== id)
-                    : [...state.likedIds, id]
-            })),
+            toggleLike: (id) => set((state) => {
+                const newLikedIds = new Set(state.likedIds);
+                if (newLikedIds.has(id)) {
+                    newLikedIds.delete(id);
+                } else {
+                    newLikedIds.add(id);
+                }
+                return { likedIds: newLikedIds };
+            }),
 
             createPlaylist: (name) => set((state) => {
                 const normalizedName = normalizeName(name);
@@ -162,13 +166,19 @@ export const useAudioStore = create<AudioState>()(
                 playlists: state.playlists.filter(p => p.id !== playlistId)
             })),
 
-            clearLikedSongs: () => set({ likedIds: [] }),
+            clearLikedSongs: () => set({ likedIds: new Set<string>() }),
             clearPlaylists: () => set({ playlists: [] }),
 
             reconcileAssetReferences: (validAssetIds) => set((state) => {
                 const validSet = new Set(validAssetIds);
+                const newLikedIds = new Set<string>();
+                for (const id of state.likedIds) {
+                    if (validSet.has(id)) {
+                        newLikedIds.add(id);
+                    }
+                }
                 return {
-                    likedIds: state.likedIds.filter((id) => validSet.has(id)),
+                    likedIds: newLikedIds,
                     playlists: state.playlists.map((playlist) => ({
                         ...playlist,
                         assetIds: playlist.assetIds.filter((id) => validSet.has(id))
@@ -198,7 +208,7 @@ export const useAudioStore = create<AudioState>()(
             name: 'sonic-flow-storage',
             storage: createJSONStorage(() => AsyncStorage),
             partialize: (state) => ({
-                likedIds: state.likedIds,
+                likedIds: Array.from(state.likedIds),
                 playlists: state.playlists,
                 shuffle: state.shuffle,
                 repeatMode: state.repeatMode,
@@ -208,14 +218,7 @@ export const useAudioStore = create<AudioState>()(
                 enableLockScreenControls: state.enableLockScreenControls,
                 onlineSourceEnabled: state.onlineSourceEnabled,
                 onlineSourcePreference: state.onlineSourcePreference,
-            }),
-            onRehydrateStorage: () => (state, error) => {
-                if (error) {
-                    console.warn('[AudioStore] Rehydration error:', error);
-                } else {
-                    console.log('[AudioStore] Rehydrated successfully');
-                }
-            },
+}),
         }
     )
 );

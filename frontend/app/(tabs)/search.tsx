@@ -155,7 +155,7 @@ export default function SearchScreen() {
             item={item}
             onPress={() => onSongPress(item)}
             onLike={() => toggleLike(item.id)}
-            isLiked={likedIds.includes(item.id)}
+            isLiked={likedIds.has(item.id)}
             showVideoBadges={showVideoBadges}
             colors={colors}
             styles={styles}
@@ -181,11 +181,11 @@ export default function SearchScreen() {
                 <View style={{ flex: 1 }}>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Liked Songs</Text>
                     <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                        {likedIds.length} tracks · Tap to play
+                        {likedIds.size} tracks · Tap to play
                     </Text>
                 </View>
                 <View style={[styles.countPill, { backgroundColor: colors.accent }]}>
-                    <Text style={[styles.countPillText, { color: colors.onAccent }]}>{likedIds.length}</Text>
+                    <Text style={[styles.countPillText, { color: colors.onAccent }]}>{likedIds.size}</Text>
                 </View>
             </ScalePressable>
 
