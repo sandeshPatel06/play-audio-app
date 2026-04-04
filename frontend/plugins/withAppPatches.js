@@ -111,9 +111,13 @@ public class ReanimatedModule extends NativeReanimatedModuleSpec
 
   public NodesManager getNodesManager() {
     if (mNodesManager == null) {
-      mNodesManager = new NodesManager(getReactApplicationContext(), getReactApplicationContext().getNativeModule(WorkletsModule.class));
+      mNodesManager = new NodesManager(getReactApplicationContext(), getWorkletsModule());
     }
     return mNodesManager;
+  }
+
+  public WorkletsModule getWorkletsModule() {
+    return getReactApplicationContext().getNativeModule(WorkletsModule.class);
   }
 
   @Override
@@ -139,6 +143,9 @@ public class ReanimatedModule extends NativeReanimatedModuleSpec
       });
     }
   }
+
+  @Override
+  public void willMountItems(@NonNull UIManager uiManager) {}
 
   @Override
   public void didDispatchMountItems(@NonNull UIManager uiManager) {}
