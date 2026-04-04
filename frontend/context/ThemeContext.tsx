@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, View, StyleSheet } from 'react-native';
 import { ACCENT_COLORS, getThemeColors, ThemeColors, ThemeName } from '../constants/colors';
 
 export type ThemeType = ThemeName | 'system';
@@ -22,10 +22,13 @@ const ACCENT_STORAGE_KEY = 'play.accent';
 
 export { ACCENT_COLORS };
 
+const defaultTheme: ThemeType = 'system';
+const defaultAccent = ACCENT_COLORS.teal;
+
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const systemTheme = useColorScheme();
-    const [theme, setThemeState] = useState<ThemeType>('system');
-    const [accentColor, setAccentColorState] = useState<string>(ACCENT_COLORS.teal);
+    const [theme, setThemeState] = useState<ThemeType>(defaultTheme);
+    const [accentColor, setAccentColorState] = useState<string>(defaultAccent);
     const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
@@ -56,12 +59,14 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
             }
         };
 
-        loadPreferences().catch(() => {
-            // Ignore persistence failures and fall back to defaults.
-        });
+        // Small delay to allow splash screen to show first
+        const timer = setTimeout(() => {
+            loadPreferences();
+        }, 100);
 
         return () => {
             mounted = false;
+            clearTimeout(timer);
         };
     }, []);
 
@@ -90,12 +95,35 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         });
     };
 
+    // Render children with default colors while loading to prevent blank screen
+    const contextValue = useMemo(() => ({
+        theme,
+        resolvedTheme,
+        accentColor,
+        isReady,
+        setTheme,
+        setAccentColor,
+        colors,
+    }), [theme, resolvedTheme, accentColor, isReady, colors]);
+
     if (!isReady) {
-        return null;
+        return (
+            <ThemeContext.Provider value={{
+                theme: defaultTheme,
+                resolvedTheme: 'dark',
+                accentColor: defaultAccent,
+                isReady: false,
+                setTheme: () => {},
+                setAccentColor: () => {},
+                colors: getThemeColors('dark', defaultAccent),
+            }}>
+                {children}
+            </ThemeContext.Provider>
+        );
     }
 
     return (
-        <ThemeContext.Provider value={{ theme, resolvedTheme, accentColor, isReady, setTheme, setAccentColor, colors }}>
+        <ThemeContext.Provider value={contextValue}>
             {children}
         </ThemeContext.Provider>
     );

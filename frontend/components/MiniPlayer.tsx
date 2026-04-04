@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -9,21 +9,37 @@ import { useAudio } from '../hooks/useAudio';
 import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 import ScalePressable from './ScalePressable';
 
+import { VideoPlayer } from 'expo-video';
+
 function MiniVideoThumbnail({ uri, isPlaying }: { uri: string, isPlaying: boolean }) {
-    const videoPlayer = useVideoPlayer(uri, (player) => {
-        player.muted = true;
-        player.loop = false;
-        player.showNowPlayingNotification = false;
-        player.staysActiveInBackground = false;
-    });
+    const videoPlayer = useVideoPlayer(
+        uri,
+        useCallback((player: VideoPlayer) => {
+            player.muted = true;
+            player.loop = false;
+            player.showNowPlayingNotification = false;
+            player.staysActiveInBackground = false;
+        }, [])
+    );
 
     useEffect(() => {
+        if (!videoPlayer) return;
         if (isPlaying) {
             videoPlayer.play();
         } else {
             videoPlayer.pause();
         }
     }, [isPlaying, videoPlayer]);
+
+    useEffect(() => {
+        return () => {
+            if (videoPlayer) {
+                videoPlayer.pause();
+            }
+        };
+    }, [uri]);
+
+    if (!videoPlayer) return null;
 
     return (
         <VideoView

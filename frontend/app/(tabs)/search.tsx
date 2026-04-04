@@ -67,9 +67,14 @@ export default function SearchScreen() {
     );
 
     const searchCacheRef = React.useRef<Map<string, JioSaavnSong[]>>(new Map());
+    const abortControllerRef = React.useRef<AbortController | null>(null);
     
     useEffect(() => {
         if (!onlineSourceEnabled || query.trim().length < 2) {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+            }
             return;
         }
         
@@ -78,11 +83,17 @@ export default function SearchScreen() {
             return;
         }
 
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = new AbortController();
+        
         const timer = setTimeout(() => {
             jioSearch(query);
         }, 600);
         
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            abortControllerRef.current?.abort();
+        };
     }, [query, onlineSourceEnabled, jioSearch]);
 
 
@@ -267,6 +278,11 @@ export default function SearchScreen() {
                 initialNumToRender={15}
                 windowSize={5}
                 updateCellsBatchingPeriod={50}
+                getItemLayout={(_, index) => ({
+                    length: 72,
+                    offset: 72 * index,
+                    index,
+                })}
                 ListHeaderComponent={!query ? renderSections : (onlineSourceEnabled && jioResults.length > 0) ? (
                     <View style={styles.jioSection}>
                         <View style={styles.jioHeader}>
@@ -572,18 +588,15 @@ const styles = StyleSheet.create({
     jioTitle: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#000',
     },
     jioArtist: {
         fontSize: 13,
         fontWeight: '500',
-        color: '#666',
         marginTop: 2,
     },
     jioDuration: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#999',
     },
     jioLoading: {
         position: 'absolute',

@@ -127,8 +127,8 @@ export default function PlaylistDetailsScreen() {
                         onPress={() => playAtIndex(0)}
                         disabled={playlistSongs.length === 0}
                     >
-                        <Ionicons name="play" size={18} color="#fff" />
-                        <Text style={[styles.bannerBtnText, { color: '#fff' }]}>Play All</Text>
+                        <Ionicons name="play" size={18} color={colors.onAccent} />
+                        <Text style={[styles.bannerBtnText, { color: colors.onAccent }]}>Play All</Text>
                     </ScalePressable>
                 </View>
             </View>

@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { createAudioPlayer, AudioPlayer } from 'expo-audio';
+import { useCallback, useEffect, useState } from 'react';
 import { jioSaavn, JioSaavnSong } from '../services/jiosaavn';
 import { useAudioStore } from '../store/useAudioStore';
 import * as MediaLibrary from 'expo-media-library';
@@ -44,6 +45,21 @@ export const useJioSaavnSearch = () => {
 
 export const useJioSaavnPlayer = () => {
     const store = useAudioStore();
+    const previousPlayerRef = useCallback(() => store.player, [store]);
+
+    useEffect(() => {
+        return () => {
+            const oldPlayer = store.player;
+            if (oldPlayer) {
+                try {
+                    oldPlayer.pause();
+                    oldPlayer.remove();
+                } catch {
+                    // Player already removed
+                }
+            }
+        };
+    }, [store.player]);
 
     const playSong = useCallback(async (song: JioSaavnSong) => {
         const asset: MediaLibrary.Asset = {

@@ -213,12 +213,16 @@ export const useAudio = () => {
                 playerRef.current = newPlayer;
                 await setupLockScreenControls(newPlayer, metadata);
                 newPlayer.setPlaybackRate(store.playbackRate);
-                if (shouldPlay) newPlayer.play();
+                if (shouldPlay) {
+                    await newPlayer.play();
+                }
             } else {
                 await freshPlayer.replace(playableUri);
                 await setupLockScreenControls(freshPlayer, metadata);
                 freshPlayer.setPlaybackRate(store.playbackRate);
-                if (shouldPlay) freshPlayer.play();
+                if (shouldPlay) {
+                    await freshPlayer.play();
+                }
             }
             
             artworkLoadedRef.current = false;
