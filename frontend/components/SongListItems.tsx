@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
 import React, { memo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
 import ScalePressable from './ScalePressable';
 
 interface ThemeColors {
@@ -19,7 +19,7 @@ interface ThemeColors {
     cardBorder: string;
 }
 
-interface StyleSheet {
+interface SongListStyles {
     songItem?: any;
     songContent?: any;
     thumbnailContainer?: any;
@@ -44,7 +44,7 @@ interface StyleSheet {
 interface SectionHeaderProps {
     title: string;
     colors: ThemeColors;
-    styles: StyleSheet;
+    styles: SongListStyles;
 }
 
 export const SectionHeader = memo<SectionHeaderProps>(({ title, colors, styles }) => (
@@ -66,7 +66,7 @@ interface SongItemProps {
     isLiked: boolean;
     showVideoBadges: boolean;
     colors: ThemeColors;
-    styles: StyleSheet;
+    styles: SongListStyles;
 }
 
 export const SongItem = memo<SongItemProps>(({
@@ -172,7 +172,7 @@ interface GridItemProps {
     onPress: () => void;
     onLongPress: () => void;
     colors: ThemeColors;
-    styles: StyleSheet;
+    styles: SongListStyles;
 }
 
 export const GridItem = memo<GridItemProps>(({

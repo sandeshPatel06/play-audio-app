@@ -147,13 +147,13 @@ export default function SettingsScreen() {
                   onPress={() => handleThemeChange(opt)}
                 >
                   {/* Mini theme preview */}
-                  <View style={[styles.themePreviewMini, { backgroundColor: isDarkPreview ? '#111827' : '#F4F7FC' }]}>
-                    <View style={[styles.themePreviewTopBar, { backgroundColor: isDarkPreview ? '#192234' : '#fff' }]} />
+                  <View style={[styles.themePreviewMini, { backgroundColor: isDarkPreview ? colors.previewDarkBG : colors.previewLightBG }]}>
+                    <View style={[styles.themePreviewTopBar, { backgroundColor: isDarkPreview ? colors.previewDarkSub : colors.pureWhite }]} />
                     <View style={{ padding: 4, gap: 3 }}>
                       {[1, 2].map(i => (
                         <View key={i} style={{ flexDirection: 'row', gap: 3, alignItems: 'center' }}>
-                          <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: i === 1 ? accentColor : (isDarkPreview ? '#192234' : '#e5e7eb') }} />
-                          <View style={[styles.previewLine, { width: i === 1 ? 28 : 20, height: 3, backgroundColor: isDarkPreview ? '#EEF4FF' : '#111827' }]} />
+                          <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: i === 1 ? accentColor : (isDarkPreview ? colors.previewDarkSub : colors.previewLightSub) }} />
+                          <View style={[styles.previewLine, { width: i === 1 ? 28 : 20, height: 3, backgroundColor: isDarkPreview ? colors.previewDarkText : colors.previewLightText }]} />
                         </View>
                       ))}
                     </View>
@@ -171,7 +171,7 @@ export default function SettingsScreen() {
                   </View>
                   {selected && (
                     <View style={[styles.themeSelectedBadge, { backgroundColor: accentColor }]}>
-                      <Ionicons name="checkmark" size={10} color="#fff" />
+                      <Ionicons name="checkmark" size={10} color={colors.pureWhite} />
                     </View>
                   )}
                 </ScalePressable>
@@ -191,11 +191,11 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
             <View style={styles.accentGrid}>
               {([
-                { key: 'teal', color: '#14B8A6', label: 'Teal' },
-                { key: 'classic', color: '#3B82F6', label: 'Sky' },
-                { key: 'purple', color: '#8B5CF6', label: 'Purple' },
-                { key: 'spotify', color: '#22C55E', label: 'Lime' },
-                { key: 'sunset', color: '#F97316', label: 'Sunset' },
+                { key: 'teal', color: colors.accents.teal, label: 'Teal' },
+                { key: 'classic', color: colors.accents.classic, label: 'Sky' },
+                { key: 'purple', color: colors.accents.purple, label: 'Purple' },
+                { key: 'spotify', color: colors.accents.spotify, label: 'Lime' },
+                { key: 'sunset', color: colors.accents.sunset, label: 'Sunset' },
               ]).map(({ key, color, label }) => {
                 const isSelected = accentColor === color;
                 return (
@@ -212,7 +212,7 @@ export default function SettingsScreen() {
                     onPress={() => handleAccentChange(color)}
                   >
                     <View style={[styles.accentSwatchDot, { backgroundColor: color }]}>
-                      {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                      {isSelected && <Ionicons name="checkmark" size={14} color={colors.pureWhite} />}
                     </View>
                     <Text style={[styles.accentSwatchLabel, { color: isSelected ? color : colors.textMuted }]}>
                       {label}
@@ -366,7 +366,7 @@ export default function SettingsScreen() {
           <View style={[styles.card, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
             <ToolRow
               icon="refresh"
-              iconBg="#1a7f4b"
+              iconBg={colors.settingsTeal}
               label="Rescan Library"
               hint="Find newly downloaded tracks"
               colors={colors}
@@ -375,7 +375,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
             <ToolRow
               icon="radio-outline"
-              iconBg="#1a7f4b"
+              iconBg={colors.settingsTeal}
               label="Listening Room"
               hint="Stream audio to another device"
               colors={colors}
@@ -384,7 +384,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
             <ToolRow
               icon="link"
-              iconBg="#1a5fa8"
+              iconBg={colors.settingsBlue}
               label="Play From Link"
               hint="Paste a direct audio/video URL"
               colors={colors}
@@ -393,7 +393,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
             <ToolRow
               icon="play-circle-outline"
-              iconBg="#5a3da8"
+              iconBg={colors.settingsPurple}
               label="Open Player"
               hint="Jump to current playback screen"
               colors={colors}
@@ -402,7 +402,7 @@ export default function SettingsScreen() {
             <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
             <ToolRow
               icon="stop-circle-outline"
-              iconBg="#a83d3d"
+              iconBg={colors.settingsRed}
               label="Stop Playback"
               hint="Clear active player and queue"
               colors={colors}
@@ -514,7 +514,7 @@ function ToolRow({ icon, iconBg, label, hint, colors, onPress, danger }: {
   return (
     <ScalePressable style={styles.actionRow} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}>
       <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={18} color="#fff" />
+        <Ionicons name={icon} size={18} color={colors.pureWhite} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.rowLabel, { color: danger ? colors.danger : colors.text }]}>{label}</Text>

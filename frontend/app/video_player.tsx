@@ -8,6 +8,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Animated, Share, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScalePressable from '../components/ScalePressable';
+import { CORE_COLORS, withAlpha } from '../constants/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../hooks/useAudio';
 
@@ -120,7 +121,7 @@ export default function VideoPlayerScreen() {
         return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
-    const remaining = Math.max(duration - position, 0);
+
 
     const handleShare = async () => {
         try {
@@ -163,14 +164,14 @@ export default function VideoPlayerScreen() {
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]} pointerEvents={controlsVisible ? 'box-none' : 'none'}>
                 <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
                     <ScalePressable style={styles.iconBtn} onPress={() => router.back()}>
-                        <Ionicons name="chevron-down" size={28} color="#FFF" />
+                        <Ionicons name="chevron-down" size={28} color={colors.pureWhite} />
                     </ScalePressable>
                     <View style={styles.headerCenter}>
                         <Text numberOfLines={1} style={styles.headerTitle}>{currentSong?.filename}</Text>
                         <Text style={styles.headerEyebrow}>Video Stream</Text>
                     </View>
                     <ScalePressable style={styles.iconBtn} onPress={handlePiP}>
-                        <Ionicons name="tv-outline" size={22} color="#FFF" />
+                        <Ionicons name="tv-outline" size={22} color={colors.pureWhite} />
                     </ScalePressable>
                 </View>
 
@@ -182,8 +183,8 @@ export default function VideoPlayerScreen() {
                             maximumValue={Math.max(duration, 1)}
                             value={isSliding ? slidingValue : position}
                             minimumTrackTintColor={colors.accent}
-                            maximumTrackTintColor="rgba(255,255,255,0.3)"
-                            thumbTintColor="#FFF"
+                            maximumTrackTintColor={withAlpha(CORE_COLORS.white, 0.3)}
+                            thumbTintColor={colors.pureWhite}
                             onSlidingStart={() => {
                                 setIsSliding(true);
                                 setSlidingValue(position);
@@ -202,19 +203,19 @@ export default function VideoPlayerScreen() {
 
                     <View style={styles.controlRow}>
                         <ScalePressable style={styles.sideControl} onPress={handleShare}>
-                            <Ionicons name="share-social-outline" size={24} color="#FFF" />
+                            <Ionicons name="share-social-outline" size={24} color={colors.pureWhite} />
                         </ScalePressable>
                         <ScalePressable style={styles.mainControl} onPress={() => { handlePrevious(); resetControlsTimeout(); }}>
-                            <Ionicons name="play-skip-back" size={28} color="#FFF" />
+                            <Ionicons name="play-skip-back" size={28} color={colors.pureWhite} />
                         </ScalePressable>
                         <ScalePressable style={[styles.playControl, { backgroundColor: colors.accent }]} onPress={() => { handlePlayPause(); resetControlsTimeout(); }}>
                             <Ionicons name={isPlaying ? 'pause' : 'play'} size={38} color={colors.onAccent} />
                         </ScalePressable>
                         <ScalePressable style={styles.mainControl} onPress={() => { handleNext(); resetControlsTimeout(); }}>
-                            <Ionicons name="play-skip-forward" size={28} color="#FFF" />
+                            <Ionicons name="play-skip-forward" size={28} color={colors.pureWhite} />
                         </ScalePressable>
                         <ScalePressable style={styles.sideControl} onPress={handleRotate}>
-                            <Ionicons name="expand-outline" size={26} color="#FFF" />
+                            <Ionicons name="expand-outline" size={26} color={colors.pureWhite} />
                         </ScalePressable>
                     </View>
                 </View>
@@ -225,8 +226,7 @@ export default function VideoPlayerScreen() {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: '#000',
+        backgroundColor: CORE_COLORS.black,
     },
     header: {
         position: 'absolute',
@@ -237,13 +237,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
         paddingBottom: 20,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: withAlpha(CORE_COLORS.white, 0.5),
     },
     iconBtn: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.2)',
+        backgroundColor: withAlpha(CORE_COLORS.white, 0.2),
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -253,13 +253,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerTitle: {
-        color: '#FFF',
+        color: CORE_COLORS.white,
         fontSize: 18,
         fontWeight: '700',
         textAlign: 'center',
     },
     headerEyebrow: {
-        color: 'rgba(255,255,255,0.7)',
+        color: withAlpha(CORE_COLORS.white, 0.7),
         fontSize: 12,
         fontWeight: '600',
         marginTop: 2,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
         right: 0,
         paddingHorizontal: 24,
         paddingTop: 30,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: withAlpha(CORE_COLORS.black, 0.6),
     },
     sliderWrap: {
         marginBottom: 20,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
         marginTop: -6,
     },
     timeText: {
-        color: 'rgba(255,255,255,0.8)',
+        color: withAlpha(CORE_COLORS.white, 0.8),
         fontSize: 12,
         fontWeight: '600',
     },
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: withAlpha(CORE_COLORS.white, 0.15),
         alignItems: 'center',
         justifyContent: 'center',
     },

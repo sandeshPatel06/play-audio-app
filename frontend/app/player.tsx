@@ -22,6 +22,7 @@ import { ActionDialog, ConfirmDialog, NoticeDialog } from '../components/AppDial
 import PaginationControls from '../components/PaginationControls';
 import ScalePressable from '../components/ScalePressable';
 import { useTheme } from '../context/ThemeContext';
+import { CORE_COLORS, withAlpha } from '../constants/colors';
 import { useAudio } from '../hooks/useAudio';
 import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 
@@ -159,7 +160,7 @@ export default function FullPlayerScreen() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const remaining = Math.max(duration - position, 0);
+
 
   const handleDelete = async () => {
     setDeleteConfirmVisible(false);
@@ -624,7 +625,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginRight: 14,
     overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: withAlpha(CORE_COLORS.black, 0.06),
   },
   queueThumb: {
     width: '100%',
@@ -632,7 +633,7 @@ const styles = StyleSheet.create({
   },
   queuePlayingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: withAlpha(CORE_COLORS.black, 0.4),
     justifyContent: 'center',
     alignItems: 'center',
   },

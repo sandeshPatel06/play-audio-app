@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScalePressable from '../components/ScalePressable';
+import { CORE_COLORS } from '../constants/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useListeningRoom } from '../hooks/useListeningRoom';
 import { useAudio } from '../hooks/useAudio';
@@ -16,12 +17,16 @@ function RoomScreen() {
     const insets = useSafeAreaInsets();
     
     const [joinId, setJoinId] = useState('');
-    const { roomId, isBroadcasting, isListening, startBroadcast, stopBroadcast, joinRoom, leaveRoom, LISTEN_URL } = useListeningRoom();
+    const { roomId, isBroadcasting, isListening, startBroadcast, stopBroadcast, joinRoom, leaveRoom, LISTEN_URL, BROADCAST_URL } = useListeningRoom();
     const { playFromUrl } = useAudio();
 
     const handleCreateRoom = () => {
         if (Platform.OS === 'web') {
             Alert.alert("Not Supported", "Broadcasting local files is not yet supported in the web browser.");
+            return;
+        }
+        if (!LISTEN_URL || !BROADCAST_URL) {
+            Alert.alert("Not Configured", "Server URLs are not configured. Please check your environment settings.");
             return;
         }
         const id = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -30,8 +35,17 @@ function RoomScreen() {
 
     const handleJoinRoom = async () => {
         if (!joinId) return;
-        joinRoom(joinId);
-        await playFromUrl(`${LISTEN_URL}${joinId}/`);
+        if (!LISTEN_URL) {
+            Alert.alert("Not Configured", "Server URL is not configured. Please check your environment settings.");
+            return;
+        }
+        
+        const success = await playFromUrl(`${LISTEN_URL}${joinId}/`);
+        if (success) {
+            joinRoom(joinId);
+        } else {
+            Alert.alert("Connection Failed", "Unable to connect to the room. Please check the Room ID and try again.");
+        }
     };
 
     return (
@@ -119,7 +133,7 @@ const styles = StyleSheet.create({
     sectionTitle: { fontSize: 20, fontWeight: '700' },
     sectionDesc: { fontSize: 14, lineHeight: 20 },
     btn: { padding: 16, borderRadius: 12, alignItems: 'center' },
-    btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    btnText: { color: CORE_COLORS.white, fontSize: 16, fontWeight: '700' },
     input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16, fontWeight: '600', letterSpacing: 2, textAlign: 'center' },
     divider: { height: 1, width: '100%', marginVertical: 8 },
     activeRoomCard: { alignItems: 'center', paddingTop: 60, gap: 20 },

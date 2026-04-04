@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,8 +8,6 @@ import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../hooks/useAudio';
 import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 import ScalePressable from './ScalePressable';
-
-import { VideoPlayer } from 'expo-video';
 
 function MiniVideoThumbnail({ uri, isPlaying }: { uri: string, isPlaying: boolean }) {
     const videoPlayer = useVideoPlayer(
@@ -37,7 +35,7 @@ function MiniVideoThumbnail({ uri, isPlaying }: { uri: string, isPlaying: boolea
                 videoPlayer.pause();
             }
         };
-    }, [uri]);
+    }, [uri, videoPlayer]);
 
     if (!videoPlayer) return null;
 

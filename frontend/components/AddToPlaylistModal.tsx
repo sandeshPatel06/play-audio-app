@@ -24,7 +24,7 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
             animationType="slide"
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
+            <View style={[styles.modalOverlay, { backgroundColor: colors.modalOverlay }]}>
                 {/* Backdrop — closes modal on tap */}
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
@@ -85,7 +85,6 @@ const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.5)',
     },
     sheet: {
         borderTopLeftRadius: 28,

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { setAudioModeAsync } from 'expo-audio';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { CORE_COLORS } from '../constants/colors';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { BackHandler, View, ActivityIndicator, StyleSheet, LogBox, Text } from 'react-native';
+import { useEffect } from 'react';
+import { View, ActivityIndicator, StyleSheet, LogBox, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
@@ -22,8 +23,8 @@ LogBox.ignoreLogs([
 
 // Default dark colors for loading state
 const LOADING_COLORS = {
-  background: '#070B14',
-  text: '#EEF4FF',
+  background: CORE_COLORS.darkBG,
+  text: CORE_COLORS.darkText,
 };
 
 function LoadingView() {
@@ -31,9 +32,9 @@ function LoadingView() {
   return (
     <View style={styles.loading}>
       <View style={styles.loadingContent}>
-        <Ionicons name="musical-notes" size={56} color="#14B8A6" />
+        <Ionicons name="musical-notes" size={56} color={CORE_COLORS.tealAccent} />
         <Text style={styles.loadingTitle}>Sonic Flow</Text>
-        <ActivityIndicator size="small" color="#14B8A6" style={styles.loadingIndicator} />
+        <ActivityIndicator size="small" color={CORE_COLORS.tealAccent} style={styles.loadingIndicator} />
         <Text style={styles.loadingSubtitle}>Loading your music...</Text>
       </View>
     </View>
@@ -42,7 +43,6 @@ function LoadingView() {
 
 function RootLayoutContent() {
   const { colors, resolvedTheme, isReady } = useTheme();
-  const router = useRouter();
 
   // 1. Audio setup - non-blocking
   useEffect(() => {
@@ -118,13 +118,13 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070B14',
+    backgroundColor: CORE_COLORS.black,
   },
   loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#070B14',
+    backgroundColor: CORE_COLORS.darkBG,
   },
   loadingContent: {
     alignItems: 'center',
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   loadingTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#EEF4FF',
+    color: CORE_COLORS.darkText,
     marginTop: 16,
   },
   loadingIndicator: {
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   loadingSubtitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: CORE_COLORS.switchTrackOff,
     marginTop: 8,
   },
 });

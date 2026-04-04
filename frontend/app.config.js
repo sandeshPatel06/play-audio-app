@@ -2,7 +2,6 @@ const { getThemeColors, ACCENT_COLORS } = require('./constants/colors.config');
 
 
 const darkColors = getThemeColors('dark', ACCENT_COLORS.teal);
-const lightColors = getThemeColors('light', ACCENT_COLORS.teal);
 
 /** @type {import('expo/config').ExpoConfig} */
 const config = {

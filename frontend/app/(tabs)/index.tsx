@@ -3,7 +3,6 @@ import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
 import React, {
-    memo,
     useCallback,
     useEffect,
     useMemo,
@@ -13,7 +12,6 @@ import {
     ActivityIndicator,
     Dimensions,
     FlatList,
-    Image,
     PanResponder,
     ScrollView,
     StyleSheet,
@@ -28,6 +26,7 @@ import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppD
 import MiniPlayer from '../../components/MiniPlayer';
 import ScalePressable from '../../components/ScalePressable';
 import { SongItem, GridItem, SectionHeader } from '../../components/SongListItems';
+import { CORE_COLORS, withAlpha } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
@@ -788,7 +787,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         zIndex: 50,
         paddingVertical: 10,
-        backgroundColor: 'rgba(0,0,0,0.1)',
+        backgroundColor: withAlpha(CORE_COLORS.black, 0.1),
         borderRadius: 14,
     },
     scrubberLetter: {
@@ -809,7 +808,7 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         marginBottom: 8,
         overflow: 'hidden',
-        backgroundColor: 'rgba(0,0,0,0.03)',
+        backgroundColor: withAlpha(CORE_COLORS.black, 0.03),
     },
     gridTitle: {
         fontSize: 12,
