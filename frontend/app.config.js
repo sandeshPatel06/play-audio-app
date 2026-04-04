@@ -43,6 +43,7 @@ const config = {
     },
     plugins: [
         'expo-router',
+        'expo-dev-client',
 
         [
             'expo-audio',
