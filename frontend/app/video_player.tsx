@@ -29,6 +29,8 @@ export default function VideoPlayerScreen() {
     } = useAudio();
 
     const [controlsVisible, setControlsVisible] = useState(true);
+    const [isSliding, setIsSliding] = useState(false);
+    const [slidingValue, setSlidingValue] = useState(0);
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const videoViewRef = useRef<VideoView>(null);
@@ -107,6 +109,7 @@ export default function VideoPlayerScreen() {
     const onSeekComplete = async (val: number) => {
         await seekTo(val);
         videoPlayer.currentTime = val;
+        setIsSliding(false);
         resetControlsTimeout();
     };
 
@@ -177,16 +180,23 @@ export default function VideoPlayerScreen() {
                             style={styles.slider}
                             minimumValue={0}
                             maximumValue={Math.max(duration, 1)}
-                            value={position}
+                            value={isSliding ? slidingValue : position}
                             minimumTrackTintColor={colors.accent}
                             maximumTrackTintColor="rgba(255,255,255,0.3)"
                             thumbTintColor="#FFF"
+                            onSlidingStart={() => {
+                                setIsSliding(true);
+                                setSlidingValue(position);
+                                resetControlsTimeout();
+                            }}
+                            onValueChange={(val) => {
+                                setSlidingValue(val);
+                            }}
                             onSlidingComplete={onSeekComplete}
-                            onSlidingStart={resetControlsTimeout}
                         />
                         <View style={styles.timeRow}>
-                            <Text style={styles.timeText}>{formatTime(position)}</Text>
-                            <Text style={styles.timeText}>-{formatTime(remaining)}</Text>
+                            <Text style={styles.timeText}>{formatTime(isSliding ? slidingValue : position)}</Text>
+                            <Text style={styles.timeText}>-{formatTime(Math.max(0, duration - (isSliding ? slidingValue : position)))}</Text>
                         </View>
                     </View>
 

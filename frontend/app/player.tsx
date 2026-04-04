@@ -40,6 +40,8 @@ export default function FullPlayerScreen() {
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [isAddPlaylistVisible, setIsAddPlaylistVisible] = useState(false);
   const [queuePage, setQueuePage] = useState(1);
+  const [isSliding, setIsSliding] = useState(false);
+  const [slidingValue, setSlidingValue] = useState(0);
   const [noticeState, setNoticeState] = useState<{ visible: boolean; title: string; message: string }>({
     visible: false,
     title: '',
@@ -257,15 +259,29 @@ export default function FullPlayerScreen() {
               style={styles.slider}
               minimumValue={0}
               maximumValue={Math.max(duration, 1)}
-              value={position}
+              value={isSliding ? slidingValue : position}
               minimumTrackTintColor={colors.accent}
               maximumTrackTintColor={colors.sliderTrack}
               thumbTintColor={colors.text}
-              onSlidingComplete={onSeekComplete}
+              onSlidingStart={() => {
+                setIsSliding(true);
+                setSlidingValue(position);
+              }}
+              onValueChange={(val) => {
+                setSlidingValue(val);
+              }}
+              onSlidingComplete={async (val) => {
+                await onSeekComplete(val);
+                setIsSliding(false);
+              }}
             />
             <View style={styles.timeRow}>
-              <Text style={[styles.timeText, { color: colors.mutedText }]}>{formatTime(position)}</Text>
-              <Text style={[styles.timeText, { color: colors.mutedText }]}>-{formatTime(remaining)}</Text>
+              <Text style={[styles.timeText, { color: colors.mutedText }]}>
+                {formatTime(isSliding ? slidingValue : position)}
+              </Text>
+              <Text style={[styles.timeText, { color: colors.mutedText }]}>
+                -{formatTime(Math.max(0, duration - (isSliding ? slidingValue : position)))}
+              </Text>
             </View>
           </View>
 
@@ -311,47 +327,42 @@ export default function FullPlayerScreen() {
                 style={[
                   styles.queueRow,
                   isCurrent && { 
-                    borderColor: colors.accent, 
-                    backgroundColor: colors.activeRowBackground,
-                    borderWidth: 1 
+                    backgroundColor: colors.accentSurface,
+                    borderColor: colors.accent,
+                    borderWidth: 1,
                   }
                 ]}
                 onPress={() => startQueuePlayback(queue, actualIndex, nowPlayingContext)}
               >
-                <View style={styles.queueIndexWrap}>
-                   {isCurrent ? (
-                     <Ionicons name="stats-chart" size={14} color={colors.accent} />
-                   ) : (
-                     <Text style={[styles.queueIndex, { color: colors.mutedIcon }]}>{actualIndex + 1}</Text>
-                   )}
-                </View>
-
                 <View style={styles.queueThumbWrap}>
                   <Image 
                     source={track.imageUrl ? { uri: track.imageUrl } : require('../assets/images/placeholder.png')} 
                     style={styles.queueThumb} 
                   />
+                  {isCurrent && (
+                    <View style={styles.queuePlayingOverlay}>
+                       <Ionicons name="stats-chart" size={16} color={colors.onAccent} />
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.queueMetaWrap}>
                   <Text numberOfLines={1} style={[styles.queueSongName, { color: isCurrent ? colors.accent : colors.text }]}>
                     {song.filename}
                   </Text>
-                  <View style={styles.queueSubRow}>
-                    {track.artists ? (
-                      <Text numberOfLines={1} style={[styles.queueArtists, { color: colors.mutedIcon }]}>
-                        {track.artists}
-                      </Text>
-                    ) : null}
-                    {song.duration > 0 && (
-                      <Text style={[styles.queueDuration, { color: colors.mutedIcon }]}>
-                        {track.artists ? ' • ' : ''}
-                        {Math.floor(song.duration / 60)}:{(song.duration % 60).toFixed(0).padStart(2, '0')}
-                      </Text>
-                    )}
-                  </View>
+                  <Text numberOfLines={1} style={[styles.queueArtists, { color: colors.textMuted }]}>
+                    {track.artists || 'Unknown Artist'}
+                  </Text>
                 </View>
-                {isCurrent && <Ionicons name="volume-medium" size={16} color={colors.accent} />}
+
+                <View style={styles.queueRightWrap}>
+                   {song.duration > 0 && (
+                     <Text style={[styles.queueDuration, { color: colors.textMuted }]}>
+                       {Math.floor(song.duration / 60)}:{(song.duration % 60).toFixed(0).padStart(2, '0')}
+                     </Text>
+                   )}
+                   {isCurrent && <Ionicons name="volume-high" size={16} color={colors.accent} style={{ marginLeft: 8 }} />}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -480,14 +491,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   artworkWrap: {
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     borderWidth: 1,
-    borderRadius: 30,
-    padding: 16,
+    borderRadius: 40,
+    padding: 20,
     alignItems: 'center',
+    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   artwork: {
-    borderRadius: 20,
+    borderRadius: 24,
   },
   songBlock: {
     marginTop: 18,
@@ -571,11 +586,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   queueCard: {
-    marginTop: 22,
-    marginHorizontal: 20,
-    borderRadius: 20,
+    marginTop: 24,
+    marginHorizontal: 16,
+    borderRadius: 32,
     borderWidth: 1,
-    padding: 14,
+    padding: 16,
+    paddingTop: 12,
   },
   queueHeader: {
     flexDirection: 'row',
@@ -595,29 +611,54 @@ const styles = StyleSheet.create({
   queueRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'transparent',
-    marginBottom: 8,
   },
-  queueIndex: {
-    width: 24,
-    fontSize: 12,
-    fontWeight: '700',
+  queueThumbWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    marginRight: 14,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.06)',
+  },
+  queueThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  queuePlayingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   queueMetaWrap: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 12,
   },
   queueSongName: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  queueArtists: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  queueRightWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    minWidth: 45,
   },
   queueDuration: {
-    marginTop: 2,
     fontSize: 11,
+    fontWeight: '600',
   },
   emptyWrap: {
     flex: 1,
