@@ -161,6 +161,85 @@ module.exports = function withAppPatches(config) {
         console.log('✅ [withAppPatches] Patched ReanimatedPackage.java');
       }
 
+      // 4. android/CMakeLists.txt (Remove -Werror)
+      const reanimatedMainCmake = path.join(
+        projectRoot,
+        'node_modules/react-native-reanimated/android/CMakeLists.txt'
+      );
+      if (fs.existsSync(reanimatedMainCmake)) {
+        let content = fs.readFileSync(reanimatedMainCmake, 'utf8');
+        content = content.replace(/-Wall -Werror/g, '-Wall -Wno-error');
+        fs.writeFileSync(reanimatedMainCmake, content);
+        console.log('✅ [withAppPatches] Patched Reanimated android/CMakeLists.txt (Removed -Werror)');
+      }
+
+      // 5. ReanimatedModuleProxy.cpp (shadowNodeFromValue shim)
+      const proxyCppPath = path.join(
+        projectRoot,
+        'node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp'
+      );
+      if (fs.existsSync(proxyCppPath)) {
+        let content = fs.readFileSync(proxyCppPath, 'utf8');
+        const shim = `
+#include <react/renderer/uimanager/primitives.h>
+namespace facebook { namespace react {
+#if REACT_NATIVE_MINOR_VERSION >= 83
+inline static std::shared_ptr<const ShadowNode> shadowNodeFromValue(jsi::Runtime &runtime, const jsi::Value &value) {
+  return value.asObject(runtime).getNativeState<ShadowNodeWrapper>(runtime)->shadowNode;
+}
+#endif
+}}
+`;
+        if (content.includes('shadowNodeFromValue') && !content.includes('getNativeState<ShadowNodeWrapper>')) {
+           content = shim + content;
+           fs.writeFileSync(proxyCppPath, content);
+           console.log('✅ [withAppPatches] Patched ReanimatedModuleProxy.cpp (shadowNodeFromValue shim)');
+        }
+      }
+
+      // 6. ReanimatedMountHook.h (HighResTimeStamp)
+      const mountHookHPath = path.join(
+        projectRoot,
+        'node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/ReanimatedMountHook.h'
+      );
+      if (fs.existsSync(mountHookHPath)) {
+        let content = fs.readFileSync(mountHookHPath, 'utf8');
+        if (content.includes('double mountTime')) {
+          content = content.replace('double mountTime', 'HighResTimeStamp mountTime');
+          fs.writeFileSync(mountHookHPath, content);
+          console.log('✅ [withAppPatches] Patched ReanimatedMountHook.h (HighResTimeStamp)');
+        }
+      }
+
+      // 7. ReanimatedMountHook.cpp (HighResTimeStamp)
+      const mountHookCppPath = path.join(
+        projectRoot,
+        'node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/ReanimatedMountHook.cpp'
+      );
+      if (fs.existsSync(mountHookCppPath)) {
+        let content = fs.readFileSync(mountHookCppPath, 'utf8');
+        if (content.includes('double mountTime')) {
+          content = content.replace('double mountTime', 'HighResTimeStamp mountTime');
+          fs.writeFileSync(mountHookCppPath, content);
+          console.log('✅ [withAppPatches] Patched ReanimatedMountHook.cpp (HighResTimeStamp)');
+        }
+      }
+
+      // 8. LayoutAnimationsProxy.cpp (rawProps removal)
+      const layoutProxyPath = path.join(
+        projectRoot,
+        'node_modules/react-native-reanimated/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.cpp'
+      );
+      if (fs.existsSync(layoutProxyPath)) {
+        let content = fs.readFileSync(layoutProxyPath, 'utf8');
+        const oldMerge = 'layoutAnimation.finalView->props->rawProps';
+        if (content.includes(oldMerge)) {
+          content = content.replace(oldMerge, 'folly::dynamic::object()');
+          fs.writeFileSync(layoutProxyPath, content);
+          console.log('✅ [withAppPatches] Patched LayoutAnimationsProxy.cpp (rawProps fallback)');
+        }
+      }
+
       return config;
     },
   ]);
