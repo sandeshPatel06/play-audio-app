@@ -3,8 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
-import React, { memo, useCallback, useMemo, useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { memo, useCallback, useMemo, useState, useEffect } from 'react';
+import { FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
@@ -13,8 +13,10 @@ import PlaylistNameModal from '../../components/PlaylistNameModal';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
+import { useJioSaavnSearch, useJioSaavnPlayer } from '../../hooks/useJioSaavn';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 import { useAudioStore } from '../../store/useAudioStore';
+import { JioSaavnSong } from '../../services/jiosaavn';
 
 
 
@@ -33,6 +35,7 @@ export default function SearchScreen() {
         createPlaylist,
         deletePlaylist,
         currentSong,
+        onlineSourceEnabled,
     } = useAudio();
     const safePush = useSafeRouterPush();
     const [query, setQuery] = useState('');
@@ -46,6 +49,9 @@ export default function SearchScreen() {
         message: '',
     });
 
+    const { results: jioResults, loading: jioLoading, search: jioSearch } = useJioSaavnSearch();
+    const { playAll: playAllJioSongs } = useJioSaavnPlayer();
+
     const selectedPlaylist = useMemo(
         () => playlists.find((playlist) => playlist.id === selectedPlaylistId) ?? null,
         [playlists, selectedPlaylistId]
@@ -55,6 +61,15 @@ export default function SearchScreen() {
         () => library.filter(item => item.filename.toLowerCase().includes(query.toLowerCase())),
         [library, query]
     );
+
+    useEffect(() => {
+        if (onlineSourceEnabled && query.trim().length >= 2) {
+            const timer = setTimeout(() => {
+                jioSearch(query);
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [query, onlineSourceEnabled, jioSearch]);
 
 
 
@@ -72,6 +87,14 @@ export default function SearchScreen() {
             }
         }
     }, [autoOpenPlayerOnPlay, library, openPlayerSafely, startQueuePlayback]);
+
+    const onJioSaavnSongPress = useCallback(async (song: JioSaavnSong, index: number) => {
+        Haptics.selectionAsync();
+        await playAllJioSongs(jioResults, index);
+        if (autoOpenPlayerOnPlay) {
+            openPlayerSafely();
+        }
+    }, [autoOpenPlayerOnPlay, jioResults, openPlayerSafely, playAllJioSongs]);
 
     const openPlaylistActions = (playlistId: string) => {
         Haptics.selectionAsync();
@@ -225,8 +248,25 @@ export default function SearchScreen() {
                 renderItem={renderSearchItem}
                 keyExtractor={(item: any) => item.id || item.filename}
                 extraData={[currentSong?.id, likedIds, showVideoBadges, colors.text]}
-                ListHeaderComponent={!query ? renderSections : null}
-                ListEmptyComponent={query ? (
+                ListHeaderComponent={!query ? renderSections : (onlineSourceEnabled && jioResults.length > 0) ? (
+                    <View style={styles.jioSection}>
+                        <View style={styles.jioHeader}>
+                            <Ionicons name="cloud-outline" size={18} color={colors.accent} />
+                            <Text style={[styles.jioHeaderText, { color: colors.text }]}>Online Results</Text>
+                            <Text style={[styles.jioCount, { color: colors.textMuted }]}>({jioResults.length})</Text>
+                        </View>
+                        {jioResults.map((song, index) => (
+                            <JioSaavnItem
+                                key={song.id}
+                                song={song}
+                                onPress={() => onJioSaavnSongPress(song, index)}
+                                colors={colors}
+                                styles={styles}
+                            />
+                        ))}
+                    </View>
+                ) : null}
+                ListEmptyComponent={query && !jioLoading ? (
                     <View style={styles.empty}>
                         <Ionicons name="search-outline" size={56} color={colors.textMuted} style={{ opacity: 0.4 }} />
                         <Text style={[styles.emptyTitle, { color: colors.text }]}>No Results</Text>
@@ -236,6 +276,12 @@ export default function SearchScreen() {
                 contentContainerStyle={{ paddingBottom: 168 + insets.bottom, paddingHorizontal: 16 }}
                 showsVerticalScrollIndicator={false}
             />
+            {jioLoading && (
+                <View style={styles.jioLoading}>
+                    <ActivityIndicator size="small" color={colors.accent} />
+                    <Text style={[styles.jioLoadingText, { color: colors.textMuted }]}>Searching online...</Text>
+                </View>
+            )}
 
             <PlaylistNameModal
                 visible={isCreatePlaylistVisible}
@@ -471,6 +517,70 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 4,
     },
+    jioSection: {
+        marginBottom: 16,
+    },
+    jioHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        gap: 8,
+    },
+    jioHeaderText: {
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    jioCount: {
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    jioItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+        borderRadius: 16,
+        marginBottom: 8,
+    },
+    jioThumbnail: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        marginRight: 12,
+    },
+    jioInfo: {
+        flex: 1,
+    },
+    jioTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#000',
+    },
+    jioArtist: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#666',
+        marginTop: 2,
+    },
+    jioDuration: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#999',
+    },
+    jioLoading: {
+        position: 'absolute',
+        bottom: 100,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 8,
+    },
+    jioLoadingText: {
+        fontSize: 13,
+        fontWeight: '500',
+    },
 });
 
 const SearchItemComponent = ({ item, onPress, onLike, isLiked, showVideoBadges, colors, styles }: any) => (
@@ -511,3 +621,40 @@ const SearchItemComponent = ({ item, onPress, onLike, isLiked, showVideoBadges, 
 
 const SearchItem = memo(SearchItemComponent);
 SearchItem.displayName = 'SearchItem';
+
+const JioSaavnItemComponent = ({ song, onPress, colors, styles }: { song: JioSaavnSong; onPress: () => void; colors: any; styles: any }) => (
+    <View>
+        <ScalePressable
+            onPress={onPress}
+            style={[styles.jioItem, { backgroundColor: colors.screenSurface }]}
+        >
+            {song.imageUrl ? (
+                <Image
+                    source={{ uri: song.imageUrl }}
+                    style={styles.jioThumbnail}
+                />
+            ) : (
+                <View style={[styles.jioThumbnail, { backgroundColor: colors.cardBackground }]}>
+                    <Ionicons name="musical-note" size={20} color={colors.textMuted} />
+                </View>
+            )}
+            <View style={styles.jioInfo}>
+                <Text numberOfLines={1} style={[styles.jioTitle, { color: colors.text }]}>
+                    {song.title}
+                </Text>
+                <Text numberOfLines={1} style={[styles.jioArtist, { color: colors.textMuted }]}>
+                    {song.artists}
+                </Text>
+            </View>
+            <Text style={[styles.jioDuration, { color: colors.textMuted }]}>
+                {Math.floor(song.duration / 60)}:{(song.duration % 60).toFixed(0).padStart(2, '0')}
+            </Text>
+            <ScalePressable onPress={onPress} style={{ padding: 8 }}>
+                <Ionicons name="play-circle" size={28} color={colors.accent} />
+            </ScalePressable>
+        </ScalePressable>
+    </View>
+);
+
+const JioSaavnItem = memo(JioSaavnItemComponent);
+JioSaavnItem.displayName = 'JioSaavnItem';

@@ -13,7 +13,7 @@ export interface Playlist {
 }
 
 export type NowPlayingContext = {
-    type: 'library' | 'playlist' | 'liked' | 'remote';
+    type: 'library' | 'playlist' | 'liked' | 'remote' | 'jiosaavn';
     title: string;
     playlistId?: string;
 } | null;
@@ -39,6 +39,8 @@ interface AudioState {
     autoOpenPlayerOnPlay: boolean;
     showVideoBadges: boolean;
     enableLockScreenControls: boolean;
+    onlineSourceEnabled: boolean;
+    onlineSourcePreference: 'jiosaavn' | 'local' | 'both';
 
     // Actions
     setPlayer: (player: AudioPlayer | null) => void;
@@ -57,6 +59,8 @@ interface AudioState {
     setAutoOpenPlayerOnPlay: (enabled: boolean) => void;
     setShowVideoBadges: (enabled: boolean) => void;
     setEnableLockScreenControls: (enabled: boolean) => void;
+    setOnlineSourceEnabled: (enabled: boolean) => void;
+    setOnlineSourcePreference: (pref: 'jiosaavn' | 'local' | 'both') => void;
     toggleLike: (id: string) => void;
     createPlaylist: (name: string) => void;
     addToPlaylist: (playlistId: string, assetId: string) => void;
@@ -89,6 +93,8 @@ export const useAudioStore = create<AudioState>()(
             autoOpenPlayerOnPlay: true,
             showVideoBadges: true,
             enableLockScreenControls: true,
+            onlineSourceEnabled: false,
+            onlineSourcePreference: 'both',
 
             setPlayer: (player) => set({ player }),
             setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -106,6 +112,8 @@ export const useAudioStore = create<AudioState>()(
             setAutoOpenPlayerOnPlay: (autoOpenPlayerOnPlay) => set({ autoOpenPlayerOnPlay }),
             setShowVideoBadges: (showVideoBadges) => set({ showVideoBadges }),
             setEnableLockScreenControls: (enableLockScreenControls) => set({ enableLockScreenControls }),
+            setOnlineSourceEnabled: (onlineSourceEnabled) => set({ onlineSourceEnabled }),
+            setOnlineSourcePreference: (onlineSourcePreference) => set({ onlineSourcePreference }),
 
             toggleLike: (id) => set((state) => ({
                 likedIds: state.likedIds.includes(id)
@@ -190,6 +198,8 @@ export const useAudioStore = create<AudioState>()(
                 autoOpenPlayerOnPlay: state.autoOpenPlayerOnPlay,
                 showVideoBadges: state.showVideoBadges,
                 enableLockScreenControls: state.enableLockScreenControls,
+                onlineSourceEnabled: state.onlineSourceEnabled,
+                onlineSourcePreference: state.onlineSourcePreference,
             }),
         }
     )

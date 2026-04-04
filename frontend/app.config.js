@@ -6,7 +6,7 @@ const lightColors = getThemeColors('light', ACCENT_COLORS.teal);
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
     name: 'play-buzz',
-    slug: 'ghhghg',
+    slug: 'play-vee',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
@@ -82,12 +82,12 @@ const config = {
     extra: {
         router: {},
         eas: {
-            projectId: 'f07ce253-8e73-4807-a760-2e89501b156c',
+            projectId: '7b26e7c8-b984-4457-9d20-978b203ebd66',
         },
         EXPO_PUBLIC_WS_URL: process.env.EXPO_PUBLIC_WS_URL,
         EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
     },
-    owner: 'reakuser',
+    owner: 'playveeuser',
 };
 
 module.exports = config;

@@ -33,6 +33,10 @@ export default function SettingsScreen() {
     setShowVideoBadges,
     enableLockScreenControls,
     setEnableLockScreenControls,
+    onlineSourceEnabled,
+    setOnlineSourceEnabled,
+    onlineSourcePreference,
+    setOnlineSourcePreference,
     refreshLibrary,
     clearAudio,
     playFromUrl,
@@ -274,6 +278,51 @@ export default function SettingsScreen() {
               onToggle={setEnableLockScreenControls}
               colors={colors}
             />
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <ToggleRow
+              icon="cloud-outline"
+              label="Online Music (JioSaavn)"
+              hint="Search and play from online"
+              value={onlineSourceEnabled}
+              onToggle={setOnlineSourceEnabled}
+              colors={colors}
+            />
+            {onlineSourceEnabled && (
+              <>
+                <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+                <View style={styles.actionRow}>
+                  <View style={[styles.iconBox, { backgroundColor: colors.iconBackground }]}>
+                    <Ionicons name="options-outline" size={18} color={colors.text} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>Online Source</Text>
+                    <Text style={[styles.rowHint, { color: colors.textMuted }]}>Choose where to play music from</Text>
+                  </View>
+                </View>
+                <View style={styles.preferenceRow}>
+                  {(['local', 'jiosaavn', 'both'] as const).map((pref) => {
+                    const selected = onlineSourcePreference === pref;
+                    return (
+                      <ScalePressable
+                        key={pref}
+                        onPress={() => { Haptics.selectionAsync(); setOnlineSourcePreference(pref); }}
+                        style={[
+                          styles.prefPill,
+                          {
+                            borderColor: selected ? colors.accent : colors.cardBorder,
+                            backgroundColor: selected ? colors.accentSurface : colors.cardBackgroundSubtle,
+                          },
+                        ]}
+                      >
+                        <Text style={{ color: selected ? colors.accent : colors.textMuted, fontSize: 13, fontWeight: '700' }}>
+                          {pref === 'local' ? 'Local Only' : pref === 'jiosaavn' ? 'Online Only' : 'Both'}
+                        </Text>
+                      </ScalePressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
             <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
 
             {/* Repeat */}
@@ -812,5 +861,19 @@ const styles = StyleSheet.create({
   aboutVersion: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  preferenceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
+    marginLeft: 50,
+  },
+  prefPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
 });

@@ -2,6 +2,8 @@
 # A preflight script to catch iOS/Android native build errors locally before waiting on EAS Build.
 set -e
 
+cd "$(dirname "$0")/.." || exit 1
+
 echo "================================================="
 echo "🚀 Starting Pre-EAS Build Checks"
 echo "================================================="
