@@ -1,4 +1,5 @@
 const { getThemeColors, ACCENT_COLORS } = require('./constants/colors.config');
+const withAppPatches = require('./plugins/withAppPatches');
 
 const darkColors = getThemeColors('dark', ACCENT_COLORS.teal);
 const lightColors = getThemeColors('light', ACCENT_COLORS.teal);
@@ -78,6 +79,7 @@ const config = {
             },
         ],
         'expo-font',
+        withAppPatches,
     ],
     extra: {
         router: {},
