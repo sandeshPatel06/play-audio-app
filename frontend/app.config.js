@@ -13,7 +13,7 @@ const config = {
     icon: './assets/images/icon.png',
     scheme: 'play',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: true,
+    newArchEnabled: false,
     ios: {
         supportsTablet: true,
         bundleIdentifier: 'com.jarvisuser.play',

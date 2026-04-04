@@ -8,6 +8,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state',
 ]);
@@ -19,6 +21,7 @@ const LOADING_COLORS = {
 };
 
 function LoadingView() {
+  console.log('[Layout] Rendering LoadingView');
   return (
     <View style={styles.loading}>
       <ActivityIndicator size="large" color="#14B8A6" />
@@ -29,52 +32,67 @@ function LoadingView() {
 function RootLayoutContent() {
   const { colors, resolvedTheme, isReady } = useTheme();
   const router = useRouter();
-  const [splashHidden, setSplashHidden] = useState(false);
+  const [appIsReady, setAppIsReady] = useState(false);
 
-  // Handle splash screen - hide when ready or after safety timeout
+  // 1. Initial Readiness & Hub for hiding splash
   useEffect(() => {
-    if (splashHidden) return;
+    async function prepare() {
+      console.log('[Layout] Preparing app...');
+      try {
+        // Pre-load anything if needed
+      } catch (e) {
+        console.warn('[Layout] Preparation error:', e);
+      } finally {
+        console.log('[Layout] Preparation complete');
+        setAppIsReady(true);
+      }
+    }
+    prepare();
+  }, []);
 
-    let timeoutId: NodeJS.Timeout;
+  // 2. Splash screen logic - hide only when BOTH theme and app are ready
+  useEffect(() => {
+    const readyToHide = isReady && appIsReady;
+    console.log('[Layout] Status - isReady:', isReady, 'appIsReady:', appIsReady, 'readyToHide:', readyToHide);
     
+    let timeoutId: NodeJS.Timeout;
+
     const hideSplash = async () => {
+      console.log('[Layout] Attempting to hide splash screen...');
       try {
         await SplashScreen.hideAsync();
-        setSplashHidden(true);
+        console.log('[Layout] Splash screen hidden');
       } catch (e) {
-        console.warn('Splash hide failed:', e);
-        // Still mark as hidden to prevent infinite loops
-        setSplashHidden(true);
+        console.warn('[Layout] Splash screen hide failed or already hidden:', e);
       }
     };
 
-    if (isReady) {
+    if (readyToHide) {
       hideSplash();
     } else {
-      // Safety timeout: force hide after 3 seconds even if theme not ready
-      timeoutId = setTimeout(hideSplash, 3000);
+      // Bulletproof timeout: hide after 2 seconds regardless
+      timeoutId = setTimeout(() => {
+        console.log('[Layout] Safety timeout: forcing splash hide');
+        hideSplash();
+      }, 2000);
     }
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [isReady, splashHidden]);
+  }, [isReady, appIsReady]);
 
-  // Audio setup - delayed to not block UI
+  // 3. Audio setup - non-blocking
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setAudioModeAsync({
-        playsInSilentMode: true,
-        shouldPlayInBackground: true,
-        interruptionMode: 'doNotMix',
-        shouldRouteThroughEarpiece: false,
-      }).catch(() => {});
-    }, 500);
-
-    return () => clearTimeout(timer);
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: false,
+    }).catch(e => console.warn('[Layout] Audio setup error:', e));
   }, []);
 
-  // Back handler
+  // 4. Back handler
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (router.canGoBack()) {
@@ -83,10 +101,11 @@ function RootLayoutContent() {
       }
       return false;
     });
-
     return () => backHandler.remove();
   }, [router]);
 
+  // Always render SOMETHING to the system, but gate the stack on theme readiness
+  // This prevents the system from seeing a "black" screen if the JS has started but theme hasn't
   if (!isReady) {
     return <LoadingView />;
   }
@@ -104,6 +123,7 @@ function RootLayoutContent() {
           contentStyle: {
             backgroundColor: colors?.background || LOADING_COLORS.background,
           },
+          animation: 'fade',
           gestureEnabled: true,
         }}
       >
@@ -131,6 +151,7 @@ function RootLayoutContent() {
 }
 
 export default function RootLayout() {
+  console.log('[Layout] RootLayout rendering');
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>

@@ -110,11 +110,14 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         let mounted = true;
 
         const loadPreferences = async () => {
+            console.log('[Theme] Loading preferences...');
             try {
                 const [savedTheme, savedAccent] = await Promise.all([
                     AsyncStorage.getItem(THEME_STORAGE_KEY),
                     AsyncStorage.getItem(ACCENT_STORAGE_KEY),
                 ]);
+
+                console.log('[Theme] Saved preferences:', { savedTheme, savedAccent });
 
                 if (!mounted) return;
 
@@ -128,21 +131,21 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
                         setAccentColorState(validAccent);
                     }
                 }
-            } catch {
-                // Use defaults on error
+            } catch (e) {
+                console.warn('[Theme] Load error:', e);
             } finally {
                 if (mounted) {
+                    console.log('[Theme] Initialization ready');
                     setIsReady(true);
                 }
             }
         };
 
         // Small delay then load
-        const timer = setTimeout(loadPreferences, 50);
+        loadPreferences();
 
         return () => {
             mounted = false;
-            clearTimeout(timer);
         };
     }, []);
 
