@@ -1,4 +1,5 @@
 import logging
+import base64
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .queues import get_room_queue, cleanup_room_queue
 
@@ -23,12 +24,11 @@ class AudioBroadcasterConsumer(AsyncWebsocketConsumer):
         logger.info(
             f"Broadcaster disconnected from room: {self.room_id} with code: {code}"
         )
-        cleanup_room_queue(self.room_id)
+        if self.room_id:
+            cleanup_room_queue(self.room_id)
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
-            import base64
-
             bytes_data = base64.b64decode(text_data)
 
         if bytes_data:
