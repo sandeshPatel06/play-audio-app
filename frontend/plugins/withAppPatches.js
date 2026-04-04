@@ -107,16 +107,45 @@ module.exports = function withAppPatches(config) {
         content = content.replace('implements LifecycleEventListener, UIManagerModuleListener, UIManagerListener', 
                                  'implements LifecycleEventListener, UIManagerListener');
         
-        // Fix listener methods
+        // Fix listener registration methods
         content = content.replace('uiManager.addUIManagerListener(this);', 'uiManager.addUIManagerEventListener(this);');
         content = content.replace('uiManager.removeUIManagerListener(this)', 'uiManager.removeUIManagerEventListener(this)');
         
-        // Fix Paper-specific willDispatchViewUpdates signature mismatch
-        content = content.replace('@Override\n  public void willDispatchViewUpdates(final UIManagerModule uiManager)', 
-                                 'public void willDispatchViewUpdates(final UIManagerModule uiManager)');
+        // Merge the two willDispatchViewUpdates into one that handles both Fabric and Paper
+        const oldFabricMethod = /public void willDispatchViewUpdates\(@NonNull UIManager uiManager\) \{[\s\S]*?throw new RuntimeException\("\[Reanimated\] Failed to obtain instance of FabricUIManager\."\);[\s\S]*?\}[\s\S]*?\}/;
+        const newUnifiedMethod = `public void willDispatchViewUpdates(@NonNull UIManager uiManager) {
+    if (mOperations.isEmpty()) {
+      return;
+    }
+    final ArrayList<UIThreadOperation> operations = mOperations;
+    mOperations = new ArrayList<>();
+    if (uiManager instanceof FabricUIManager) {
+      ((FabricUIManager) uiManager).addUIBlock(uiBlockViewResolver -> {
+        NodesManager nodesManager = getNodesManager();
+        for (UIThreadOperation operation : operations) {
+          operation.execute(nodesManager);
+        }
+      });
+    } else if (uiManager instanceof UIManagerModule) {
+      ((UIManagerModule) uiManager).addUIBlock(nativeViewHierarchyManager -> {
+        NodesManager nodesManager = getNodesManager();
+        for (UIThreadOperation operation : operations) {
+          operation.execute(nodesManager);
+        }
+      });
+    }
+  }`;
+        
+        if (content.match(oldFabricMethod)) {
+           content = content.replace(oldFabricMethod, newUnifiedMethod);
+        }
+
+        // Remove the old Paper-only override which no longer matches the interface parameter
+        const oldPaperMethod = /@Override\s+public void willDispatchViewUpdates\(final UIManagerModule uiManager\) \{[\s\S]*?\}\s+?\}\s+/;
+        content = content.replace(oldPaperMethod, '');
 
         fs.writeFileSync(modPath, content);
-        console.log('✅ [withAppPatches] Patched ReanimatedModule.java');
+        console.log('✅ [withAppPatches] Patched ReanimatedModule.java (Robust Unified ViewUpdates)');
       }
 
       // 3. ReanimatedPackage.java
