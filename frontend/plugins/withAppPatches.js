@@ -1,7 +1,5 @@
 const {
-  withAndroidManifest,
   withDangerousMod,
-  withInfoPlist,
 } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
@@ -9,48 +7,13 @@ const path = require('path');
 /**
  * Combined Expo Config Plugin for App Patches:
  * 1. Reanimated Hermes Fix (for RN 0.83.4 target name discrepancy)
- * 2. Network Security Config (for cleartext traffic permissions)
  */
 
-// Android: network_security_config content
-const NETWORK_SECURITY_XML = `<?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">totalcert.co.uk</domain>
-    </domain-config>
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">*.*</domain>
-    </domain-config>
-</network-security-config>`;
-
 module.exports = function withAppPatches(config) {
-  // 1. AndroidManifest setup for Network Security
-  config = withAndroidManifest(config, (config) => {
-    const app = config.modResults.manifest.application?.[0];
-    if (app && !app.$['android:networkSecurityConfig']) {
-      app.$['android:networkSecurityConfig'] = '@xml/network_security_config';
-    }
-    return config;
-  });
-
-  // 2. Dangerous Mods (File System Operations)
+  // 1. Dangerous Mods (File System Operations)
   config = withDangerousMod(config, [
     'android',
     async (config) => {
-      // --- Network Security Config File ---
-      const resDir = path.join(
-        config.modRequest.platformProjectRoot,
-        'app/src/main/res/xml'
-      );
-      const networkConfigPath = path.join(resDir, 'network_security_config.xml');
-
-      if (!fs.existsSync(resDir)) {
-        fs.mkdirSync(resDir, { recursive: true });
-      }
-
-      fs.writeFileSync(networkConfigPath, NETWORK_SECURITY_XML);
-      console.log('✅ [withAppPatches] Created network_security_config.xml');
-
       // --- Reanimated Hermes Fix (CMake) ---
       const reanimatedCmake = path.join(
         config.modRequest.projectRoot,
@@ -88,32 +51,74 @@ module.exports = function withAppPatches(config) {
         if (content.includes(oldCall)) {
           content = content.replace(oldCall, newCall);
           fs.writeFileSync(borderRadiiPath, content);
-          console.log('✅ [withAppPatches] Patched BorderRadiiDrawableUtils.java');
         }
       }
 
-      // 2. ReanimatedModule.java
+      // 2. ReanimatedModule.java (Full Rewrite for RN 0.83.4 Compatibility)
       const modPath = path.join(
         projectRoot,
         'node_modules/react-native-reanimated/android/src/main/java/com/swmansion/reanimated/ReanimatedModule.java'
       );
       if (fs.existsSync(modPath)) {
-        let content = fs.readFileSync(modPath, 'utf8');
-        
-        // Remove failing import
-        content = content.replace('import com.facebook.react.uimanager.UIManagerModuleListener;', '');
-        
-        // Remove implementation of removed interface
-        content = content.replace('implements LifecycleEventListener, UIManagerModuleListener, UIManagerListener', 
-                                 'implements LifecycleEventListener, UIManagerListener');
-        
-        // Fix listener registration methods
-        content = content.replace('uiManager.addUIManagerListener(this);', 'uiManager.addUIManagerEventListener(this);');
-        content = content.replace('uiManager.removeUIManagerListener(this)', 'uiManager.removeUIManagerEventListener(this)');
-        
-        // Merge the two willDispatchViewUpdates into one that handles both Fabric and Paper
-        const oldFabricMethod = /public void willDispatchViewUpdates\(@NonNull UIManager uiManager\) \{[\s\S]*?throw new RuntimeException\("\[Reanimated\] Failed to obtain instance of FabricUIManager\."\);[\s\S]*?\}[\s\S]*?\}/;
-        const newUnifiedMethod = `public void willDispatchViewUpdates(@NonNull UIManager uiManager) {
+        const fullContent = `package com.swmansion.reanimated;
+
+import androidx.annotation.NonNull;
+import com.facebook.react.bridge.LifecycleEventListener;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.UIManager;
+import com.facebook.react.bridge.UIManagerListener;
+import com.facebook.react.fabric.FabricUIManager;
+import com.facebook.react.module.annotations.ReactModule;
+import com.facebook.react.uimanager.UIManagerHelper;
+import com.facebook.react.uimanager.UIManagerModule;
+import com.facebook.react.uimanager.common.UIManagerType;
+import com.swmansion.worklets.WorkletsModule;
+import com.swmansion.reanimated.BuildConfig;
+import java.util.ArrayList;
+import java.util.Objects;
+import javax.annotation.Nullable;
+
+@ReactModule(name = ReanimatedModule.NAME)
+public class ReanimatedModule extends NativeReanimatedModuleSpec
+    implements LifecycleEventListener, UIManagerListener {
+
+  public static final String NAME = "ReanimatedModule";
+
+  private NodesManager mNodesManager;
+  private ArrayList<UIThreadOperation> mOperations = new ArrayList<>();
+  private @Nullable Runnable mUnsubscribe = () -> {};
+
+  private interface UIThreadOperation {
+    void execute(NodesManager nodesManager);
+  }
+
+  public ReanimatedModule(ReactApplicationContext reactContext) {
+    super(reactContext);
+  }
+
+  @Override
+  public void initialize() {
+    super.initialize();
+    ReactApplicationContext reactCtx = getReactApplicationContext();
+    reactCtx.addLifecycleEventListener(this);
+    
+    int uiManagerType = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED ? UIManagerType.FABRIC : UIManagerType.DEFAULT;
+    UIManager uiManager = UIManagerHelper.getUIManager(reactCtx, uiManagerType);
+    if (uiManager != null) {
+      uiManager.addUIManagerEventListener(this);
+    }
+  }
+
+  public NodesManager getNodesManager() {
+    if (mNodesManager == null) {
+      mNodesManager = new NodesManager(getReactApplicationContext(), getReactApplicationContext().getNativeModule(WorkletsModule.class));
+    }
+    return mNodesManager;
+  }
+
+  @Override
+  public void willDispatchViewUpdates(@NonNull UIManager uiManager) {
     if (mOperations.isEmpty()) {
       return;
     }
@@ -134,18 +139,59 @@ module.exports = function withAppPatches(config) {
         }
       });
     }
-  }`;
-        
-        if (content.match(oldFabricMethod)) {
-           content = content.replace(oldFabricMethod, newUnifiedMethod);
-        }
+  }
 
-        // Remove the old Paper-only override which no longer matches the interface parameter
-        const oldPaperMethod = /@Override\s+public void willDispatchViewUpdates\(final UIManagerModule uiManager\) \{[\s\S]*?\}\s+?\}\s+/;
-        content = content.replace(oldPaperMethod, '');
+  @Override
+  public void didDispatchMountItems(@NonNull UIManager uiManager) {}
 
-        fs.writeFileSync(modPath, content);
-        console.log('✅ [withAppPatches] Patched ReanimatedModule.java (Robust Unified ViewUpdates)');
+  @Override
+  public void didMountItems(@NonNull UIManager uiManager) {}
+
+  @Override
+  public void didScheduleMountItems(@NonNull UIManager uiManager) {}
+
+  @Override
+  public void onHostResume() {
+    if (mNodesManager != null) {
+      mNodesManager.onHostResume();
+    }
+  }
+
+  @Override
+  public void onHostPause() {
+    if (mNodesManager != null) {
+      mNodesManager.onHostPause();
+    }
+  }
+
+  @Override
+  public void onHostDestroy() {}
+
+  @Override
+  public void invalidate() {
+    super.invalidate();
+    if (mNodesManager != null) {
+      mNodesManager.invalidate();
+    }
+    if (mUnsubscribe != null) {
+      mUnsubscribe.run();
+    }
+  }
+
+  @ReactMethod(isBlockingSynchronousMethod = true)
+  public boolean installTurboModule() {
+    return true;
+  }
+
+  @ReactMethod
+  public void addListener(String ignoredEventName) {}
+
+  @ReactMethod
+  public void removeListeners(Integer ignoredCount) {}
+}
+`;
+        fs.writeFileSync(modPath, fullContent);
+        console.log('✅ [withAppPatches] Fully rewrote ReanimatedModule.java');
       }
 
       // 3. ReanimatedPackage.java
@@ -243,20 +289,6 @@ inline static std::shared_ptr<const ShadowNode> shadowNodeFromValue(jsi::Runtime
       return config;
     },
   ]);
-
-  // 3. iOS: Add ATS exception
-  config = withInfoPlist(config, (config) => {
-    config.modResults.NSAppTransportSecurity = {
-      NSExceptionDomains: {
-        'totalcert.co.uk': {
-          NSIncludesSubdomains: true,
-          NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
-          NSTemporaryExceptionMinimumTLSVersion: 'TLSv1.1',
-        },
-      },
-    };
-    return config;
-  });
 
   return config;
 };
