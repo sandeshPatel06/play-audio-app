@@ -1,14 +1,19 @@
 import { setAudioModeAsync } from 'expo-audio';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { BackHandler, View, ActivityIndicator, StyleSheet, LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
+import { enableScreens } from 'react-native-screens';
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
+// Disable native screens support to prevent splash screen conflicts
+try {
+  enableScreens(false);
+} catch (e) {
+  console.warn('[Layout] Failed to disable screens:', e);
+}
 
 LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state',
@@ -32,57 +37,8 @@ function LoadingView() {
 function RootLayoutContent() {
   const { colors, resolvedTheme, isReady } = useTheme();
   const router = useRouter();
-  const [appIsReady, setAppIsReady] = useState(false);
 
-  // 1. Initial Readiness & Hub for hiding splash
-  useEffect(() => {
-    async function prepare() {
-      console.log('[Layout] Preparing app...');
-      try {
-        // Pre-load anything if needed
-      } catch (e) {
-        console.warn('[Layout] Preparation error:', e);
-      } finally {
-        console.log('[Layout] Preparation complete');
-        setAppIsReady(true);
-      }
-    }
-    prepare();
-  }, []);
-
-  // 2. Splash screen logic - hide only when BOTH theme and app are ready
-  useEffect(() => {
-    const readyToHide = isReady && appIsReady;
-    console.log('[Layout] Status - isReady:', isReady, 'appIsReady:', appIsReady, 'readyToHide:', readyToHide);
-    
-    let timeoutId: NodeJS.Timeout;
-
-    const hideSplash = async () => {
-      console.log('[Layout] Attempting to hide splash screen...');
-      try {
-        await SplashScreen.hideAsync();
-        console.log('[Layout] Splash screen hidden');
-      } catch (e) {
-        console.warn('[Layout] Splash screen hide failed or already hidden:', e);
-      }
-    };
-
-    if (readyToHide) {
-      hideSplash();
-    } else {
-      // Bulletproof timeout: hide after 2 seconds regardless
-      timeoutId = setTimeout(() => {
-        console.log('[Layout] Safety timeout: forcing splash hide');
-        hideSplash();
-      }, 2000);
-    }
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [isReady, appIsReady]);
-
-  // 3. Audio setup - non-blocking
+  // 1. Audio setup - non-blocking
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
@@ -92,7 +48,7 @@ function RootLayoutContent() {
     }).catch(e => console.warn('[Layout] Audio setup error:', e));
   }, []);
 
-  // 4. Back handler
+  // 2. Back handler
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (router.canGoBack()) {
@@ -105,7 +61,6 @@ function RootLayoutContent() {
   }, [router]);
 
   // Always render SOMETHING to the system, but gate the stack on theme readiness
-  // This prevents the system from seeing a "black" screen if the JS has started but theme hasn't
   if (!isReady) {
     return <LoadingView />;
   }
