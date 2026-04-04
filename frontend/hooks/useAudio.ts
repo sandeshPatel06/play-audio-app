@@ -1,9 +1,9 @@
-import { AudioStatus, createAudioPlayer } from 'expo-audio';
+import { AudioStatus, createAudioPlayer, AudioPlayer } from 'expo-audio';
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { NowPlayingContext } from '../store/useAudioStore';
 import { useAudioStore } from '../store/useAudioStore';
@@ -90,13 +90,38 @@ const LOCK_SCREEN_OPTIONS = {
 };
 
 let globalHasTriggeredTrackEnd = false;
+let cachedArtworkUrl: string | null = null;
+let artworkCachePromise: Promise<string> | null = null;
+
+const preloadArtwork = (): Promise<string> | null => {
+    if (cachedArtworkUrl) {
+        return Promise.resolve(cachedArtworkUrl);
+    }
+    if (artworkCachePromise) {
+        return artworkCachePromise;
+    }
+    try {
+        artworkCachePromise = (async () => {
+            const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
+            await artworkAsset.downloadAsync();
+            cachedArtworkUrl = artworkAsset.localUri || artworkAsset.uri;
+            return cachedArtworkUrl;
+        })();
+        return artworkCachePromise;
+    } catch {
+        return null;
+    }
+};
 
 export const useAudio = () => {
     const store = useAudioStore();
+    const playerRef = useRef<AudioPlayer | null>(null);
+    const artworkLoadedRef = useRef(false);
 
     const disposePlayer = useCallback(() => {
         store.player?.remove();
         store.setPlayer(null);
+        playerRef.current = null;
     }, [store]);
 
     const clearPlaybackState = useCallback(() => {
@@ -117,6 +142,7 @@ export const useAudio = () => {
         if (
             asset.id.startsWith('local:') ||
             asset.id.startsWith('remote:') ||
+            asset.id.startsWith('jiosaavn:') ||
             Platform.OS === 'web'
         ) {
             return asset.uri;
@@ -143,61 +169,61 @@ export const useAudio = () => {
         return writeRequested.status === 'granted';
     }, []);
 
+    const setupLockScreenControls = useCallback(async (player: AudioPlayer, metadata: any) => {
+        if (!store.enableLockScreenControls) {
+            player.clearLockScreenControls();
+            return;
+        }
 
+        const artwork = await preloadArtwork();
+        const finalMetadata = {
+            ...metadata,
+            artworkUrl: artwork || metadata.artworkUrl,
+        };
+
+        try {
+            await player.setActiveForLockScreen(true, finalMetadata, LOCK_SCREEN_OPTIONS);
+            await player.updateLockScreenMetadata(finalMetadata);
+        } catch (error) {
+            console.warn('Lock screen setup failed:', error);
+        }
+    }, [store.enableLockScreenControls]);
 
     const loadAudio = useCallback(async (asset: MediaLibrary.Asset, shouldPlay = true) => {
         try {
             const playableUri = await resolvePlayableUri(asset);
             
-            // Set immediately so UI responds and doesn't get blocked by slow artwork fetching or player init errors
             store.setCurrentSong({ ...asset, uri: playableUri } as MediaLibrary.Asset);
             store.setIsPlaying(shouldPlay);
-
             globalHasTriggeredTrackEnd = false;
-            
-            // Handle artwork with extra care for production environments
-            let artworkUrl: string | undefined;
-            try {
-                const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
-                await artworkAsset.downloadAsync();
-                artworkUrl = artworkAsset.localUri || artworkAsset.uri;
-            } catch (artworkError) {
-                console.warn('Failed to load placeholder artwork:', artworkError);
-            }
 
             const metadata = {
                 title: asset.filename,
                 artist: 'Unknown Artist',
                 albumTitle: 'Local Library',
-                artworkUrl,
+                artworkUrl: cachedArtworkUrl || undefined,
             };
 
             const freshPlayer = useAudioStore.getState().player;
             if (!freshPlayer) {
                 const newPlayer = createAudioPlayer(playableUri);
                 store.setPlayer(newPlayer);
-                if (store.enableLockScreenControls) {
-                    newPlayer.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
-                } else {
-                    newPlayer.clearLockScreenControls();
-                }
+                playerRef.current = newPlayer;
+                await setupLockScreenControls(newPlayer, metadata);
                 newPlayer.setPlaybackRate(store.playbackRate);
                 if (shouldPlay) newPlayer.play();
             } else {
-                freshPlayer.replace(playableUri);
-                if (store.enableLockScreenControls) {
-                    freshPlayer.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
-                    freshPlayer.updateLockScreenMetadata(metadata);
-                } else {
-                    freshPlayer.clearLockScreenControls();
-                }
+                await freshPlayer.replace(playableUri);
+                await setupLockScreenControls(freshPlayer, metadata);
                 freshPlayer.setPlaybackRate(store.playbackRate);
                 if (shouldPlay) freshPlayer.play();
             }
+            
+            artworkLoadedRef.current = false;
         } catch (error) {
             console.error('Error loading audio:', error);
         }
-    }, [resolvePlayableUri, store]);
+    }, [resolvePlayableUri, store, setupLockScreenControls]);
 
     const startQueuePlayback = useCallback(async (
         playbackQueue: MediaLibrary.Asset[],
@@ -320,48 +346,6 @@ export const useAudio = () => {
         if (!store.player) return;
         store.player.setPlaybackRate(store.playbackRate);
     }, [store.player, store.playbackRate]);
-
-    useEffect(() => {
-        if (!store.player || !store.currentSong) return;
-
-        let cancelled = false;
-
-        const syncLockScreenState = async () => {
-            if (!store.enableLockScreenControls) {
-                store.player?.clearLockScreenControls();
-                return;
-            }
-
-            let artworkUrl: string | undefined;
-            try {
-                const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
-                await artworkAsset.downloadAsync();
-                artworkUrl = artworkAsset.localUri || artworkAsset.uri;
-            } catch {
-                // Ignore artwork failure for lock screen to keep playback functional
-            }
-
-            if (cancelled) return;
-
-            const metadata = {
-                title: store.currentSong?.filename,
-                artist: 'Unknown Artist',
-                albumTitle: 'Local Library',
-                artworkUrl,
-            };
-
-            store.player?.setActiveForLockScreen(true, metadata, LOCK_SCREEN_OPTIONS);
-            store.player?.updateLockScreenMetadata(metadata);
-        };
-
-        syncLockScreenState().catch((error) => {
-            console.error('Lock screen sync failed:', error);
-        });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [store.player, store.currentSong, store.enableLockScreenControls]);
 
     const handlePlayPause = useCallback(async () => {
         if (!store.player) return;

@@ -449,6 +449,16 @@ export default function LibraryScreen() {
                 stickyHeaderIndices={isGrid ? [] : sectionedData.indices}
                 contentContainerStyle={[styles.listContent, { paddingBottom: 168 + insets.bottom }]}
                 showsVerticalScrollIndicator={false}
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={15}
+                initialNumToRender={20}
+                windowSize={10}
+                updateCellsBatchingPeriod={50}
+                getItemLayout={(_, index) => ({
+                    length: isGrid ? GRID_ITEM_WIDTH + 16 : 64,
+                    offset: (isGrid ? GRID_ITEM_WIDTH + 16 : 64) * index,
+                    index,
+                })}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name={permissionGranted ? "musical-notes" : "lock-closed"} size={80} color={colors.textMuted} />

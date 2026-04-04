@@ -58,17 +58,31 @@ export default function SearchScreen() {
     );
 
     const filteredItems = useMemo(
-        () => library.filter(item => item.filename.toLowerCase().includes(query.toLowerCase())),
+        () => {
+            if (!query.trim()) return [];
+            const q = query.toLowerCase().trim();
+            return library.filter(item => item.filename.toLowerCase().includes(q));
+        },
         [library, query]
     );
 
+    const searchCacheRef = React.useRef<Map<string, JioSaavnSong[]>>(new Map());
+    
     useEffect(() => {
-        if (onlineSourceEnabled && query.trim().length >= 2) {
-            const timer = setTimeout(() => {
-                jioSearch(query);
-            }, 500);
-            return () => clearTimeout(timer);
+        if (!onlineSourceEnabled || query.trim().length < 2) {
+            return;
         }
+        
+        const cacheKey = query.trim().toLowerCase();
+        if (searchCacheRef.current.has(cacheKey)) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            jioSearch(query);
+        }, 600);
+        
+        return () => clearTimeout(timer);
     }, [query, onlineSourceEnabled, jioSearch]);
 
 
@@ -248,6 +262,11 @@ export default function SearchScreen() {
                 renderItem={renderSearchItem}
                 keyExtractor={(item: any) => item.id || item.filename}
                 extraData={[currentSong?.id, likedIds, showVideoBadges, colors.text]}
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                initialNumToRender={15}
+                windowSize={5}
+                updateCellsBatchingPeriod={50}
                 ListHeaderComponent={!query ? renderSections : (onlineSourceEnabled && jioResults.length > 0) ? (
                     <View style={styles.jioSection}>
                         <View style={styles.jioHeader}>

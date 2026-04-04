@@ -1,13 +1,15 @@
 import { setAudioModeAsync } from 'expo-audio';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { BackHandler } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 
 function RootLayoutContent() {
   const { colors, resolvedTheme } = useTheme();
+  const router = useRouter();
 
   useEffect(() => {
     setAudioModeAsync({
@@ -17,6 +19,18 @@ function RootLayoutContent() {
       shouldRouteThroughEarpiece: false,
     }).catch(err => console.error("Error setting audio mode:", err));
   }, []);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (router.canGoBack()) {
+        router.back();
+        return true;
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [router]);
 
   return (
     <>
@@ -31,11 +45,26 @@ function RootLayoutContent() {
           contentStyle: {
             backgroundColor: colors.background,
           },
+          gestureEnabled: true,
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="player" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="video_player" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+        <Stack.Screen 
+          name="player" 
+          options={{ 
+            presentation: 'modal', 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="video_player" 
+          options={{ 
+            presentation: 'fullScreenModal', 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
         <Stack.Screen name="playlist/[id]" options={{ headerShown: false }} />
       </Stack>
     </>
