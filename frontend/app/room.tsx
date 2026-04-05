@@ -36,21 +36,24 @@ function RoomScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const safePush = useSafeRouterPush();
-    
+
+    // Audio: expo-audio native HTTP streaming for listener playback
+    const { playFromUrl, clearAudio } = useAudio();
+
     const [joinId, setJoinId] = useState('');
     const [isFocused, setIsFocused] = useState(false);
-    const { 
-        roomId, 
-        isBroadcasting, 
-        isListening, 
-        startBroadcast, 
-        stopBroadcast, 
-        joinRoom, 
-        leaveRoom, 
-        LISTEN_URL, 
-        BROADCAST_URL 
+    const {
+        roomId,
+        isBroadcasting,
+        isListening,
+        startBroadcast,
+        stopBroadcast,
+        joinRoom,
+        leaveRoom,
+        BROADCAST_URL,
+        LISTEN_URL,
     } = useListeningRoom();
-    const { playFromUrl } = useAudio();
+
 
     // Pulse animation for broadcasting state
     const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -83,8 +86,8 @@ function RoomScreen() {
             Alert.alert("Not Supported", "Broadcasting local files is not yet supported.");
             return;
         }
-        if (!LISTEN_URL || !BROADCAST_URL) {
-            Alert.alert("Not Configured", "Server URLs are not configured.");
+        if (!BROADCAST_URL) {
+            Alert.alert("Not Configured", "Server WebSocket URL is not configured.");
             return;
         }
         const id = Math.floor(100000 + Math.random() * 900000).toString();
@@ -103,27 +106,35 @@ function RoomScreen() {
     };
 
     const handleJoinRoom = async () => {
-        if (!joinId) return;
-        Keyboard.dismiss();
-        
-        if (!LISTEN_URL) {
-            Alert.alert("Not Configured", "Server URL is not configured.");
+        if (!joinId || joinId.length < 6) {
+            Alert.alert('Invalid Code', 'Please enter a valid 6-digit room code.');
             return;
         }
-        
-        const cleanBase = LISTEN_URL.endsWith('/') ? LISTEN_URL.slice(0, -1) : LISTEN_URL;
-        const streamUrl = `${cleanBase}/${joinId}/`;
-        
-        console.log('[Room] Attempting to join:', streamUrl);
-        const success = await playFromUrl(streamUrl);
-        if (success) {
-            joinRoom(joinId, BROADCAST_URL);
-            // Auto open the player so user sees it's working
-            safePush('/player'); 
-        } else {
-            Alert.alert("Connection Failed", "Unable to connect to the room.");
+        Keyboard.dismiss();
+
+        if (!BROADCAST_URL || !LISTEN_URL) {
+            Alert.alert('Not Configured', 'Server URLs are not configured. Check EXPO_PUBLIC_WS_URL and EXPO_PUBLIC_API_URL.');
+            return;
         }
+
+        // ── Audio: HTTP streaming via expo-audio (native MP3 support) ──
+        // The backend serves raw MP3 bytes decoded from the broadcaster's base64 chunks.
+        const cleanHttp = LISTEN_URL.replace(/\/+$/, '');
+        const streamUrl = `${cleanHttp}/stream/listen/${joinId}/`;
+        console.log('[Room] Starting HTTP audio stream:', streamUrl);
+        const ok = await playFromUrl(streamUrl);
+        if (!ok) {
+            Alert.alert('Connection Failed', 'Could not connect to the room audio stream. Ensure the broadcaster is active.');
+            return;
+        }
+
+        // ── Metadata: WebSocket subscription (song title/artist sync) ──
+        joinRoom(joinId, BROADCAST_URL, LISTEN_URL);
+
+        // Navigate to player so user can see the now-playing info
+        safePush('/player');
     };
+
 
     const renderContent = () => {
         if (isBroadcasting) {
@@ -192,7 +203,7 @@ function RoomScreen() {
                     
                     <ScalePressable 
                         style={[styles.primaryBtn, { backgroundColor: colors.danger, shadowColor: colors.danger }]} 
-                        onPress={leaveRoom}
+                        onPress={() => { leaveRoom(); clearAudio(); }}
                     >
                         <View style={styles.btnContent}>
                             <Ionicons name="log-out" size={20} color={CORE_COLORS.white} />

@@ -1,12 +1,5 @@
-import { useEffect } from 'react';
-import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
+import { Redirect } from 'expo-router';
 
 export default function Entry() {
-  const safePush = useSafeRouterPush();
-  
-  useEffect(() => {
-    safePush('/(tabs)');
-  }, [safePush]);
-  
-  return null;
+  return <Redirect href="/(tabs)" />;
 }

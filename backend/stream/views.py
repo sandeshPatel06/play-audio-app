@@ -4,7 +4,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.http import StreamingHttpResponse
 
-from .queues import get_room_queue, cleanup_room_queue
+from .queues import get_room
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +18,12 @@ def health_check(request):
         }
     )
 
-
 async def stream_audio(request, room_id):
     logger.info(
         f"[LISTEN] stream_audio called with room_id={room_id}, method={request.method}"
     )
-    queue = get_room_queue(room_id)
+    room = get_room(room_id)
+    queue = room.add_subscriber()
 
     async def audio_generator():
         logger.info(f"Listener joined room: {room_id}")
@@ -40,6 +40,7 @@ async def stream_audio(request, room_id):
         except Exception as e:
             logger.error(f"Error in audio generator for room {room_id}: {e}")
         finally:
+            room.remove_subscriber(queue)
             logger.info(f"Listener disconnected from room: {room_id}")
 
     response = StreamingHttpResponse(audio_generator(), content_type="audio/mpeg")

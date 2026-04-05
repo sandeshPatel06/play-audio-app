@@ -22,17 +22,25 @@ function MiniVideoThumbnail({ uri, isPlaying }: { uri: string, isPlaying: boolea
 
     useEffect(() => {
         if (!videoPlayer) return;
-        if (isPlaying) {
-            videoPlayer.play();
-        } else {
-            videoPlayer.pause();
+        try {
+            if (isPlaying) {
+                videoPlayer.play();
+            } else {
+                videoPlayer.pause();
+            }
+        } catch {
+            // Player may have been released
         }
     }, [isPlaying, videoPlayer]);
 
     useEffect(() => {
         return () => {
             if (videoPlayer) {
-                videoPlayer.pause();
+                try {
+                    videoPlayer.pause();
+                } catch {
+                    // Player may have been released
+                }
             }
         };
     }, [uri, videoPlayer]);

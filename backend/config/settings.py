@@ -97,6 +97,7 @@ FIREBASE_DB = firebase_db
 # Application definition
 
 INSTALLED_APPS = [
+    "jazzmin",
     "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -106,7 +107,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "channels",
-    "jazzmin",
     "stream",
 ]
 
@@ -141,6 +141,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}
 
 
 # Database
@@ -253,34 +259,88 @@ LOGGING = {
 }
 
 JAZZMIN_SETTINGS = {
-    "site_title": "Play Music",
-    "site_header": "Play Music",
+    "site_title": "Play Admin",
+    "site_header": "Play",
     "site_brand": "Play Music",
-    "welcome_sign": "Welcome to Play Music Admin",
-    "copyright": "Play Music",
-    "show_model_tools": True,
-    "related_modal_allow_multiple": True,
-    "default_theme": "simplex",
+    "site_logo": None,  # You can add a logo path here later
+    "login_logo": None,
+    "login_logo_dark": None,
+    "site_logo_classes": "img-circle",
+    "site_icon": None,
+    "welcome_sign": "Welcome to the Play Music Administration",
+    "copyright": "Play Music Ltd",
+    "search_model": ["auth.User", "auth.Group"],
+    "user_menu_links": [
+        {
+            "name": "Support",
+            "url": "https://github.com/farridav/django-jazzmin/issues",
+            "new_window": True,
+        },
+        {"model": "auth.user"},
+    ],
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "hide_apps": [],
+    "hide_models": [],
+    "order_with_respect_to": ["auth", "stream"],
+    "custom_links": {
+        "stream": [
+            {
+                "name": "Make Messages",
+                "url": "make_messages",
+                "icon": "fas fa-comments",
+                "permissions": ["stream.view_room"],
+            }
+        ]
+    },
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "stream.Room": "fas fa-microphone",
+    },
+    "default_icon_parents": "fas fa-chevron-circle-right",
+    "default_icon_children": "fas fa-circle",
+    "related_modal_active": True,
+    "custom_css": None,
+    "custom_js": None,
+    "use_google_fonts_cdn": True,
+    "show_ui_builder": False,
+    "changeform_format": "horizontal_tabs",
+    "changeform_format_overrides": {
+        "auth.user": "collapsible",
+        "auth.group": "vertical_tabs",
+    },
 }
 
-JAZZMIN_THEMES = [
-    {
-        "name": "simplex",
-        "theme": "simplex",
-        "primary": "#EAB308",
-        "secondary": "#F97316",
+JAZZMIN_UI_TWEAKS = {
+    "navbar_small_text": False,
+    "footer_small_text": False,
+    "body_small_text": False,
+    "brand_small_text": False,
+    "brand_colour": "navbar-dark",
+    "accent": "accent-primary",
+    "navbar": "navbar-dark",
+    "no_navbar_border": False,
+    "navbar_fixed": True,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": True,
+    "sidebar": "sidebar-dark-warning",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": True,
+    "sidebar_nav_compact_style": False,
+    "sidebar_nav_legacy_style": False,
+    "sidebar_nav_flat_style": False,
+    "theme": "darkly",
+    "dark_mode_theme": "darkly",
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success",
     },
-    {
-        "name": "cerulean",
-        "theme": "cerulean",
-        "primary": "#2B65EC",
-        "secondary": "#DFE6E9",
-    },
-    {"name": "cosmo", "theme": "cosmo", "primary": "#17A2B8", "secondary": "#E9ECEF"},
-    {"name": "flatly", "theme": "flatly", "primary": "#17A2B8", "secondary": "#E9ECEF"},
-    {"name": "litera", "theme": "litera", "primary": "#007BFF", "secondary": "#E9ECEF"},
-    {"name": "minty", "theme": "minty", "primary": "#00B893", "secondary": "#E9ECEF"},
-    {"name": "pulse", "theme": "pulse", "primary": "#6F42C1", "secondary": "#E9ECEF"},
-    {"name": "united", "theme": "united", "primary": "#E95420", "secondary": "#E9ECEF"},
-    {"name": "yeti", "theme": "yeti", "primary": "#1F7A33", "secondary": "#E9ECEF"},
-]
+}
