@@ -1,5 +1,5 @@
 {
-  "name": "play",
+  "name": "just-play",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -51,5 +51,8 @@
     "eslint-config-expo": "55.0.0",
     "typescript": "^5.3.3"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "expo": "55.0.11"
+  }
 }

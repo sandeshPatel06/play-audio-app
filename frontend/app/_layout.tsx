@@ -33,7 +33,7 @@ function LoadingView() {
     <View style={styles.loading}>
       <View style={styles.loadingContent}>
         <Ionicons name="musical-notes" size={80} color={CORE_COLORS.tealAccent} style={{ marginBottom: 20 }} />
-        <Text style={styles.loadingTitle}>Sonic Flow</Text>
+        <Text style={styles.loadingTitle}>Just Play</Text>
         <ActivityIndicator size="small" color={CORE_COLORS.tealAccent} style={styles.loadingIndicator} />
         <Text style={styles.loadingSubtitle}>Preparing your sonic experience...</Text>
       </View>

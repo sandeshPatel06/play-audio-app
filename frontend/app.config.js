@@ -5,8 +5,8 @@ const darkColors = getThemeColors('dark', ACCENT_COLORS.teal);
 
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
-    name: 'play-buzz',
-    slug: 'play-vee',
+    name: 'just-play',
+    slug: 'test-vee',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
@@ -61,8 +61,8 @@ const config = {
         [
             'expo-media-library',
             {
-                photosPermission: 'Allow Play-Buzz to access your photos.',
-                savePhotosPermission: 'Allow Play-Buzz to save photos.',
+                photosPermission: 'Allow Just-Play to access your photos.',
+                savePhotosPermission: 'Allow Just-Play to save photos.',
                 isAccessMediaLocationEnabled: true,
                 granularPermissions: ['audio', 'photo', 'video'],
             },
@@ -71,21 +71,21 @@ const config = {
         [
             '@config-plugins/react-native-webrtc',
             {
-                "cameraPermission": "Allow Play-Buzz to access your camera for video streaming.",
-                "microphonePermission": "Allow Play-Buzz to access your microphone for room chat.",
-                "appleSpeechRecognitionPermission": "Allow Play-Buzz to use speech recognition.",
+                "cameraPermission": "Allow Just-Play to access your camera for video streaming.",
+                "microphonePermission": "Allow Just-Play to access your microphone for room chat.",
+                "appleSpeechRecognitionPermission": "Allow Just-Play to use speech recognition.",
             }
         ],
     ],
     extra: {
         router: {},
         eas: {
-            projectId: '7b26e7c8-b984-4457-9d20-978b203ebd66',
+            projectId: '802e617d-6acc-4290-9a3b-edb83e17e119',
         },
         EXPO_PUBLIC_WS_URL: process.env.EXPO_PUBLIC_WS_URL,
         EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
     },
-    owner: 'playveeuser',
+    owner: 'userofplayvee',
 };
 
 module.exports = config;
