@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
-import { ACCENT_COLORS, getThemeColors, ThemeColors, ThemeName } from '../constants/colors';
+import { ACCENT_COLORS, CORE_COLORS, getThemeColors, ThemeColors, ThemeName } from '../constants/colors';
 
 export type ThemeType = ThemeName | 'system';
 
@@ -94,6 +94,15 @@ const fallbackColors: ThemeColors = {
   settingsRed: '#a83d3d',
   pureBlack: '#000000',
   pureWhite: '#FFFFFF',
+  // Preview colors
+  previewDarkBG: '#111827',
+  previewLightBG: '#F4F7FC',
+  previewDarkSub: '#192234',
+  previewLightSub: '#e5e7eb',
+  previewDarkText: '#EEF4FF',
+  previewLightText: '#111827',
+  // Accent hex values
+  accents: ACCENT_COLORS,
 };
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {

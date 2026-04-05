@@ -106,6 +106,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "channels",
+    "jazzmin",
     "stream",
 ]
 
@@ -250,3 +251,36 @@ LOGGING = {
         },
     },
 }
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Play Music",
+    "site_header": "Play Music",
+    "site_brand": "Play Music",
+    "welcome_sign": "Welcome to Play Music Admin",
+    "copyright": "Play Music",
+    "show_model_tools": True,
+    "related_modal_allow_multiple": True,
+    "default_theme": "simplex",
+}
+
+JAZZMIN_THEMES = [
+    {
+        "name": "simplex",
+        "theme": "simplex",
+        "primary": "#EAB308",
+        "secondary": "#F97316",
+    },
+    {
+        "name": "cerulean",
+        "theme": "cerulean",
+        "primary": "#2B65EC",
+        "secondary": "#DFE6E9",
+    },
+    {"name": "cosmo", "theme": "cosmo", "primary": "#17A2B8", "secondary": "#E9ECEF"},
+    {"name": "flatly", "theme": "flatly", "primary": "#17A2B8", "secondary": "#E9ECEF"},
+    {"name": "litera", "theme": "litera", "primary": "#007BFF", "secondary": "#E9ECEF"},
+    {"name": "minty", "theme": "minty", "primary": "#00B893", "secondary": "#E9ECEF"},
+    {"name": "pulse", "theme": "pulse", "primary": "#6F42C1", "secondary": "#E9ECEF"},
+    {"name": "united", "theme": "united", "primary": "#E95420", "secondary": "#E9ECEF"},
+    {"name": "yeti", "theme": "yeti", "primary": "#1F7A33", "secondary": "#E9ECEF"},
+]

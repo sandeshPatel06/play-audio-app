@@ -51,6 +51,7 @@ export const ACCENT_COLORS = {
     sunset: '#F97316',
     teal: '#14B8A6',
     purple: '#8B5CF6',
+    jasmin: '#EAB308',
 } as const;
 
 const BASE_THEMES = {

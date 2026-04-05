@@ -218,7 +218,15 @@ export const useAudioStore = create<AudioState>()(
                 enableLockScreenControls: state.enableLockScreenControls,
                 onlineSourceEnabled: state.onlineSourceEnabled,
                 onlineSourcePreference: state.onlineSourcePreference,
-}),
+            }),
+            merge: (persistedState, currentState) => {
+                const state = persistedState as Partial<AudioState>;
+                return {
+                    ...currentState,
+                    ...(state || {}),
+                    likedIds: new Set((state as any)?.likedIds || []),
+                };
+            },
         }
     )
 );

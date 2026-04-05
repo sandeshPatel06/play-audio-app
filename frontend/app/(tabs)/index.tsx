@@ -19,6 +19,8 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    Image,
+    useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddToPlaylistModal from '../../components/AddToPlaylistModal';
@@ -32,12 +34,23 @@ import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 32 - 24) / 3; // 3 columns, 16px lateral padding, 4px margin around items
+const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 32 - 24) / 3;
+
+function createStyles(colors: any, scale: number, isSmall: boolean, isMedium: boolean, screenWidth: number, gridItemWidth: number) {
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
+    const { width: screenWidth } = useWindowDimensions();
     const { colors, resolvedTheme } = useTheme();
     const safePush = useSafeRouterPush();
+    
+    const isSmall = screenWidth < 375;
+    const isMedium = screenWidth >= 375 && screenWidth < 414;
+    const scale = screenWidth / 375;
+    const gridItemWidth = (screenWidth - 32 - (isSmall ? 12 : 16)) / (isSmall ? 2 : 3);
+    const listItemHeight = Math.max(56, Math.min(64, 56 * scale));
+    
+    const styles = useMemo(() => createStyles(colors, scale, isSmall, isMedium, screenWidth, gridItemWidth), [colors, scale, isSmall, isMedium, screenWidth, gridItemWidth]);
     const {
         permissionGranted,
         setPermissionGranted,
@@ -327,9 +340,14 @@ export default function LibraryScreen() {
 
     if (loading) {
         return (
-            <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color={colors.accent} />
-                <Text style={{ color: colors.textMuted, marginTop: 20 }}>Loading your library...</Text>
+            <View style={[styles.container, { backgroundColor: colors.screenBackground, justifyContent: 'center', alignItems: 'center' }]}>
+                <Image 
+                    source={require('../../assets/images/splash-icon.png')} 
+                    style={{ width: 100, height: 100, marginBottom: 20 }} 
+                    resizeMode="contain" 
+                />
+                <ActivityIndicator size="small" color={colors.accent} />
+                <Text style={{ color: colors.textMuted, marginTop: 20, fontWeight: '600' }}>Scan in progress...</Text>
             </View>
         );
     }
@@ -568,7 +586,7 @@ export default function LibraryScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = (colors: any, scale: number, isSmall: boolean, isMedium: boolean, screenWidth: number, isGrid: boolean, gridItemWidth: number, listItemHeight: number) => StyleSheet.create({
     container: {
         flex: 1,
     },
@@ -582,7 +600,7 @@ const styles = StyleSheet.create({
         opacity: 0.11,
     },
     header: {
-        paddingHorizontal: 16,
+        paddingHorizontal: isSmall ? 12 : 16,
         paddingBottom: 10,
     },
     headerTop: {
@@ -598,12 +616,12 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     selectionCount: {
-        fontSize: 18,
+        fontSize: isSmall ? 16 : 18,
         fontWeight: '700',
     },
     headerBtn: {
-        width: 44,
-        height: 44,
+        width: isSmall ? 40 : 44,
+        height: isSmall ? 40 : 44,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -613,18 +631,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     headerSubtitle: {
-        fontSize: 12,
+        fontSize: isSmall ? 11 : 12,
         fontWeight: '700',
         textTransform: 'uppercase',
         letterSpacing: 1.2,
         marginBottom: 2,
     },
     headerTitle: {
-        fontSize: 28,
+        fontSize: isSmall ? 24 : 28,
         fontWeight: '800',
     },
     headerEyebrow: {
-        fontSize: 11,
+        fontSize: isSmall ? 10 : 11,
         fontWeight: '700',
         textTransform: 'uppercase',
         letterSpacing: 1.2,
@@ -633,29 +651,29 @@ const styles = StyleSheet.create({
     countBadge: {
         borderRadius: 12,
         borderWidth: 1,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
+        paddingHorizontal: isSmall ? 8 : 10,
+        paddingVertical: isSmall ? 4 : 5,
         marginRight: 8,
         justifyContent: 'center',
     },
     countBadgeText: {
-        fontSize: 14,
+        fontSize: isSmall ? 12 : 14,
         fontWeight: '800',
     },
     iconBtn: {
-        width: 46,
-        height: 46,
-        borderRadius: 16,
+        width: isSmall ? 42 : 46,
+        height: isSmall ? 42 : 46,
+        borderRadius: isSmall ? 14 : 16,
         borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
     listContent: {
-        paddingHorizontal: 16,
+        paddingHorizontal: isSmall ? 12 : 16,
     },
     songItem: {
         marginBottom: 8,
-        borderRadius: 16,
+        borderRadius: isSmall ? 14 : 16,
         overflow: 'hidden',
     },
     songContent: {
@@ -664,9 +682,9 @@ const styles = StyleSheet.create({
         padding: 8,
     },
     thumbnailContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
+        width: isSmall ? 42 : 48,
+        height: isSmall ? 42 : 48,
+        borderRadius: isSmall ? 10 : 12,
         marginRight: 10,
         overflow: 'hidden',
         elevation: 5,
@@ -697,12 +715,12 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     songTitle: {
-        fontSize: 15,
+        fontSize: isSmall ? 14 : 15,
         fontWeight: '700',
         marginBottom: 4,
     },
     songSubtitle: {
-        fontSize: 13,
+        fontSize: isSmall ? 12 : 13,
         fontWeight: '500',
     },
     menuBtn: {
@@ -710,16 +728,16 @@ const styles = StyleSheet.create({
     },
     emptyContainer: {
         alignItems: 'center',
-        paddingTop: 116,
+        paddingTop: isSmall ? 80 : 116,
         opacity: 0.5,
     },
     selectionBar: {
         position: 'absolute',
         alignSelf: 'center',
         flexDirection: 'row',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 18,
+        paddingHorizontal: isSmall ? 16 : 20,
+        paddingVertical: isSmall ? 10 : 12,
+        borderRadius: isSmall ? 16 : 18,
         elevation: 10,
         shadowOffset: { width: 0, height: 5 },
         shadowOpacity: 0.3,
@@ -728,9 +746,9 @@ const styles = StyleSheet.create({
     bulkActionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 22,
+        paddingHorizontal: isSmall ? 16 : 20,
+        paddingVertical: isSmall ? 8 : 10,
+        borderRadius: isSmall ? 20 : 22,
     },
     bulkActionText: {
         fontWeight: '700',
@@ -738,99 +756,97 @@ const styles = StyleSheet.create({
     },
     headerSection: {
         paddingVertical: 8,
-        paddingHorizontal: 12,
+        paddingHorizontal: isSmall ? 8 : 12,
         marginTop: 8,
     },
     headerSectionText: {
-        fontSize: 13,
+        fontSize: isSmall ? 12 : 13,
         fontWeight: '800',
         letterSpacing: 0.8,
         opacity: 0.9,
     },
     sortContainer: {
         flexDirection: 'row',
-        gap: 8,
+        gap: isSmall ? 6 : 8,
     },
     sortBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        minHeight: 38,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+        minHeight: isSmall ? 34 : 38,
+        paddingHorizontal: isSmall ? 12 : 16,
+        paddingVertical: isSmall ? 6 : 8,
+        borderRadius: isSmall ? 18 : 20,
         borderWidth: 1,
-        gap: 6,
+        gap: 4,
     },
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 16,
+        paddingHorizontal: isSmall ? 12 : 16,
+        paddingVertical: isSmall ? 10 : 12,
+        borderRadius: isSmall ? 14 : 16,
         borderWidth: 1,
         marginBottom: 16,
     },
     searchInput: {
         flex: 1,
-        fontSize: 16,
+        fontSize: isSmall ? 14 : 16,
         fontWeight: '500',
         padding: 0,
-        paddingVertical: 0, // Android fix
     },
     scrubberContainer: {
         position: 'absolute',
         right: 2,
-        top: '25%', 
-        bottom: '25%', 
-        width: 28,
+        top: '25%',
+        bottom: '25%',
+        width: isSmall ? 24 : 28,
         alignItems: 'center',
         justifyContent: 'space-between',
         zIndex: 50,
         paddingVertical: 10,
         backgroundColor: withAlpha(CORE_COLORS.black, 0.1),
-        borderRadius: 14,
+        borderRadius: isSmall ? 12 : 14,
     },
     scrubberLetter: {
-        fontSize: 10,
+        fontSize: isSmall ? 9 : 10,
         fontWeight: '800',
     },
     gridItem: {
-        width: GRID_ITEM_WIDTH,
-        marginHorizontal: 4,
-        marginBottom: 16,
-        borderRadius: 12,
-        padding: 6,
+        width: gridItemWidth,
+        marginHorizontal: isSmall ? 2 : 4,
+        marginBottom: isSmall ? 12 : 16,
+        borderRadius: isSmall ? 10 : 12,
+        padding: isSmall ? 4 : 6,
         alignItems: 'flex-start'
     },
     gridThumbnailContainer: {
         width: '100%',
         aspectRatio: 1,
-        borderRadius: 10,
-        marginBottom: 8,
+        borderRadius: isSmall ? 8 : 10,
+        marginBottom: 6,
         overflow: 'hidden',
         backgroundColor: withAlpha(CORE_COLORS.black, 0.03),
     },
     gridTitle: {
-        fontSize: 12,
+        fontSize: isSmall ? 11 : 12,
         fontWeight: '600',
         lineHeight: 16,
         paddingHorizontal: 2,
     },
     gridSubTitle: {
-        fontSize: 10,
+        fontSize: isSmall ? 9 : 10,
         fontWeight: '500',
         marginTop: 2,
         paddingHorizontal: 2,
     },
     sortText: {
-        fontSize: 12,
+        fontSize: isSmall ? 11 : 12,
         fontWeight: '700',
     },
     videoBadge: {
         borderRadius: 8,
-        paddingHorizontal: 6,
+        paddingHorizontal: isSmall ? 4 : 6,
         paddingVertical: 4,
         marginLeft: 8,
     },
-
 });

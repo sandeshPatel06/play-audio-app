@@ -9,7 +9,9 @@ room_queues: Dict[str, asyncio.Queue] = {}
 
 def get_room_queue(room_id: str) -> asyncio.Queue:
     if room_id not in room_queues:
-        room_queues[room_id] = asyncio.Queue(maxsize=1000)
+        # Smaller maxsize (20 chunks @ 8KB/50ms = 1s buffer) 
+        # keeps the stream fresh and avoids "buffering delay" for late joiners.
+        room_queues[room_id] = asyncio.Queue(maxsize=20)
         logger.info(f"Created new queue for room: {room_id}")
     return room_queues[room_id]
 

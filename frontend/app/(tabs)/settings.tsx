@@ -196,6 +196,7 @@ export default function SettingsScreen() {
                 { key: 'purple', color: colors.accents.purple, label: 'Purple' },
                 { key: 'spotify', color: colors.accents.spotify, label: 'Lime' },
                 { key: 'sunset', color: colors.accents.sunset, label: 'Sunset' },
+                { key: 'jasmin', color: colors.accents.jasmin, label: 'Jasmin' },
               ]).map(({ key, color, label }) => {
                 const isSelected = accentColor === color;
                 return (

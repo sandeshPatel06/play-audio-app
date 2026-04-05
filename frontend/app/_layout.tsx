@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import { CORE_COLORS } from '../constants/colors';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, LogBox, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, LogBox, Text, Image } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
@@ -32,10 +32,14 @@ function LoadingView() {
   return (
     <View style={styles.loading}>
       <View style={styles.loadingContent}>
-        <Ionicons name="musical-notes" size={56} color={CORE_COLORS.tealAccent} />
+        <Image 
+          source={require('../assets/images/splash-icon.png')} 
+          style={styles.loadingImage} 
+          resizeMode="contain" 
+        />
         <Text style={styles.loadingTitle}>Sonic Flow</Text>
         <ActivityIndicator size="small" color={CORE_COLORS.tealAccent} style={styles.loadingIndicator} />
-        <Text style={styles.loadingSubtitle}>Loading your music...</Text>
+        <Text style={styles.loadingSubtitle}>Preparing your sonic experience...</Text>
       </View>
     </View>
   );
@@ -128,6 +132,12 @@ const styles = StyleSheet.create({
   },
   loadingContent: {
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingImage: {
+    width: 140,
+    height: 140,
+    marginBottom: 4,
   },
   loadingTitle: {
     fontSize: 28,
