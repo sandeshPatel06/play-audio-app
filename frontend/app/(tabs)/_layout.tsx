@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function TabsLayout() {
-    const { colors, resolvedTheme } = useTheme();
+    const { colors } = useTheme();
+    const insets = useSafeAreaInsets();
 
     return (
         <Tabs
@@ -13,40 +13,30 @@ export default function TabsLayout() {
                 headerShown: false,
                 tabBarStyle: {
                     position: 'absolute',
-                    bottom: 14,
+                    bottom: Math.max(12, insets.bottom),
                     left: 16,
                     right: 16,
-                    height: 74,
-                    borderRadius: 18,
-                    marginHorizontal: 0,
-                    elevation: 0,
+                    height: 68,
+                    borderRadius: 20,
+                    elevation: 15,
                     borderTopWidth: 0,
-                    backgroundColor: Platform.OS === 'android' ? colors.tabBarBackground : colors.transparent,
-                    shadowColor: colors.tabBarShadow,
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.18,
-                    shadowRadius: 16,
+                    backgroundColor: colors.tabBarBackground,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 10 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 25,
                 },
-                tabBarBackground: () => (
-                    Platform.OS === 'ios' ? (
-                        <BlurView
-                            intensity={95}
-                            tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-                            style={[StyleSheet.absoluteFill, { borderRadius: 18, overflow: 'hidden' }]}
-                        />
-                    ) : (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.tabBarBackground, opacity: 0.98, borderRadius: 18 }]} />
-                    )
-                ),
                 tabBarActiveTintColor: colors.accent,
                 tabBarInactiveTintColor: colors.textMuted,
+                tabBarShowLabel: true,
+                tabBarLabelPosition: 'below-icon',
                 tabBarLabelStyle: {
                     fontSize: 11,
-                    fontWeight: '700',
-                    marginBottom: 3,
+                    fontWeight: 'bold',
+                    marginBottom:-2,
                 },
                 tabBarItemStyle: {
-                    paddingTop: 8,
+                    paddingTop:3,
                 },
             }}
         >
@@ -54,7 +44,7 @@ export default function TabsLayout() {
                 name="index"
                 options={{
                     title: 'Library',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    tabBarIcon: ({ color, focused }) => (
                         <Ionicons
                             name={focused ? "library" : "library-outline"}
                             size={28}
@@ -67,7 +57,7 @@ export default function TabsLayout() {
                 name="search"
                 options={{
                     title: 'Search',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    tabBarIcon: ({ color, focused }) => (
                         <Ionicons
                             name={focused ? "search" : "search-outline"}
                             size={28}
@@ -80,7 +70,7 @@ export default function TabsLayout() {
                 name="settings"
                 options={{
                     title: 'Settings',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    tabBarIcon: ({ color, focused }) => (
                         <Ionicons
                             name={focused ? "settings" : "settings-outline"}
                             size={28}

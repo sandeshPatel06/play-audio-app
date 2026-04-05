@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
 import { Asset } from 'expo-media-library';
 import { useAudioStore } from './useAudioStore';
 
@@ -101,7 +100,9 @@ export const useRoomStore = create<RoomState>((set, get) => ({
                     let uri = song.uri;
                     try {
                         if (uri.startsWith('http')) {
-                            const filename = `broadcast_${song.id}.mp3`;
+                            // Sanitize ID to be safe for filenames (remove : / \ etc)
+                            const safeId = song.id.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                            const filename = `broadcast_${safeId}.mp3`;
                             const localPath = `${FileSystem.cacheDirectory}${filename}`;
                             const fileInfo = await FileSystem.getInfoAsync(localPath);
                             
@@ -125,14 +126,22 @@ export const useRoomStore = create<RoomState>((set, get) => ({
 
                         const currentPosition = get().position;
                         
-                        // TIGHT SYNC check
-                        if (duration > 0) {
+                        // SYNC & THROTTLE LOGIC
+                        if (duration > 0 && totalSize > 0) {
                             const expectedBytePos = Math.floor((hostPosSeconds / duration) * totalSize);
-                            const driftTrigger = Math.floor((1.0 / duration) * totalSize); // Relaxed to 1s for better initial buffer
                             
-                            if (Math.abs(expectedBytePos - currentPosition) > driftTrigger) {
-                                console.log(`[RoomStore] Synced pos: ${currentPosition} -> ${expectedBytePos}`);
+                            // 1. Resync if we drift too far (8 seconds difference)
+                            const driftLimit = Math.floor((8.0 / duration) * totalSize);
+                            if (Math.abs(expectedBytePos - currentPosition) > driftLimit) {
+                                console.log(`[RoomStore] Drift Reset: ${currentPosition} -> ${expectedBytePos}`);
                                 set({ position: expectedBytePos });
+                                return;
+                            }
+
+                            // 2. Rate Limit: Stay exactly 5 seconds ahead for buffering
+                            const bufferLimit = Math.floor((5.0 / duration) * totalSize);
+                            if (currentPosition > expectedBytePos + bufferLimit) {
+                                // We're fast enough, skip this tick
                                 return;
                             }
                         }
@@ -148,8 +157,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
 
                         currentState.ws.send(chunk);
                         
-                        // Log every 50 chunks
-                        if (Math.floor(currentPosition / CHUNK_SIZE) % 50 === 0) {
+                        // Log every 100 chunks for less noise
+                        if (Math.floor(currentPosition / CHUNK_SIZE) % 100 === 0) {
                              console.log(`[RoomStore] => Chunk @ ${currentPosition} / ${totalSize}`);
                         }
                         
@@ -157,7 +166,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
                     } catch (e) {
                         console.error('[RoomStore] Loop Err:', e);
                     }
-                }, 50);
+                }, 100);
 
                 set({ broadcastInterval: interval });
             };

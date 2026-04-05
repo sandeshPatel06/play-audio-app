@@ -10,7 +10,6 @@ import React, {
 } from 'react';
 import {
     ActivityIndicator,
-    Dimensions,
     FlatList,
     PanResponder,
     ScrollView,
@@ -33,10 +32,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRID_ITEM_WIDTH = (SCREEN_WIDTH - 32 - 24) / 3;
 
-function createStyles(colors: any, scale: number, isSmall: boolean, isMedium: boolean, screenWidth: number, gridItemWidth: number) {
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
@@ -45,12 +41,11 @@ export default function LibraryScreen() {
     const safePush = useSafeRouterPush();
     
     const isSmall = screenWidth < 375;
-    const isMedium = screenWidth >= 375 && screenWidth < 414;
     const scale = screenWidth / 375;
     const gridItemWidth = (screenWidth - 32 - (isSmall ? 12 : 16)) / (isSmall ? 2 : 3);
     const listItemHeight = Math.max(56, Math.min(64, 56 * scale));
-    
-    const styles = useMemo(() => createStyles(colors, scale, isSmall, isMedium, screenWidth, gridItemWidth), [colors, scale, isSmall, isMedium, screenWidth, gridItemWidth]);
+    const styles = useMemo(() => createStyles(colors, isSmall, gridItemWidth), [colors, isSmall, gridItemWidth]);
+
     const {
         permissionGranted,
         setPermissionGranted,
@@ -335,7 +330,7 @@ export default function LibraryScreen() {
                 styles={styles}
             />
         );
-    }, [currentSong, selectedIds, isSelectionMode, isGrid, likedIds, colors, toggleSelection, onSongPress, enterSelectionMode, toggleLike, onMenuPress, showVideoBadges]);
+    }, [currentSong, selectedIds, isSelectionMode, isGrid, likedIds, colors, toggleSelection, onSongPress, enterSelectionMode, toggleLike, onMenuPress, showVideoBadges, styles]);
 
 
     if (loading) {
@@ -343,11 +338,11 @@ export default function LibraryScreen() {
             <View style={[styles.container, { backgroundColor: colors.screenBackground, justifyContent: 'center', alignItems: 'center' }]}>
                 <Image 
                     source={require('../../assets/images/splash-icon.png')} 
-                    style={{ width: 100, height: 100, marginBottom: 20 }} 
+                    style={{ width: isSmall ? 80 : 100, height: isSmall ? 80 : 100, marginBottom: 20 }} 
                     resizeMode="contain" 
                 />
                 <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={{ color: colors.textMuted, marginTop: 20, fontWeight: '600' }}>Scan in progress...</Text>
+                <Text style={{ color: colors.textMuted, marginTop: 20, fontWeight: '600', fontSize: isSmall ? 14 : 16 }}>Scan in progress...</Text>
             </View>
         );
     }
@@ -358,11 +353,11 @@ export default function LibraryScreen() {
 
             <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
 
-            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+            <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
                 {isSelectionMode ? (
                     <View style={styles.selectionHeader}>
                         <TouchableOpacity onPress={exitSelectionMode} style={styles.headerBtn}>
-                            <Ionicons name="close" size={28} color={colors.text} />
+                            <Ionicons name="close" size={isSmall ? 24 : 28} color={colors.text} />
                         </TouchableOpacity>
                         <Text style={[styles.selectionCount, { color: colors.text }]}>
                             {selectedIds.size} Selected
@@ -459,13 +454,13 @@ export default function LibraryScreen() {
             <FlatList
                 ref={flatListRef}
                 key={isGrid ? 'grid' : 'list'}
-                numColumns={isGrid ? 3 : 1}
+                numColumns={isGrid ? (isSmall ? 2 : 3) : 1}
                 data={sectionedData.items as any}
                 renderItem={renderItem}
                 keyExtractor={(item: any) => item.id || item.filename}
                 extraData={[currentSong?.id, selectedIds, isSelectionMode, likedIds, showVideoBadges, colors.text, isGrid]}
                 stickyHeaderIndices={isGrid ? [] : sectionedData.indices}
-                contentContainerStyle={[styles.listContent, { paddingBottom: 168 + insets.bottom }]}
+                contentContainerStyle={[styles.listContent, { paddingBottom: 160 + insets.bottom }]}
                 showsVerticalScrollIndicator={false}
                 removeClippedSubviews={true}
                 maxToRenderPerBatch={15}
@@ -473,14 +468,14 @@ export default function LibraryScreen() {
                 windowSize={10}
                 updateCellsBatchingPeriod={50}
                 getItemLayout={(_, index) => ({
-                    length: isGrid ? GRID_ITEM_WIDTH + 16 : 64,
-                    offset: (isGrid ? GRID_ITEM_WIDTH + 16 : 64) * index,
+                    length: isGrid ? gridItemWidth + 16 : listItemHeight,
+                    offset: (isGrid ? gridItemWidth + 16 : listItemHeight) * index,
                     index,
                 })}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name={permissionGranted ? "musical-notes" : "lock-closed"} size={80} color={colors.textMuted} />
-                        <Text style={{ color: colors.textMuted, marginTop: 20 }}>
+                        <Ionicons name={permissionGranted ? "musical-notes" : "lock-closed"} size={isSmall ? 60 : 80} color={colors.textMuted} />
+                        <Text style={{ color: colors.textMuted, marginTop: 20, fontSize: isSmall ? 14 : 16 }}>
                             {permissionGranted ? "No songs found on this device" : "Permission required to load songs"}
                         </Text>
                         {!permissionGranted && (
@@ -531,7 +526,6 @@ export default function LibraryScreen() {
                         icon: 'add-circle-outline',
                         onPress: () => {
                             setIsActionVisible(false);
-                            // Give Android time to fully dismiss the first modal before opening the next
                             setTimeout(() => setIsAddPlaylistVisible(true), 500);
                         },
                     },
@@ -586,267 +580,257 @@ export default function LibraryScreen() {
     );
 }
 
-const styles = (colors: any, scale: number, isSmall: boolean, isMedium: boolean, screenWidth: number, isGrid: boolean, gridItemWidth: number, listItemHeight: number) => StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    bgGlow: {
-        position: 'absolute',
-        top: -140,
-        left: -80,
-        width: 360,
-        height: 360,
-        borderRadius: 180,
-        opacity: 0.11,
-    },
-    header: {
-        paddingHorizontal: isSmall ? 12 : 16,
-        paddingBottom: 10,
-    },
-    headerTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    selectionHeader: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    selectionCount: {
-        fontSize: isSmall ? 16 : 18,
-        fontWeight: '700',
-    },
-    headerBtn: {
-        width: isSmall ? 40 : 44,
-        height: isSmall ? 40 : 44,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    headerBtnText: {
-        minHeight: 44,
-        paddingHorizontal: 12,
-        justifyContent: 'center',
-    },
-    headerSubtitle: {
-        fontSize: isSmall ? 11 : 12,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 1.2,
-        marginBottom: 2,
-    },
-    headerTitle: {
-        fontSize: isSmall ? 24 : 28,
-        fontWeight: '800',
-    },
-    headerEyebrow: {
-        fontSize: isSmall ? 10 : 11,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 1.2,
-        marginBottom: 1,
-    },
-    countBadge: {
-        borderRadius: 12,
-        borderWidth: 1,
-        paddingHorizontal: isSmall ? 8 : 10,
-        paddingVertical: isSmall ? 4 : 5,
-        marginRight: 8,
-        justifyContent: 'center',
-    },
-    countBadgeText: {
-        fontSize: isSmall ? 12 : 14,
-        fontWeight: '800',
-    },
-    iconBtn: {
-        width: isSmall ? 42 : 46,
-        height: isSmall ? 42 : 46,
-        borderRadius: isSmall ? 14 : 16,
-        borderWidth: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    listContent: {
-        paddingHorizontal: isSmall ? 12 : 16,
-    },
-    songItem: {
-        marginBottom: 8,
-        borderRadius: isSmall ? 14 : 16,
-        overflow: 'hidden',
-    },
-    songContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 8,
-    },
-    thumbnailContainer: {
-        width: isSmall ? 42 : 48,
-        height: isSmall ? 42 : 48,
-        borderRadius: isSmall ? 10 : 12,
-        marginRight: 10,
-        overflow: 'hidden',
-        elevation: 5,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-    },
-    thumbnail: {
-        width: '100%',
-        height: '100%',
-    },
-    activeOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    selectionOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    songInfo: {
-        flex: 1,
-    },
-    likeBtn: {
-        padding: 10,
-        marginLeft: 8,
-    },
-    songTitle: {
-        fontSize: isSmall ? 14 : 15,
-        fontWeight: '700',
-        marginBottom: 4,
-    },
-    songSubtitle: {
-        fontSize: isSmall ? 12 : 13,
-        fontWeight: '500',
-    },
-    menuBtn: {
-        padding: 12,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        paddingTop: isSmall ? 80 : 116,
-        opacity: 0.5,
-    },
-    selectionBar: {
-        position: 'absolute',
-        alignSelf: 'center',
-        flexDirection: 'row',
-        paddingHorizontal: isSmall ? 16 : 20,
-        paddingVertical: isSmall ? 10 : 12,
-        borderRadius: isSmall ? 16 : 18,
-        elevation: 10,
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-    },
-    bulkActionBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: isSmall ? 16 : 20,
-        paddingVertical: isSmall ? 8 : 10,
-        borderRadius: isSmall ? 20 : 22,
-    },
-    bulkActionText: {
-        fontWeight: '700',
-        marginLeft: 8,
-    },
-    headerSection: {
-        paddingVertical: 8,
-        paddingHorizontal: isSmall ? 8 : 12,
-        marginTop: 8,
-    },
-    headerSectionText: {
-        fontSize: isSmall ? 12 : 13,
-        fontWeight: '800',
-        letterSpacing: 0.8,
-        opacity: 0.9,
-    },
-    sortContainer: {
-        flexDirection: 'row',
-        gap: isSmall ? 6 : 8,
-    },
-    sortBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        minHeight: isSmall ? 34 : 38,
-        paddingHorizontal: isSmall ? 12 : 16,
-        paddingVertical: isSmall ? 6 : 8,
-        borderRadius: isSmall ? 18 : 20,
-        borderWidth: 1,
-        gap: 4,
-    },
-    searchBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: isSmall ? 12 : 16,
-        paddingVertical: isSmall ? 10 : 12,
-        borderRadius: isSmall ? 14 : 16,
-        borderWidth: 1,
-        marginBottom: 16,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: isSmall ? 14 : 16,
-        fontWeight: '500',
-        padding: 0,
-    },
-    scrubberContainer: {
-        position: 'absolute',
-        right: 2,
-        top: '25%',
-        bottom: '25%',
-        width: isSmall ? 24 : 28,
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: 50,
-        paddingVertical: 10,
-        backgroundColor: withAlpha(CORE_COLORS.black, 0.1),
-        borderRadius: isSmall ? 12 : 14,
-    },
-    scrubberLetter: {
-        fontSize: isSmall ? 9 : 10,
-        fontWeight: '800',
-    },
-    gridItem: {
-        width: gridItemWidth,
-        marginHorizontal: isSmall ? 2 : 4,
-        marginBottom: isSmall ? 12 : 16,
-        borderRadius: isSmall ? 10 : 12,
-        padding: isSmall ? 4 : 6,
-        alignItems: 'flex-start'
-    },
-    gridThumbnailContainer: {
-        width: '100%',
-        aspectRatio: 1,
-        borderRadius: isSmall ? 8 : 10,
-        marginBottom: 6,
-        overflow: 'hidden',
-        backgroundColor: withAlpha(CORE_COLORS.black, 0.03),
-    },
-    gridTitle: {
-        fontSize: isSmall ? 11 : 12,
-        fontWeight: '600',
-        lineHeight: 16,
-        paddingHorizontal: 2,
-    },
-    gridSubTitle: {
-        fontSize: isSmall ? 9 : 10,
-        fontWeight: '500',
-        marginTop: 2,
-        paddingHorizontal: 2,
-    },
-    sortText: {
-        fontSize: isSmall ? 11 : 12,
-        fontWeight: '700',
-    },
-    videoBadge: {
-        borderRadius: 8,
-        paddingHorizontal: isSmall ? 4 : 6,
-        paddingVertical: 4,
-        marginLeft: 8,
-    },
-});
+function createStyles(colors: any, isSmall: boolean, gridItemWidth: number) {
+    return StyleSheet.create({
+        container: { flex: 1 },
+        bgGlow: {
+            position: 'absolute',
+            top: -140,
+            left: -80,
+            width: 360,
+            height: 360,
+            borderRadius: 180,
+            opacity: 0.11,
+        },
+        header: {
+            paddingHorizontal: isSmall ? 12 : 16,
+            paddingBottom: 10,
+        },
+        headerTop: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 10,
+        },
+        selectionHeader: {
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+        },
+        selectionCount: {
+            fontSize: isSmall ? 16 : 18,
+            fontWeight: '700',
+        },
+        headerBtn: {
+            width: isSmall ? 40 : 44,
+            height: isSmall ? 40 : 44,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        headerBtnText: {
+            minHeight: 44,
+            paddingHorizontal: 12,
+            justifyContent: 'center',
+        },
+        headerSubtitle: {
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            marginBottom: 2,
+        },
+        headerTitle: {
+            fontSize: isSmall ? 24 : 28,
+            fontWeight: '800',
+        },
+        headerEyebrow: {
+            fontSize: isSmall ? 10 : 11,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            marginBottom: 1,
+        },
+        countBadge: {
+            borderRadius: 12,
+            borderWidth: 1,
+            paddingHorizontal: isSmall ? 8 : 10,
+            paddingVertical: isSmall ? 4 : 5,
+            marginRight: 8,
+            justifyContent: 'center',
+        },
+        countBadgeText: {
+            fontSize: isSmall ? 12 : 14,
+            fontWeight: '800',
+        },
+        iconBtn: {
+            width: isSmall ? 42 : 46,
+            height: isSmall ? 42 : 46,
+            borderRadius: isSmall ? 14 : 16,
+            borderWidth: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        listContent: {
+            paddingHorizontal: isSmall ? 12 : 16,
+        },
+        songItem: {
+            marginBottom: 8,
+            borderRadius: isSmall ? 14 : 16,
+            overflow: 'hidden',
+        },
+        songContent: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: 8,
+        },
+        thumbnailContainer: {
+            width: isSmall ? 42 : 48,
+            height: isSmall ? 42 : 48,
+            borderRadius: isSmall ? 10 : 12,
+            marginRight: 10,
+            overflow: 'hidden',
+            elevation: 5,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 5,
+        },
+        thumbnail: { width: '100%', height: '100%' },
+        activeOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        selectionOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+        },
+        songInfo: { flex: 1 },
+        likeBtn: { padding: 10, marginLeft: 8 },
+        songTitle: {
+            fontSize: isSmall ? 14 : 15,
+            fontWeight: '700',
+            marginBottom: 4,
+        },
+        songSubtitle: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '500',
+        },
+        menuBtn: { padding: 12 },
+        emptyContainer: {
+            alignItems: 'center',
+            paddingTop: isSmall ? 80 : 116,
+            opacity: 0.5,
+        },
+        selectionBar: {
+            position: 'absolute',
+            alignSelf: 'center',
+            flexDirection: 'row',
+            paddingHorizontal: isSmall ? 16 : 20,
+            paddingVertical: isSmall ? 10 : 12,
+            borderRadius: isSmall ? 16 : 18,
+            elevation: 10,
+            shadowOffset: { width: 0, height: 5 },
+            shadowOpacity: 0.3,
+            shadowRadius: 10,
+        },
+        bulkActionBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: isSmall ? 16 : 20,
+            paddingVertical: isSmall ? 8 : 10,
+            borderRadius: isSmall ? 20 : 22,
+        },
+        bulkActionText: {
+            fontWeight: '700',
+            marginLeft: 8,
+        },
+        headerSection: {
+            paddingVertical: 8,
+            paddingHorizontal: isSmall ? 8 : 12,
+            marginTop: 8,
+        },
+        headerSectionText: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '800',
+            letterSpacing: 0.8,
+            opacity: 0.9,
+        },
+        sortContainer: {
+            flexDirection: 'row',
+            gap: isSmall ? 6 : 8,
+        },
+        sortBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            minHeight: isSmall ? 34 : 38,
+            paddingHorizontal: isSmall ? 12 : 16,
+            paddingVertical: isSmall ? 6 : 8,
+            borderRadius: isSmall ? 18 : 20,
+            borderWidth: 1,
+            gap: 4,
+        },
+        searchBar: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: isSmall ? 12 : 16,
+            paddingVertical: isSmall ? 10 : 12,
+            borderRadius: isSmall ? 14 : 16,
+            borderWidth: 1,
+            marginBottom: 16,
+        },
+        searchInput: {
+            flex: 1,
+            fontSize: isSmall ? 14 : 16,
+            fontWeight: '500',
+            padding: 0,
+        },
+        scrubberContainer: {
+            position: 'absolute',
+            right: 2,
+            top: '25%',
+            bottom: '25%',
+            width: isSmall ? 24 : 28,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            zIndex: 50,
+            paddingVertical: 10,
+            backgroundColor: withAlpha(CORE_COLORS.black, 0.1),
+            borderRadius: isSmall ? 12 : 14,
+        },
+        scrubberLetter: {
+            fontSize: isSmall ? 9 : 10,
+            fontWeight: '800',
+        },
+        gridItem: {
+            width: gridItemWidth,
+            marginHorizontal: isSmall ? 2 : 4,
+            marginBottom: isSmall ? 12 : 16,
+            borderRadius: isSmall ? 10 : 12,
+            padding: isSmall ? 4 : 6,
+            alignItems: 'flex-start'
+        },
+        gridThumbnailContainer: {
+            width: '100%',
+            aspectRatio: 1,
+            borderRadius: isSmall ? 8 : 10,
+            marginBottom: 6,
+            overflow: 'hidden',
+            backgroundColor: withAlpha(CORE_COLORS.black, 0.03),
+        },
+        gridTitle: {
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '600',
+            lineHeight: 16,
+            paddingHorizontal: 2,
+        },
+        gridSubTitle: {
+            fontSize: isSmall ? 9 : 10,
+            fontWeight: '500',
+            marginTop: 2,
+            paddingHorizontal: 2,
+        },
+        sortText: {
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '700',
+        },
+        videoBadge: {
+            borderRadius: 8,
+            paddingHorizontal: isSmall ? 4 : 6,
+            paddingVertical: 4,
+            marginLeft: 8,
+        },
+    });
+}

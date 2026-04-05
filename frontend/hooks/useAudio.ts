@@ -361,6 +361,16 @@ export const useAudio = () => {
         store.player.setPlaybackRate(store.playbackRate);
     }, [store.player, store.playbackRate]);
 
+    useEffect(() => {
+        if (!store.player) return;
+        const playerIsPlaying = store.player.playing;
+        if (store.isPlaying && !playerIsPlaying) {
+            store.player.play();
+        } else if (!store.isPlaying && playerIsPlaying) {
+            store.player.pause();
+        }
+    }, [store.player, store.isPlaying]);
+
     const handlePlayPause = useCallback(async () => {
         if (!store.player) return;
         if (Platform.OS !== 'web') {

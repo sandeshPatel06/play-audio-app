@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { setAudioModeAsync } from 'expo-audio';
 import { Stack } from 'expo-router';
 import { CORE_COLORS } from '../constants/colors';
@@ -60,11 +59,6 @@ function RootLayoutContent() {
     }).catch(e => console.warn('[Layout] Audio setup error:', e));
   }, []);
 
-  // Always render SOMETHING to the system, but gate the stack on theme readiness
-  if (!isReady) {
-    return <LoadingView />;
-  }
-
   return (
     <>
       <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
@@ -102,6 +96,7 @@ function RootLayoutContent() {
         />
         <Stack.Screen name="playlist/[id]" options={{ headerShown: false }} />
       </Stack>
+      {!isReady && <LoadingView />}
     </>
   );
 }
@@ -125,7 +120,8 @@ const styles = StyleSheet.create({
     backgroundColor: CORE_COLORS.black,
   },
   loading: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: CORE_COLORS.darkBG,

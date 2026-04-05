@@ -4,7 +4,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useMemo } from 'react';
-import { FlatList, Image, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MiniPlayer from '../../components/MiniPlayer';
 import ScalePressable from '../../components/ScalePressable';
@@ -17,7 +17,10 @@ export default function PlaylistDetailsScreen() {
     const router = useRouter();
     const safePush = useSafeRouterPush();
     const insets = useSafeAreaInsets();
+    const { width: screenWidth } = useWindowDimensions();
     const { colors, resolvedTheme } = useTheme();
+    const isSmall = screenWidth < 375;
+    const styles = useMemo(() => createStyles(colors, isSmall, screenWidth), [colors, isSmall, screenWidth]);
     const {
         playlists,
         library,
@@ -202,151 +205,155 @@ export default function PlaylistDetailsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-    bgGlow: {
-        position: 'absolute',
-        top: -80,
-        right: -80,
-        width: 260,
-        height: 260,
-        borderRadius: 130,
-        opacity: 0.08,
-    },
-    backBtn: {
-        marginTop: 8,
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 12,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        marginBottom: 14,
-    },
-    headerBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-    },
-    headerCenter: {
-        flex: 1,
-        marginHorizontal: 12,
-    },
-    headerEyebrow: {
-        fontSize: 11,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 1.2,
-        marginBottom: 1,
-    },
-    headerTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        letterSpacing: 0.2,
-    },
-    banner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginHorizontal: 16,
-        marginBottom: 12,
-        padding: 14,
-        borderRadius: 18,
-        borderWidth: 1,
-    },
-    bannerCount: {
-        fontSize: 16,
-        fontWeight: '800',
-    },
-    bannerDuration: {
-        fontSize: 12,
-        fontWeight: '500',
-        marginTop: 2,
-    },
-    bannerActions: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    bannerBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 14,
-        paddingVertical: 9,
-        borderRadius: 12,
-    },
-    bannerBtnText: {
-        fontSize: 13,
-        fontWeight: '700',
-    },
-    empty: {
-        alignItems: 'center',
-        marginTop: 80,
-        gap: 8,
-    },
-    emptyTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-    },
-    emptyHint: {
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 16,
-        borderWidth: 1,
-        marginBottom: 8,
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-    },
-    trackNum: {
-        width: 28,
-        alignItems: 'center',
-        marginRight: 4,
-    },
-    trackNumText: {
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    thumb: {
-        width: 46,
-        height: 46,
-        borderRadius: 10,
-        marginRight: 10,
-    },
-    info: { flex: 1 },
-    nameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    name: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    meta: {
-        fontSize: 12,
-        marginTop: 3,
-        fontWeight: '500',
-    },
-    likeBtn: {
-        padding: 10,
-        marginLeft: 4,
-    },
-    badge: {
-        width: 22,
-        height: 22,
-        borderRadius: 6,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-});
+
+
+function createStyles(colors: any, isSmall: boolean, screenWidth: number) {
+    return StyleSheet.create({
+        container: { flex: 1 },
+        center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+        bgGlow: {
+            position: 'absolute',
+            top: -80,
+            right: -80,
+            width: 260,
+            height: 260,
+            borderRadius: 130,
+            opacity: 0.08,
+        },
+        backBtn: {
+            marginTop: 8,
+            paddingHorizontal: isSmall ? 16 : 20,
+            paddingVertical: 10,
+            borderRadius: isSmall ? 10 : 12,
+        },
+        header: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: isSmall ? 12 : 16,
+            marginBottom: 14,
+        },
+        headerBtn: {
+            width: isSmall ? 40 : 44,
+            height: isSmall ? 40 : 44,
+            borderRadius: isSmall ? 12 : 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+        },
+        headerCenter: {
+            flex: 1,
+            marginHorizontal: 12,
+        },
+        headerEyebrow: {
+            fontSize: isSmall ? 10 : 11,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            marginBottom: 1,
+        },
+        headerTitle: {
+            fontSize: isSmall ? 18 : 22,
+            fontWeight: '800',
+            letterSpacing: 0.2,
+        },
+        banner: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: isSmall ? 12 : 16,
+            marginBottom: 12,
+            padding: isSmall ? 12 : 14,
+            borderRadius: isSmall ? 14 : 18,
+            borderWidth: 1,
+        },
+        bannerCount: {
+            fontSize: isSmall ? 14 : 16,
+            fontWeight: '800',
+        },
+        bannerDuration: {
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '500',
+            marginTop: 2,
+        },
+        bannerActions: {
+            flexDirection: 'row',
+            gap: 8,
+        },
+        bannerBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            paddingHorizontal: isSmall ? 12 : 14,
+            paddingVertical: isSmall ? 7 : 9,
+            borderRadius: isSmall ? 10 : 12,
+        },
+        bannerBtnText: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '700',
+        },
+        empty: {
+            alignItems: 'center',
+            marginTop: isSmall ? 60 : 80,
+            gap: 8,
+        },
+        emptyTitle: {
+            fontSize: isSmall ? 16 : 18,
+            fontWeight: '800',
+        },
+        emptyHint: {
+            fontSize: isSmall ? 13 : 14,
+            fontWeight: '500',
+        },
+        row: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderRadius: isSmall ? 14 : 16,
+            borderWidth: 1,
+            marginBottom: 8,
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+        },
+        trackNum: {
+            width: 28,
+            alignItems: 'center',
+            marginRight: 4,
+        },
+        trackNumText: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '600',
+        },
+        thumb: {
+            width: isSmall ? 40 : 46,
+            height: isSmall ? 40 : 46,
+            borderRadius: isSmall ? 8 : 10,
+            marginRight: 10,
+        },
+        info: { flex: 1 },
+        nameRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+        },
+        name: {
+            flex: 1,
+            fontSize: isSmall ? 14 : 15,
+            fontWeight: '700',
+        },
+        meta: {
+            fontSize: isSmall ? 11 : 12,
+            marginTop: 3,
+            fontWeight: '500',
+        },
+        likeBtn: {
+            padding: 10,
+            marginLeft: 4,
+        },
+        badge: {
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+    });
+}

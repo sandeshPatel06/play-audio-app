@@ -15,6 +15,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddToPlaylistModal from '../components/AddToPlaylistModal';
@@ -26,16 +27,22 @@ import { CORE_COLORS, withAlpha } from '../constants/colors';
 import { useAudio } from '../hooks/useAudio';
 import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 
-const { width } = Dimensions.get('window');
-const ART_SIZE = Math.min(width - 72, 320);
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ART_SIZE = Math.min(SCREEN_WIDTH - 72, 320);
 const SONGS_PER_PAGE = 20;
 
 export default function FullPlayerScreen() {
   useKeepAwake();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const { colors, resolvedTheme } = useTheme();
   const router = useRouter();
   const safePush = useSafeRouterPush();
+  
+  const isSmall = screenWidth < 375;
+  const isMedium = screenWidth >= 375 && screenWidth < 414;
+  const artSize = Math.min(screenWidth - 72, Math.max(200, Math.min(320, screenWidth * 0.8)));
+  const styles = useMemo(() => createStyles(colors, isSmall, isMedium, artSize, screenWidth), [colors, isSmall, isMedium, artSize, screenWidth]);
 
   const [isActionVisible, setIsActionVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -455,240 +462,238 @@ export default function FullPlayerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  headerEyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  scroll: {
-    flex: 1,
-  },
-  artworkWrap: {
-    marginHorizontal: 16,
-    borderWidth: 1,
-    borderRadius: 40,
-    padding: 20,
-    alignItems: 'center',
-    elevation: 8,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-  },
-  artwork: {
-    borderRadius: 24,
-  },
-  songBlock: {
-    marginTop: 18,
-    paddingHorizontal: 20,
-  },
-  songTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  currentSongInfo: {
-    flex: 1,
-    marginRight: 10,
-  },
-  songTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  songSub: {
-    marginTop: 4,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  likeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sliderWrap: {
-    marginTop: 16,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-    marginLeft: -14,
-    marginRight: -14,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: -6,
-  },
-  timeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  controlRow: {
-    marginTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  smallControl: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mainControl: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  playControl: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  repeatOne: {
-    position: 'absolute',
-    right: -7,
-    top: -7,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  queueCard: {
-    marginTop: 24,
-    marginHorizontal: 16,
-    borderRadius: 32,
-    borderWidth: 1,
-    padding: 16,
-    paddingTop: 12,
-  },
-  queueHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  queueHeaderText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  openPlaylist: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  queueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 20,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  queueThumbWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    marginRight: 14,
-    overflow: 'hidden',
-    backgroundColor: withAlpha(CORE_COLORS.black, 0.06),
-  },
-  queueThumb: {
-    width: '100%',
-    height: '100%',
-  },
-  queuePlayingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(CORE_COLORS.black, 0.4),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  queueMetaWrap: {
-    flex: 1,
-    marginRight: 12,
-  },
-  queueSongName: {
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  queueArtists: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  queueRightWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    minWidth: 45,
-  },
-  queueDuration: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  emptyWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  emptyBtn: {
-    marginTop: 18,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  emptyBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});
+
+
+function createStyles(colors: any, isSmall: boolean, isMedium: boolean, artSize: number, screenWidth: number) {
+  return StyleSheet.create({
+    container: { flex: 1 },
+    header: {
+      paddingHorizontal: isSmall ? 16 : 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    iconBtn: {
+      width: isSmall ? 40 : 44,
+      height: isSmall ? 40 : 44,
+      borderRadius: isSmall ? 12 : 14,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerCenter: {
+      flex: 1,
+      marginHorizontal: 12,
+    },
+    headerEyebrow: {
+      fontSize: isSmall ? 10 : 11,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+    headerTitle: {
+      fontSize: isSmall ? 14 : 16,
+      fontWeight: '700',
+      marginTop: 2,
+    },
+    scroll: { flex: 1 },
+    artworkWrap: {
+      marginHorizontal: isSmall ? 12 : 16,
+      borderWidth: 1,
+      borderRadius: isSmall ? 32 : 40,
+      padding: isSmall ? 16 : 20,
+      alignItems: 'center',
+      elevation: 8,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+    },
+    artwork: {
+      borderRadius: isSmall ? 18 : 24,
+    },
+    songBlock: {
+      marginTop: 18,
+      paddingHorizontal: isSmall ? 16 : 20,
+    },
+    songTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    currentSongInfo: {
+      flex: 1,
+      marginRight: 10,
+    },
+    songTitle: {
+      fontSize: isSmall ? 20 : 24,
+      fontWeight: '800',
+    },
+    songSub: {
+      marginTop: 4,
+      fontSize: isSmall ? 13 : 14,
+      fontWeight: '600',
+    },
+    likeBtn: {
+      width: isSmall ? 40 : 44,
+      height: isSmall ? 40 : 44,
+      borderRadius: isSmall ? 12 : 14,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sliderWrap: { marginTop: 16 },
+    slider: {
+      width: '100%',
+      height: 40,
+      marginLeft: -14,
+      marginRight: -14,
+    },
+    timeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: -6,
+    },
+    timeText: {
+      fontSize: isSmall ? 11 : 12,
+      fontWeight: '600',
+    },
+    controlRow: {
+      marginTop: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    smallControl: {
+      width: isSmall ? 34 : 38,
+      height: isSmall ? 34 : 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mainControl: {
+      width: isSmall ? 46 : 52,
+      height: isSmall ? 46 : 52,
+      borderRadius: isSmall ? 14 : 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    playControl: {
+      width: isSmall ? 60 : 72,
+      height: isSmall ? 60 : 72,
+      borderRadius: isSmall ? 20 : 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    repeatOne: {
+      position: 'absolute',
+      right: -7,
+      top: -7,
+      fontSize: 10,
+      fontWeight: '800',
+    },
+    queueCard: {
+      marginTop: 24,
+      marginHorizontal: isSmall ? 12 : 16,
+      borderRadius: isSmall ? 24 : 32,
+      borderWidth: 1,
+      padding: isSmall ? 12 : 16,
+      paddingTop: 12,
+    },
+    queueHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    queueHeaderText: {
+      fontSize: isSmall ? 12 : 13,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+    openPlaylist: {
+      fontSize: isSmall ? 11 : 12,
+      fontWeight: '700',
+    },
+    queueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      borderRadius: isSmall ? 16 : 20,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    queueThumbWrap: {
+      width: isSmall ? 42 : 48,
+      height: isSmall ? 42 : 48,
+      borderRadius: isSmall ? 12 : 14,
+      marginRight: 14,
+      overflow: 'hidden',
+      backgroundColor: withAlpha(CORE_COLORS.black, 0.06),
+    },
+    queueThumb: {
+      width: '100%',
+      height: '100%',
+    },
+    queuePlayingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: withAlpha(CORE_COLORS.black, 0.4),
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    queueMetaWrap: {
+      flex: 1,
+      marginRight: 12,
+    },
+    queueSongName: {
+      fontSize: isSmall ? 14 : 15,
+      fontWeight: '700',
+      letterSpacing: -0.2,
+    },
+    queueArtists: {
+      fontSize: isSmall ? 11 : 12,
+      fontWeight: '500',
+      marginTop: 2,
+    },
+    queueRightWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      minWidth: 45,
+    },
+    queueDuration: {
+      fontSize: isSmall ? 10 : 11,
+      fontWeight: '600',
+    },
+    emptyWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: isSmall ? 16 : 24,
+    },
+    emptyTitle: {
+      fontSize: isSmall ? 18 : 22,
+      fontWeight: '800',
+    },
+    emptyText: {
+      fontSize: isSmall ? 13 : 14,
+      fontWeight: '500',
+      marginTop: 8,
+      textAlign: 'center',
+    },
+    emptyBtn: {
+      marginTop: 18,
+      borderWidth: 1,
+      borderRadius: isSmall ? 10 : 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    emptyBtnText: {
+      fontSize: isSmall ? 13 : 14,
+      fontWeight: '700',
+    },
+  });
+}

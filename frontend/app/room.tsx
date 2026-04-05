@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     Alert, 
     Platform, 
@@ -15,7 +15,8 @@ import {
     TouchableOpacity,
     Animated,
     Easing,
-    Share
+    Share,
+    useWindowDimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScalePressable from '../components/ScalePressable';
@@ -23,13 +24,18 @@ import { CORE_COLORS } from '../constants/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useListeningRoom } from '../hooks/useListeningRoom';
 import { useAudio } from '../hooks/useAudio';
+import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 
 function RoomScreen() {
     useKeepAwake();
+    const { width: screenWidth } = useWindowDimensions();
     const { colors, resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
+    const isSmall = screenWidth < 375;
+    const styles = useMemo(() => createStyles(colors, isSmall, screenWidth), [colors, isSmall, screenWidth]);
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const safePush = useSafeRouterPush();
     
     const [joinId, setJoinId] = useState('');
     const [isFocused, setIsFocused] = useState(false);
@@ -70,7 +76,7 @@ function RoomScreen() {
         } else {
             pulseAnim.setValue(1);
         }
-    }, [isBroadcasting]);
+    }, [isBroadcasting, pulseAnim]);
 
     const handleCreateRoom = () => {
         if (Platform.OS === 'web') {
@@ -106,9 +112,14 @@ function RoomScreen() {
         }
         
         const cleanBase = LISTEN_URL.endsWith('/') ? LISTEN_URL.slice(0, -1) : LISTEN_URL;
-        const success = await playFromUrl(`${cleanBase}/${joinId}/`);
+        const streamUrl = `${cleanBase}/${joinId}/`;
+        
+        console.log('[Room] Attempting to join:', streamUrl);
+        const success = await playFromUrl(streamUrl);
         if (success) {
             joinRoom(joinId);
+            // Auto open the player so user sees it's working
+            safePush('/player'); 
         } else {
             Alert.alert("Connection Failed", "Unable to connect to the room.");
         }
@@ -176,7 +187,7 @@ function RoomScreen() {
                     </View>
                     <Text style={[styles.statusTitle, { color: colors.text }]}>Connected!</Text>
                     <Text style={[styles.statusSubtitle, { color: colors.textMuted }]}>
-                        You're listening to Room: <Text style={{ color: colors.accent, fontWeight: '900' }}>{roomId}</Text>
+                        You&apos;re listening to Room: <Text style={{ color: colors.accent, fontWeight: '900' }}>{roomId}</Text>
                     </Text>
                     
                     <ScalePressable 
@@ -202,7 +213,7 @@ function RoomScreen() {
                         <Text style={[styles.cardTitle, { color: colors.text }]}>Host a Room</Text>
                     </View>
                     <Text style={[styles.cardDesc, { color: colors.textMuted }]}>
-                        Let others listen to what you're playing in real-time.
+                        Let others listen to what you&apos;re playing in real-time.
                     </Text>
                     <ScalePressable 
                         style={[styles.primaryBtn, { backgroundColor: colors.accent, shadowColor: colors.accent }]} 
@@ -285,135 +296,138 @@ function RoomScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingBottom: 20
-    },
-    backBtn: { 
-        width: 44, 
-        height: 44, 
-        borderRadius: 14, 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2
-    },
-    headerTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-    scrollContent: { padding: 20, paddingBottom: 100 },
-    
-    stateContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 40, gap: 24 },
-    animationWrapper: { width: 140, height: 140, alignItems: 'center', justifyContent: 'center' },
-    pulseCircle: { 
-        position: 'absolute',
-        width: 120, 
-        height: 120, 
-        borderRadius: 60 
-    },
-    mainCircle: { 
-        width: 90, 
-        height: 90, 
-        borderRadius: 45, 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
-        elevation: 10
-    },
-    
-    statusInfo: { alignItems: 'center', gap: 8 },
-    statusTitle: { fontSize: 34, fontWeight: '900', letterSpacing: -1 },
-    liveBadge: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: '#FF3B30', 
-        paddingHorizontal: 12, 
-        paddingVertical: 4, 
-        borderRadius: 8,
-        gap: 6
-    },
-    liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'white' },
-    liveText: { color: 'white', fontSize: 13, fontWeight: '900' },
-    
-    statusSubtitle: { fontSize: 16, textAlign: 'center', opacity: 0.8, paddingHorizontal: 20 },
-    
-    idCard: { 
-        width: '100%',
-        paddingVertical: 32, 
-        borderRadius: 32, 
-        alignItems: 'center', 
-        borderWidth: 1,
-        borderColor: 'transparent',
-        shadowOffset: { width: 0, height: 20 },
-        shadowOpacity: 0.15,
-        shadowRadius: 30,
-        elevation: 15
-    },
-    idText: { fontSize: 56, fontWeight: '900', letterSpacing: 10 },
-    shareRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
-    copyHint: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase' },
-    
-    setupContainer: { gap: 28 },
-    glassCard: { 
-        padding: 24, 
-        borderRadius: 28, 
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.05,
-        shadowRadius: 15,
-        elevation: 4
-    },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    iconWrapper: { padding: 10, borderRadius: 12 },
-    cardTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
-    cardDesc: { fontSize: 16, lineHeight: 24, opacity: 0.8, marginVertical: 8 },
-    
-    input: { 
-        height: 72,
-        borderRadius: 20, 
-        borderWidth: 2, 
-        paddingHorizontal: 20, 
-        fontSize: 28, 
-        fontWeight: '900', 
-        textAlign: 'center', 
-        letterSpacing: 12,
-        marginTop: 8
-    },
-    btnContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    primaryBtn: { 
-        height: 64, 
-        borderRadius: 20, 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25,
-        shadowRadius: 15,
-        elevation: 8,
-        marginTop: 10
-    },
-    secondaryBtn: { 
-        height: 64, 
-        borderRadius: 20, 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        borderWidth: 2,
-        marginTop: 12
-    },
-    btnText: { color: CORE_COLORS.white, fontSize: 16, fontWeight: '900', letterSpacing: 1.5 },
-});
+
+function createStyles(colors: any, isSmall: boolean, screenWidth: number) {
+    return StyleSheet.create({
+        container: { flex: 1 },
+        header: { 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            paddingHorizontal: isSmall ? 16 : 20,
+            paddingBottom: 20
+        },
+        backBtn: { 
+            width: isSmall ? 40 : 44, 
+            height: isSmall ? 40 : 44, 
+            borderRadius: isSmall ? 12 : 14, 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2
+        },
+        headerTitle: { fontSize: isSmall ? 20 : 22, fontWeight: '900', letterSpacing: -0.5 },
+        scrollContent: { padding: isSmall ? 16 : 20, paddingBottom: 100 },
+        
+        stateContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: isSmall ? 24 : 40, gap: isSmall ? 20 : 24 },
+        animationWrapper: { width: isSmall ? 120 : 140, height: isSmall ? 120 : 140, alignItems: 'center', justifyContent: 'center' },
+        pulseCircle: { 
+            position: 'absolute',
+            width: isSmall ? 100 : 120, 
+            height: isSmall ? 100 : 120, 
+            borderRadius: 60 
+        },
+        mainCircle: { 
+            width: isSmall ? 80 : 90, 
+            height: isSmall ? 80 : 90, 
+            borderRadius: 45, 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.3,
+            shadowRadius: 15,
+            elevation: 10
+        },
+        
+        statusInfo: { alignItems: 'center', gap: 8 },
+        statusTitle: { fontSize: isSmall ? 28 : 34, fontWeight: '900', letterSpacing: -1 },
+        liveBadge: { 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            backgroundColor: '#FF3B30', 
+            paddingHorizontal: isSmall ? 10 : 12, 
+            paddingVertical: 4, 
+            borderRadius: 8,
+            gap: 6
+        },
+        liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'white' },
+        liveText: { color: 'white', fontSize: isSmall ? 12 : 13, fontWeight: '900' },
+        
+        statusSubtitle: { fontSize: isSmall ? 14 : 16, textAlign: 'center', opacity: 0.8, paddingHorizontal: isSmall ? 16 : 20 },
+        
+        idCard: { 
+            width: '100%',
+            paddingVertical: isSmall ? 24 : 32, 
+            borderRadius: isSmall ? 24 : 32, 
+            alignItems: 'center', 
+            borderWidth: 1,
+            borderColor: 'transparent',
+            shadowOffset: { width: 0, height: 20 },
+            shadowOpacity: 0.15,
+            shadowRadius: 30,
+            elevation: 15
+        },
+        idText: { fontSize: isSmall ? 48 : 56, fontWeight: '900', letterSpacing: isSmall ? 8 : 10 },
+        shareRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+        copyHint: { fontSize: isSmall ? 12 : 13, fontWeight: '700', textTransform: 'uppercase' },
+        
+        setupContainer: { gap: isSmall ? 22 : 28 },
+        glassCard: { 
+            padding: isSmall ? 20 : 24, 
+            borderRadius: isSmall ? 24 : 28, 
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.05,
+            shadowRadius: 15,
+            elevation: 4
+        },
+        cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+        iconWrapper: { padding: 10, borderRadius: 12 },
+        cardTitle: { fontSize: isSmall ? 20 : 24, fontWeight: '900', letterSpacing: -0.5 },
+        cardDesc: { fontSize: isSmall ? 14 : 16, lineHeight: isSmall ? 22 : 24, opacity: 0.8, marginVertical: 8 },
+        
+        input: { 
+            height: isSmall ? 64 : 72,
+            borderRadius: isSmall ? 16 : 20, 
+            borderWidth: 2, 
+            paddingHorizontal: isSmall ? 16 : 20, 
+            fontSize: isSmall ? 24 : 28, 
+            fontWeight: '900', 
+            textAlign: 'center', 
+            letterSpacing: isSmall ? 10 : 12,
+            marginTop: 8
+        },
+        btnContent: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+        },
+        primaryBtn: { 
+            height: isSmall ? 56 : 64, 
+            borderRadius: isSmall ? 16 : 20, 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.25,
+            shadowRadius: 15,
+            elevation: 8,
+            marginTop: 10
+        },
+        secondaryBtn: { 
+            height: isSmall ? 56 : 64, 
+            borderRadius: isSmall ? 16 : 20, 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            borderWidth: 2,
+            marginTop: 12
+        },
+        btnText: { color: CORE_COLORS.white, fontSize: isSmall ? 14 : 16, fontWeight: '900', letterSpacing: 1.5 },
+    });
+}
 
 export default RoomScreen;

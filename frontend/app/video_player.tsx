@@ -4,8 +4,8 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState, useRef } from 'react';
-import { Animated, Share, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { Animated, Share, StyleSheet, Text, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScalePressable from '../components/ScalePressable';
 import { CORE_COLORS, withAlpha } from '../constants/colors';
@@ -15,8 +15,11 @@ import { useAudio } from '../hooks/useAudio';
 export default function VideoPlayerScreen() {
     useKeepAwake();
     const insets = useSafeAreaInsets();
+    const { width: screenWidth } = useWindowDimensions();
     const { colors } = useTheme();
     const router = useRouter();
+    const isSmall = screenWidth < 375;
+    const styles = useMemo(() => createStyles(colors, isSmall), [colors, isSmall]);
 
     const {
         currentSong,
@@ -224,100 +227,105 @@ export default function VideoPlayerScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        backgroundColor: CORE_COLORS.black,
-    },
-    header: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-        backgroundColor: withAlpha(CORE_COLORS.white, 0.5),
-    },
-    iconBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: withAlpha(CORE_COLORS.white, 0.2),
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerCenter: {
-        flex: 1,
-        marginHorizontal: 16,
-        alignItems: 'center',
-    },
-    headerTitle: {
-        color: CORE_COLORS.white,
-        fontSize: 18,
-        fontWeight: '700',
-        textAlign: 'center',
-    },
-    headerEyebrow: {
-        color: withAlpha(CORE_COLORS.white, 0.7),
-        fontSize: 12,
-        fontWeight: '600',
-        marginTop: 2,
-    },
-    bottomControls: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        paddingHorizontal: 24,
-        paddingTop: 30,
-        backgroundColor: withAlpha(CORE_COLORS.black, 0.6),
-    },
-    sliderWrap: {
-        marginBottom: 20,
-    },
-    slider: {
-        width: '100%',
-        height: 40,
-        marginLeft: -10,
-        marginRight: -10,
-    },
-    timeRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: -6,
-    },
-    timeText: {
-        color: withAlpha(CORE_COLORS.white, 0.8),
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    controlRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-evenly',
-        paddingHorizontal: 0,
-        marginBottom: 10,
-    },
-    sideControl: {
-        width: 44,
-        height: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    mainControl: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: withAlpha(CORE_COLORS.white, 0.15),
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    playControl: {
-        width: 76,
-        height: 76,
-        borderRadius: 38,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-});
+
+
+function createStyles(colors: any, isSmall: boolean) {
+    return StyleSheet.create({
+        container: {
+            backgroundColor: CORE_COLORS.black,
+        },
+        header: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: isSmall ? 16 : 20,
+            paddingTop: isSmall ? 50 : 60,
+            paddingBottom: 20,
+            backgroundColor: withAlpha(CORE_COLORS.white, 0.5),
+        },
+        iconBtn: {
+            width: isSmall ? 40 : 44,
+            height: isSmall ? 40 : 44,
+            borderRadius: isSmall ? 20 : 22,
+            backgroundColor: withAlpha(CORE_COLORS.white, 0.2),
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        headerCenter: {
+            flex: 1,
+            marginHorizontal: 16,
+            alignItems: 'center',
+        },
+        headerTitle: {
+            color: CORE_COLORS.white,
+            fontSize: isSmall ? 16 : 18,
+            fontWeight: '700',
+            textAlign: 'center',
+        },
+        headerEyebrow: {
+            color: withAlpha(CORE_COLORS.white, 0.7),
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '600',
+            marginTop: 2,
+        },
+        bottomControls: {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            paddingHorizontal: isSmall ? 20 : 24,
+            paddingTop: isSmall ? 24 : 30,
+            backgroundColor: withAlpha(CORE_COLORS.black, 0.6),
+        },
+        sliderWrap: {
+            marginBottom: 20,
+        },
+        slider: {
+            width: '100%',
+            height: 40,
+            marginLeft: -10,
+            marginRight: -10,
+        },
+        timeRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginTop: -6,
+        },
+        timeText: {
+            color: withAlpha(CORE_COLORS.white, 0.8),
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '600',
+        },
+        controlRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-evenly',
+            paddingHorizontal: 0,
+            marginBottom: 10,
+        },
+        sideControl: {
+            width: isSmall ? 40 : 44,
+            height: isSmall ? 40 : 44,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        mainControl: {
+            width: isSmall ? 50 : 56,
+            height: isSmall ? 50 : 56,
+            borderRadius: isSmall ? 25 : 28,
+            backgroundColor: withAlpha(CORE_COLORS.white, 0.15),
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        playControl: {
+            width: isSmall ? 68 : 76,
+            height: isSmall ? 68 : 76,
+            borderRadius: isSmall ? 34 : 38,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+    });
+}

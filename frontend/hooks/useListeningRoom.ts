@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useAudio } from './useAudio';
 import { useRoomStore } from '../store/useRoomStore';
 

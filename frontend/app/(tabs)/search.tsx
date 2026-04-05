@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
 import React, { memo, useCallback, useMemo, useState, useEffect } from 'react';
-import { FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, useWindowDimensions } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
@@ -22,7 +22,10 @@ import { JioSaavnSong } from '../../services/jiosaavn';
 
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
+    const { width: screenWidth } = useWindowDimensions();
     const { colors, resolvedTheme } = useTheme();
+    const isSmall = screenWidth < 375;
+    const styles = useMemo(() => createStyles(colors, isSmall), [colors, isSmall]);
     const {
         library,
         startQueuePlayback,
@@ -160,7 +163,7 @@ export default function SearchScreen() {
             colors={colors}
             styles={styles}
         />
-    ), [likedIds, colors, toggleLike, onSongPress, showVideoBadges]);
+    ), [likedIds, colors, toggleLike, onSongPress, showVideoBadges, styles]);
 
     const renderSections = () => (
         <View style={styles.sections}>
@@ -246,7 +249,7 @@ export default function SearchScreen() {
 
             <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
 
-            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+            <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
                 <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Browse</Text>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Discover</Text>
             </View>
@@ -308,7 +311,7 @@ export default function SearchScreen() {
                         <Text style={{ color: colors.textMuted, fontSize: 14, marginTop: 4 }}>Try a different search term</Text>
                     </View>
                 ) : null}
-                contentContainerStyle={{ paddingBottom: 168 + insets.bottom, paddingHorizontal: 16 }}
+                contentContainerStyle={{ paddingBottom: 160 + insets.bottom, paddingHorizontal: 16 }}
                 showsVerticalScrollIndicator={false}
             />
             {jioLoading && (
@@ -368,252 +371,241 @@ export default function SearchScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        paddingHorizontal: 16,
-        marginBottom: 16,
-    },
-    bgGlow: {
-        position: 'absolute',
-        top: -140,
-        right: -80,
-        width: 360,
-        height: 360,
-        borderRadius: 180,
-        opacity: 0.1,
-    },
-    headerEyebrow: {
-        fontSize: 12,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 1.2,
-        marginBottom: 2,
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-    },
-    countPill: {
-        borderRadius: 12,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    countPillText: {
-        fontSize: 14,
-        fontWeight: '800',
-    },
-    playlistCountText: {
-        fontSize: 12,
-        fontWeight: '500',
-        marginTop: 1,
-    },
-    emptyTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        marginTop: 16,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginHorizontal: 16,
-        borderRadius: 14,
-        borderWidth: 1,
-        height: 46,
-        paddingHorizontal: 14,
-        marginBottom: 14,
-    },
-    searchInput: {
-        flex: 1,
-        marginLeft: 10,
-        fontSize: 16,
-        height: '100%',
-    },
-    resultItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 8,
-        borderRadius: 16,
-        marginBottom: 8,
-    },
-    thumbnail: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        marginRight: 12,
-    },
-    resultInfo: {
-        flex: 1,
-    },
-    empty: {
-        alignItems: 'center',
-        marginTop: 72,
-    },
-    sections: {
-        marginBottom: 16,
-    },
-    sectionCard: {
-        padding: 16,
-        borderRadius: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 24,
-        elevation: 2,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-    },
-    sectionIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 14,
-    },
-    sectionTitle: {
-        fontSize: 17,
-        fontWeight: '700',
-    },
-    sectionSubtitle: {
-        fontSize: 13,
-        fontWeight: '600',
-        opacity: 0.7,
-        marginTop: 2,
-    },
-    playlistHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    playlistHeaderText: {
-        fontSize: 16,
-        fontWeight: '800',
-    },
-    playlistItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-        borderRadius: 14,
-        borderWidth: 1,
-        marginBottom: 8,
-    },
-    playlistMain: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    playlistMenuBtn: {
-        padding: 10,
-    },
-    playlistIcon: {
-        width: 42,
-        height: 42,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    playlistInfo: {
-        flex: 1,
-    },
-    playlistName: {
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    playlistMeta: {
-        fontSize: 12,
-        fontWeight: '500',
-        marginTop: 2,
-    },
-    addBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-    },
-    emptyPlaylist: {
-        borderWidth: 1,
-        borderRadius: 20,
-        padding: 24,
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    videoBadge: {
-        borderRadius: 8,
-        paddingHorizontal: 6,
-        paddingVertical: 4,
-    },
-    jioSection: {
-        marginBottom: 16,
-    },
-    jioHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-        gap: 8,
-    },
-    jioHeaderText: {
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    jioCount: {
-        fontSize: 13,
-        fontWeight: '500',
-    },
-    jioItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 8,
-        borderRadius: 16,
-        marginBottom: 8,
-    },
-    jioThumbnail: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        marginRight: 12,
-    },
-    jioInfo: {
-        flex: 1,
-    },
-    jioTitle: {
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    jioArtist: {
-        fontSize: 13,
-        fontWeight: '500',
-        marginTop: 2,
-    },
-    jioDuration: {
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    jioLoading: {
-        position: 'absolute',
-        bottom: 100,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-        paddingVertical: 8,
-    },
-    jioLoadingText: {
-        fontSize: 13,
-        fontWeight: '500',
-    },
-});
+
+function createStyles(colors: any, isSmall: boolean) {
+    return StyleSheet.create({
+        container: { flex: 1 },
+        header: {
+            paddingHorizontal: isSmall ? 12 : 16,
+            marginBottom: 16,
+        },
+        bgGlow: {
+            position: 'absolute',
+            top: -140,
+            right: -80,
+            width: 360,
+            height: 360,
+            borderRadius: 180,
+            opacity: 0.1,
+        },
+        headerEyebrow: {
+            fontSize: isSmall ? 10 : 12,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            marginBottom: 2,
+        },
+        headerTitle: {
+            fontSize: isSmall ? 24 : 28,
+            fontWeight: '800',
+        },
+        countPill: {
+            borderRadius: 12,
+            paddingHorizontal: isSmall ? 8 : 10,
+            paddingVertical: 4,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        countPillText: {
+            fontSize: isSmall ? 12 : 14,
+            fontWeight: '800',
+        },
+        playlistCountText: {
+            fontSize: 12,
+            fontWeight: '500',
+            marginTop: 1,
+        },
+        emptyTitle: {
+            fontSize: isSmall ? 16 : 18,
+            fontWeight: '800',
+            marginTop: 16,
+        },
+        searchContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginHorizontal: isSmall ? 12 : 16,
+            borderRadius: isSmall ? 12 : 14,
+            borderWidth: 1,
+            height: isSmall ? 42 : 46,
+            paddingHorizontal: isSmall ? 12 : 14,
+            marginBottom: 14,
+        },
+        searchInput: {
+            flex: 1,
+            marginLeft: 10,
+            fontSize: isSmall ? 14 : 16,
+            height: '100%',
+        },
+        resultItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: 8,
+            borderRadius: isSmall ? 14 : 16,
+            marginBottom: 8,
+        },
+        thumbnail: {
+            width: isSmall ? 42 : 48,
+            height: isSmall ? 42 : 48,
+            borderRadius: isSmall ? 10 : 12,
+            marginRight: 12,
+        },
+        resultInfo: { flex: 1 },
+        empty: {
+            alignItems: 'center',
+            marginTop: isSmall ? 56 : 72,
+        },
+        sections: { marginBottom: 16 },
+        sectionCard: {
+            padding: isSmall ? 14 : 16,
+            borderRadius: isSmall ? 18 : 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 24,
+            elevation: 2,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+        },
+        sectionIcon: {
+            width: isSmall ? 42 : 48,
+            height: isSmall ? 42 : 48,
+            borderRadius: isSmall ? 21 : 24,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: 14,
+        },
+        sectionTitle: {
+            fontSize: isSmall ? 15 : 17,
+            fontWeight: '700',
+        },
+        sectionSubtitle: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '600',
+            opacity: 0.7,
+            marginTop: 2,
+        },
+        playlistHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 10,
+        },
+        playlistHeaderText: {
+            fontSize: isSmall ? 14 : 16,
+            fontWeight: '800',
+        },
+        playlistItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+            borderRadius: isSmall ? 12 : 14,
+            borderWidth: 1,
+            marginBottom: 8,
+        },
+        playlistMain: {
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        playlistMenuBtn: { padding: 10 },
+        playlistIcon: {
+            width: isSmall ? 38 : 42,
+            height: isSmall ? 38 : 42,
+            borderRadius: isSmall ? 10 : 12,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: 12,
+        },
+        playlistInfo: { flex: 1 },
+        playlistName: {
+            fontSize: isSmall ? 14 : 15,
+            fontWeight: '700',
+        },
+        playlistMeta: {
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '500',
+            marginTop: 2,
+        },
+        addBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: isSmall ? 10 : 12,
+            paddingVertical: 6,
+            borderRadius: 20,
+            borderWidth: 1,
+        },
+        emptyPlaylist: {
+            borderWidth: 1,
+            borderRadius: isSmall ? 18 : 20,
+            padding: isSmall ? 20 : 24,
+            alignItems: 'center',
+            marginTop: 10,
+        },
+        videoBadge: {
+            borderRadius: 8,
+            paddingHorizontal: 6,
+            paddingVertical: 4,
+        },
+        jioSection: { marginBottom: 16 },
+        jioHeader: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 12,
+            gap: 8,
+        },
+        jioHeaderText: {
+            fontSize: isSmall ? 14 : 15,
+            fontWeight: '700',
+        },
+        jioCount: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '500',
+        },
+        jioItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: 8,
+            borderRadius: isSmall ? 14 : 16,
+            marginBottom: 8,
+        },
+        jioThumbnail: {
+            width: isSmall ? 42 : 48,
+            height: isSmall ? 42 : 48,
+            borderRadius: isSmall ? 10 : 12,
+            marginRight: 12,
+        },
+        jioInfo: { flex: 1 },
+        jioTitle: {
+            fontSize: isSmall ? 14 : 15,
+            fontWeight: '700',
+        },
+        jioArtist: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '500',
+            marginTop: 2,
+        },
+        jioDuration: {
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '600',
+        },
+        jioLoading: {
+            position: 'absolute',
+            bottom: 100,
+            left: 0,
+            right: 0,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 8,
+            paddingVertical: 8,
+        },
+        jioLoadingText: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '500',
+        },
+    });
+}
 
 const SearchItemComponent = ({ item, onPress, onLike, isLiked, showVideoBadges, colors, styles }: any) => (
     <View>

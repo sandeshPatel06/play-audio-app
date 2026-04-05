@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
-import React, { useCallback, useEffect } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../hooks/useAudio';
@@ -51,12 +51,16 @@ function MiniVideoThumbnail({ uri, isPlaying }: { uri: string, isPlaying: boolea
 
 export default function MiniPlayer() {
     const insets = useSafeAreaInsets();
+    const { width: screenWidth } = useWindowDimensions();
     const { colors } = useTheme();
     const { 
         currentSong, isPlaying, handlePlayPause, handleNext, handlePrevious, 
         position, duration
     } = useAudio();
     const safePush = useSafeRouterPush();
+    
+    const isSmall = screenWidth < 375;
+    const styles = useMemo(() => createStyles(colors, isSmall), [colors, isSmall]);
 
     if (!currentSong) return null;
 
@@ -90,7 +94,7 @@ export default function MiniPlayer() {
     };
 
     return (
-        <View style={[styles.container, { bottom: (insets.bottom || 0) + 96, shadowColor: colors.floatingShadow }]}>
+        <View style={[styles.container, { bottom: Math.max(12, insets.bottom) + 88, shadowColor: colors.floatingShadow }]}>
             <View style={[styles.backgroundPanel, { backgroundColor: colors.floatingBackground, borderColor: colors.floatingBorder }]}>
                 <View style={styles.contentWrapper}>
                     <View style={styles.mainRow}>
@@ -136,104 +140,108 @@ export default function MiniPlayer() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        position: 'absolute',
-        left: 8,
-        right: 8,
-        height: 86,
-        zIndex: 50,
-        elevation: 10,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
-    },
-    backgroundPanel: {
-        flex: 1,
-        borderRadius: 8,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    contentWrapper: {
-        flex: 1,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        justifyContent: 'center',
-    },
-    mainRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    artwork: {
-        width: 44,
-        height: 44,
-        borderRadius: 4,
-        marginRight: 10,
-        overflow: 'hidden',
-    },
-    leftSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-        paddingRight: 10,
-    },
-    info: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 13,
-        fontWeight: '700',
-        marginBottom: 2,
-    },
-    artist: {
-        fontSize: 11,
-        fontWeight: '500',
-    },
-    controlsSide: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: 110,
-    },
-    primaryControls: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%',
-        paddingHorizontal: 6,
-    },
-    skipBtn: {
-        padding: 4,
-    },
-    playBtn: {
-        padding: 4,
-    },
-    progressRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        height: 14,
-        marginTop: 6,
-    },
-    timeText: {
-        fontSize: 10,
-        fontWeight: '500',
-        fontVariant: ['tabular-nums'],
-        width: 36,
-        textAlign: 'center',
-    },
-    progressBarContainer: {
-        flex: 1,
-        height: 4,
-        borderRadius: 2,
-        marginHorizontal: 4,
-        overflow: 'hidden',
-    },
-    progressBarBg: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    progressBar: {
-        height: '100%',
-        borderRadius: 2,
-    },
-});
+
+
+function createStyles(colors: any, isSmall: boolean) {
+    return StyleSheet.create({
+        container: {
+            position: 'absolute',
+            left: isSmall ? 4 : 8,
+            right: isSmall ? 4 : 8,
+            height: isSmall ? 78 : 86,
+            zIndex: 50,
+            elevation: 10,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.4,
+            shadowRadius: 10,
+        },
+        backgroundPanel: {
+            flex: 1,
+            borderRadius: isSmall ? 6 : 8,
+            borderWidth: 1,
+            overflow: 'hidden',
+        },
+        contentWrapper: {
+            flex: 1,
+            paddingHorizontal: isSmall ? 10 : 12,
+            paddingVertical: isSmall ? 8 : 10,
+            justifyContent: 'center',
+        },
+        mainRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            flex: 1,
+        },
+        artwork: {
+            width: isSmall ? 40 : 44,
+            height: isSmall ? 40 : 44,
+            borderRadius: isSmall ? 3 : 4,
+            marginRight: 10,
+            overflow: 'hidden',
+        },
+        leftSection: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            flex: 1,
+            paddingRight: 10,
+        },
+        info: {
+            flex: 1,
+            justifyContent: 'center',
+        },
+        title: {
+            fontSize: isSmall ? 12 : 13,
+            fontWeight: '700',
+            marginBottom: 2,
+        },
+        artist: {
+            fontSize: isSmall ? 10 : 11,
+            fontWeight: '500',
+        },
+        controlsSide: {
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: isSmall ? 100 : 110,
+        },
+        primaryControls: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            paddingHorizontal: isSmall ? 4 : 6,
+        },
+        skipBtn: {
+            padding: 4,
+        },
+        playBtn: {
+            padding: 4,
+        },
+        progressRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            height: isSmall ? 12 : 14,
+            marginTop: isSmall ? 4 : 6,
+        },
+        timeText: {
+            fontSize: isSmall ? 9 : 10,
+            fontWeight: '500',
+            fontVariant: ['tabular-nums'],
+            width: isSmall ? 32 : 36,
+            textAlign: 'center',
+        },
+        progressBarContainer: {
+            flex: 1,
+            height: isSmall ? 3 : 4,
+            borderRadius: isSmall ? 1.5 : 2,
+            marginHorizontal: 4,
+            overflow: 'hidden',
+        },
+        progressBarBg: {
+            ...StyleSheet.absoluteFillObject,
+        },
+        progressBar: {
+            height: '100%',
+            borderRadius: isSmall ? 1.5 : 2,
+        },
+    });
+}
