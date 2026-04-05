@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Asset } from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library';
 import { useAudioStore } from './useAudioStore';
 
 const CHUNK_SIZE = 8 * 1024; // 8KB micro-chunks for instant flow
@@ -13,7 +13,8 @@ interface RoomState {
     ws: WebSocket | null;
     broadcastInterval: ReturnType<typeof setInterval> | null;
     position: number;
-    currentSong: Asset | null;
+    currentSong: MediaLibrary.Asset | null;
+    remoteSongInfo: { title: string; artist: string } | null;
 
     // Actions
     setRoomId: (id: string | null) => void;
@@ -21,11 +22,11 @@ interface RoomState {
     setIsListening: (val: boolean) => void;
     setBroadcastError: (err: string | null) => void;
     
-    startBroadcast: (id: string, url: string, song: Asset | null) => void;
+    startBroadcast: (id: string, url: string, song: MediaLibrary.Asset | null) => void;
     stopBroadcast: () => void;
-    joinRoom: (id: string) => void;
+    joinRoom: (id: string, url: string) => void;
     leaveRoom: () => void;
-    updateCurrentSong: (song: Asset | null) => void;
+    updateCurrentSong: (song: MediaLibrary.Asset | null) => void;
 }
 
 export const useRoomStore = create<RoomState>((set, get) => ({
@@ -37,6 +38,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     broadcastInterval: null,
     position: 0,
     currentSong: null,
+    remoteSongInfo: null,
 
     setRoomId: (roomId) => set({ roomId }),
     setIsBroadcasting: (isBroadcasting) => set({ isBroadcasting }),
@@ -64,44 +66,62 @@ export const useRoomStore = create<RoomState>((set, get) => ({
         });
 
         const connect = () => {
-            const { roomId, isBroadcasting } = get();
-            if (!roomId || !isBroadcasting) return;
+            const currentRoomId = get().roomId;
+            const currentIsBroadcasting = get().isBroadcasting;
+            if (!currentRoomId || !currentIsBroadcasting) return;
 
             const cleanBase = url.endsWith('/') ? url.slice(0, -1) : url;
-            const wsUrl = `${cleanBase}/${roomId}/`;
+            const wsUrl = `${cleanBase}/${currentRoomId}/`;
             const ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
-                console.log('[RoomStore] Broadcaster Open:', roomId);
+                console.log('[RoomStore] Broadcaster Open:', currentRoomId);
                 set({ broadcastError: null });
                 
+                // Initial metadata sync
+                const audioStore = useAudioStore.getState();
+                const initialSong = audioStore.currentSong;
+                if (initialSong && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'metadata',
+                        title: initialSong.filename,
+                        artist: 'Syncing with Host'
+                    }));
+                }
+
                 const interval = setInterval(async () => {
                     const currentState = get();
-                    const audioStore = useAudioStore.getState();
-                    const song = audioStore.currentSong;
+                    const audioStoreInternal = useAudioStore.getState();
+                    const currentSongInternal = audioStoreInternal.currentSong;
 
                     if (!currentState.isBroadcasting) return;
 
-                    if (!currentState.ws || currentState.ws.readyState !== WebSocket.OPEN) {
+                    if (ws.readyState !== WebSocket.OPEN) {
                         return; // Wait for socket
                     }
 
-                    if (!song) {
+                    if (!currentSongInternal) {
                         return; // Idle
                     }
 
-                    // Sync current song
-                    if (get().currentSong?.id !== song.id) {
-                        console.log('[RoomStore] Syncing Song:', song.filename);
-                        set({ currentSong: song, position: 0 });
+                    // Sync current song metadata if changed during broadcast
+                    if (get().currentSong?.id !== currentSongInternal.id) {
+                        console.log('[RoomStore] Syncing Song:', currentSongInternal.filename);
+                        set({ currentSong: currentSongInternal, position: 0 });
+                        
+                        // Notify listeners of song change
+                        ws.send(JSON.stringify({
+                            type: 'metadata',
+                            title: currentSongInternal.filename,
+                            artist: 'Syncing with Host'
+                        }));
                         return;
                     }
 
-                    let uri = song.uri;
+                    let uri = currentSongInternal.uri;
                     try {
                         if (uri.startsWith('http')) {
-                            // Sanitize ID to be safe for filenames (remove : / \ etc)
-                            const safeId = song.id.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                            const safeId = currentSongInternal.id.replace(/[^a-z0-9]/gi, '_').toLowerCase();
                             const filename = `broadcast_${safeId}.mp3`;
                             const localPath = `${FileSystem.cacheDirectory}${filename}`;
                             const fileInfo = await FileSystem.getInfoAsync(localPath);
@@ -117,49 +137,43 @@ export const useRoomStore = create<RoomState>((set, get) => ({
 
                         if (!uri.startsWith('file://') && !uri.startsWith('content://')) return;
                         
-                        const fileInfo = await FileSystem.getInfoAsync(uri);
-                        if (!fileInfo.exists) return;
+                        const fileInfoInternal = await FileSystem.getInfoAsync(uri);
+                        if (!fileInfoInternal.exists) return;
 
-                        const totalSize = fileInfo.size || 0;
-                        const duration = audioStore.duration || 0;
-                        const hostPosSeconds = audioStore.position || 0;
-
-                        const currentPosition = get().position;
+                        const totalSize = fileInfoInternal.size || 0;
+                        const duration = audioStoreInternal.duration || 0;
+                        const hostPosSeconds = audioStoreInternal.position || 0;
+                        const currentBytePosition = get().position;
                         
-                        // SYNC & THROTTLE LOGIC
                         if (duration > 0 && totalSize > 0) {
                             const expectedBytePos = Math.floor((hostPosSeconds / duration) * totalSize);
-                            
-                            // 1. Resync if we drift too far (8 seconds difference)
                             const driftLimit = Math.floor((8.0 / duration) * totalSize);
-                            if (Math.abs(expectedBytePos - currentPosition) > driftLimit) {
-                                console.log(`[RoomStore] Drift Reset: ${currentPosition} -> ${expectedBytePos}`);
+                            
+                            if (Math.abs(expectedBytePos - currentBytePosition) > driftLimit) {
+                                console.log(`[RoomStore] Drift Reset: ${currentBytePosition} -> ${expectedBytePos}`);
                                 set({ position: expectedBytePos });
                                 return;
                             }
 
-                            // 2. Rate Limit: Stay exactly 5 seconds ahead for buffering
                             const bufferLimit = Math.floor((5.0 / duration) * totalSize);
-                            if (currentPosition > expectedBytePos + bufferLimit) {
-                                // We're fast enough, skip this tick
-                                return;
+                            if (currentBytePosition > expectedBytePos + bufferLimit) {
+                                return; // Rate limit reached
                             }
                         }
 
-                        if (currentPosition >= totalSize) return;
+                        if (currentBytePosition >= totalSize) return;
 
-                        const chunkLength = Math.min(CHUNK_SIZE, totalSize - currentPosition);
+                        const chunkLength = Math.min(CHUNK_SIZE, totalSize - currentBytePosition);
                         const chunk = await FileSystem.readAsStringAsync(uri, {
                             encoding: 'base64',
-                            position: currentPosition,
+                            position: currentBytePosition,
                             length: chunkLength
                         });
 
-                        currentState.ws.send(chunk);
+                        ws.send(chunk);
                         
-                        // Log every 100 chunks for less noise
-                        if (Math.floor(currentPosition / CHUNK_SIZE) % 100 === 0) {
-                             console.log(`[RoomStore] => Chunk @ ${currentPosition} / ${totalSize}`);
+                        if (Math.floor(currentBytePosition / CHUNK_SIZE) % 100 === 0) {
+                             console.log(`[RoomStore] => Chunk @ ${currentBytePosition} / ${totalSize}`);
                         }
                         
                         set(state => ({ ...state, position: state.position + chunkLength }));
@@ -211,6 +225,51 @@ export const useRoomStore = create<RoomState>((set, get) => ({
         });
     },
 
-    joinRoom: (id) => set({ roomId: id, isListening: true }),
-    leaveRoom: () => set({ roomId: null, isListening: false }),
+    joinRoom: (id, url) => {
+        const state = get();
+        if (state.ws) state.leaveRoom();
+
+        set({ roomId: id, isListening: true, remoteSongInfo: null });
+
+        const connect = () => {
+            const { roomId, isListening } = get();
+            if (!roomId || !isListening) return;
+
+            const cleanBase = url.endsWith('/') ? url.slice(0, -1) : url;
+            const wsUrl = `${cleanBase}/${roomId}/`;
+            const ws = new WebSocket(wsUrl);
+
+            ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'metadata') {
+                        console.log('[RoomStore] Remote Metadata:', data.title);
+                        set({ remoteSongInfo: { title: data.title, artist: data.artist } });
+                    }
+                } catch {
+                    // Raw binary chunks processed by HTTP stream
+                }
+            };
+
+            ws.onerror = () => set({ broadcastError: 'Listener connection error' });
+            ws.onclose = () => {
+                if (get().isListening) {
+                    setTimeout(() => { if (get().isListening) connect(); }, 3000);
+                }
+            };
+
+            set({ ws });
+        };
+
+        connect();
+    },
+
+    leaveRoom: () => {
+        const state = get();
+        if (state.ws) {
+            state.ws.onclose = null;
+            state.ws.close();
+        }
+        set({ roomId: null, isListening: false, ws: null, remoteSongInfo: null });
+    },
 }));

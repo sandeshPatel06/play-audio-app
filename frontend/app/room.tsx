@@ -117,7 +117,7 @@ function RoomScreen() {
         console.log('[Room] Attempting to join:', streamUrl);
         const success = await playFromUrl(streamUrl);
         if (success) {
-            joinRoom(joinId);
+            joinRoom(joinId, BROADCAST_URL);
             // Auto open the player so user sees it's working
             safePush('/player'); 
         } else {

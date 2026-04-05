@@ -55,7 +55,7 @@ export default function MiniPlayer() {
     const { colors } = useTheme();
     const { 
         currentSong, isPlaying, handlePlayPause, handleNext, handlePrevious, 
-        position, duration
+        position, duration, nowPlayingContext, remoteSongInfo
     } = useAudio();
     const safePush = useSafeRouterPush();
     
@@ -107,22 +107,37 @@ export default function MiniPlayer() {
                                 <Image source={require('../assets/images/placeholder.png')} style={styles.artwork} />
                             )}
                             <View style={styles.info}>
-                                <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>{currentSong.filename}</Text>
-                                <Text numberOfLines={1} style={[styles.artist, { color: colors.textMuted }]}>Unknown Artist</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text numberOfLines={1} style={[styles.title, { color: colors.text, flex: 1 }]}>
+                                        {nowPlayingContext?.type === 'remote' ? (remoteSongInfo?.title || 'Syncing...') : currentSong.filename}
+                                    </Text>
+                                    {nowPlayingContext?.type === 'remote' && (
+                                        <View style={{ backgroundColor: colors.accent, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
+                                            <Text style={{ color: 'white', fontSize: 8, fontWeight: '900' }}>ROOM</Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <Text numberOfLines={1} style={[styles.artist, { color: colors.textMuted }]}>
+                                    {nowPlayingContext?.type === 'remote' ? (remoteSongInfo?.artist || 'Listening Room') : 'Unknown Artist'}
+                                </Text>
                             </View>
                         </Pressable>
 
                         <View style={styles.controlsSide}>
                             <View style={styles.primaryControls}>
-                                <ScalePressable onPress={onPrev} hitSlop={15} style={styles.skipBtn}>
-                                    <Ionicons name="play-skip-back" size={24} color={colors.text} />
-                                </ScalePressable>
+                                {nowPlayingContext?.type !== 'remote' && (
+                                    <ScalePressable onPress={onPrev} hitSlop={15} style={styles.skipBtn}>
+                                        <Ionicons name="play-skip-back" size={24} color={colors.text} />
+                                    </ScalePressable>
+                                )}
                                 <ScalePressable onPress={onPlayPause} hitSlop={15} style={styles.playBtn}>
                                     <Ionicons name={isPlaying ? "pause" : "play"} size={28} color={colors.text} />
                                 </ScalePressable>
-                                <ScalePressable onPress={onNext} hitSlop={15} style={styles.skipBtn}>
-                                    <Ionicons name="play-skip-forward" size={24} color={colors.text} />
-                                </ScalePressable>
+                                {nowPlayingContext?.type !== 'remote' && (
+                                    <ScalePressable onPress={onNext} hitSlop={15} style={styles.skipBtn}>
+                                        <Ionicons name="play-skip-forward" size={24} color={colors.text} />
+                                    </ScalePressable>
+                                )}
                             </View>
                         </View>
                     </View>
