@@ -2,8 +2,19 @@ import { create } from 'zustand';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { useAudioStore } from './useAudioStore';
+import { 
+    RTCPeerConnection, 
+    RTCIceCandidate, 
+    RTCSessionDescription 
+} from 'react-native-webrtc';
+import { 
+    ExpoPlayAudioStream, 
+    EncodingTypes, 
+    PlaybackModes 
+} from "@saltmango/expo-audio-stream";
 
-const CHUNK_SIZE = 8 * 1024; // 8KB micro-chunks for instant flow
+const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+const CHUNK_SIZE = 16 * 1024; 
 
 interface RoomState {
     roomId: string | null;
@@ -11,6 +22,8 @@ interface RoomState {
     isListening: boolean;
     broadcastError: string | null;
     ws: WebSocket | null;
+    pc: any; 
+    dc: any;
     broadcastInterval: ReturnType<typeof setInterval> | null;
     position: number;
     currentSong: MediaLibrary.Asset | null;
@@ -35,6 +48,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     isListening: false,
     broadcastError: null,
     ws: null,
+    pc: null,
+    dc: null,
     broadcastInterval: null,
     position: 0,
     currentSong: null,
@@ -48,8 +63,14 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     updateCurrentSong: (song) => {
         const state = get();
         if (state.currentSong?.id !== song?.id) {
-            console.log('[RoomStore] Song change detected:', song?.filename);
             set({ currentSong: song, position: 0 });
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify({
+                    type: 'metadata',
+                    title: song?.filename || 'Stopped',
+                    artist: 'Syncing with Host'
+                }));
+            }
         }
     },
 
@@ -62,72 +83,50 @@ export const useRoomStore = create<RoomState>((set, get) => ({
             isBroadcasting: true, 
             broadcastError: null, 
             position: 0,
-            currentSong: song 
+            currentSong: song,
+            pc: null,
+            dc: null
         });
 
         const connect = () => {
             const currentRoomId = get().roomId;
-            const currentIsBroadcasting = get().isBroadcasting;
-            if (!currentRoomId || !currentIsBroadcasting) return;
+            if (!currentRoomId) return;
 
             const cleanBase = url.endsWith('/') ? url.slice(0, -1) : url;
             const wsUrl = `${cleanBase}/${currentRoomId}/`;
             const ws = new WebSocket(wsUrl);
 
-            ws.onopen = () => {
-                console.log('[RoomStore] Broadcaster Open:', currentRoomId);
-                set({ broadcastError: null });
+            ws.onopen = async () => {
+                console.log('[RoomStore] Broadcaster Signal Open:', currentRoomId);
                 
-                // Initial metadata sync
-                const audioStore = useAudioStore.getState();
-                const initialSong = audioStore.currentSong;
-                if (initialSong && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: 'metadata',
-                        title: initialSong.filename,
-                        artist: 'Syncing with Host'
-                    }));
-                }
+                const pc = new RTCPeerConnection({ iceServers }) as any;
+                const dc = pc.createDataChannel('audio', { ordered: false, maxRetransmits: 0 });
+                set({ pc, dc, ws });
+
+                pc.onicecandidate = (event: any) => {
+                    if (event.candidate && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+                    }
+                };
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                ws.send(JSON.stringify({ type: 'offer', offer, role: 'broadcaster' }));
 
                 const interval = setInterval(async () => {
-                    const currentState = get();
-                    const audioStoreInternal = useAudioStore.getState();
-                    const currentSongInternal = audioStoreInternal.currentSong;
+                    const st = get();
+                    const audioStore = useAudioStore.getState();
+                    const song = audioStore.currentSong;
 
-                    if (!currentState.isBroadcasting) return;
+                    if (!st.isBroadcasting || !song || !st.dc || st.dc.readyState !== 'open') return;
 
-                    if (ws.readyState !== WebSocket.OPEN) {
-                        return; // Wait for socket
-                    }
-
-                    if (!currentSongInternal) {
-                        return; // Idle
-                    }
-
-                    // Sync current song metadata if changed during broadcast
-                    if (get().currentSong?.id !== currentSongInternal.id) {
-                        console.log('[RoomStore] Syncing Song:', currentSongInternal.filename);
-                        set({ currentSong: currentSongInternal, position: 0 });
-                        
-                        // Notify listeners of song change
-                        ws.send(JSON.stringify({
-                            type: 'metadata',
-                            title: currentSongInternal.filename,
-                            artist: 'Syncing with Host'
-                        }));
-                        return;
-                    }
-
-                    let uri = currentSongInternal.uri;
+                    let uri = song.uri;
                     try {
                         if (uri.startsWith('http')) {
-                            const safeId = currentSongInternal.id.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                            const filename = `broadcast_${safeId}.mp3`;
+                            const filename = `broadcast_${song.id.replace(/[^a-z0-9]/gi,'_')}.mp3`;
                             const localPath = `${FileSystem.cacheDirectory}${filename}`;
                             const fileInfo = await FileSystem.getInfoAsync(localPath);
-                            
                             if (!fileInfo.exists) {
-                                console.log('[RoomStore] Downloading:', uri);
                                 const download = await FileSystem.downloadAsync(uri, localPath);
                                 uri = download.uri;
                             } else {
@@ -135,75 +134,50 @@ export const useRoomStore = create<RoomState>((set, get) => ({
                             }
                         }
 
-                        if (!uri.startsWith('file://') && !uri.startsWith('content://')) return;
-                        
-                        const fileInfoInternal = await FileSystem.getInfoAsync(uri);
-                        if (!fileInfoInternal.exists) return;
+                        const curPos = get().position;
+                        const fileInfo = await FileSystem.getInfoAsync(uri) as any;
+                        const totalSize = fileInfo.size || 0;
+                        const duration = audioStore.duration || 0;
+                        const hostPos = audioStore.position || 0;
 
-                        const totalSize = fileInfoInternal.size || 0;
-                        const duration = audioStoreInternal.duration || 0;
-                        const hostPosSeconds = audioStoreInternal.position || 0;
-                        const currentBytePosition = get().position;
-                        
                         if (duration > 0 && totalSize > 0) {
-                            const expectedBytePos = Math.floor((hostPosSeconds / duration) * totalSize);
-                            const driftLimit = Math.floor((8.0 / duration) * totalSize);
-                            
-                            if (Math.abs(expectedBytePos - currentBytePosition) > driftLimit) {
-                                console.log(`[RoomStore] Drift Reset: ${currentBytePosition} -> ${expectedBytePos}`);
-                                set({ position: expectedBytePos });
+                            const expected = Math.floor((hostPos / duration) * totalSize);
+                            if (Math.abs(expected - curPos) > Math.floor((3.0 / duration) * totalSize)) {
+                                set({ position: expected });
                                 return;
                             }
-
-                            const bufferLimit = Math.floor((5.0 / duration) * totalSize);
-                            if (currentBytePosition > expectedBytePos + bufferLimit) {
-                                return; // Rate limit reached
-                            }
                         }
 
-                        if (currentBytePosition >= totalSize) return;
+                        if (curPos >= totalSize) return;
 
-                        const chunkLength = Math.min(CHUNK_SIZE, totalSize - currentBytePosition);
+                        const chunkLen = Math.min(CHUNK_SIZE, totalSize - curPos);
                         const chunk = await FileSystem.readAsStringAsync(uri, {
                             encoding: 'base64',
-                            position: currentBytePosition,
-                            length: chunkLength
+                            position: curPos,
+                            length: chunkLen
                         });
 
-                        ws.send(chunk);
-                        
-                        if (Math.floor(currentBytePosition / CHUNK_SIZE) % 100 === 0) {
-                             console.log(`[RoomStore] => Chunk @ ${currentBytePosition} / ${totalSize}`);
-                        }
-                        
-                        set(state => ({ ...state, position: state.position + chunkLength }));
+                        st.dc.send(chunk);
+                        set(s => ({ ...s, position: s.position + chunkLen }));
                     } catch (e) {
-                        console.error('[RoomStore] Loop Err:', e);
+                         console.error('[RoomStore] Loop Err:', e);
                     }
                 }, 100);
 
                 set({ broadcastInterval: interval });
             };
 
-            ws.onerror = (e: any) => {
-                console.error('[RoomStore] WS Err:', JSON.stringify(e));
-                set({ broadcastError: 'Connection error' });
-            };
-
-            ws.onclose = (event) => {
-                console.warn(`[RoomStore] WS Closed: ${event.code}`);
-                const currentState = get();
-                if (currentState.broadcastInterval) clearInterval(currentState.broadcastInterval);
-                set({ broadcastInterval: null, ws: null });
-
-                if (get().isBroadcasting && event.code !== 1000) {
-                    setTimeout(() => {
-                        if (get().isBroadcasting) connect();
-                    }, 3000);
+            ws.onmessage = async (e) => {
+                const data = JSON.parse(e.data);
+                const pc = get().pc;
+                if (!pc) return;
+                
+                if (data.type === 'answer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                } else if (data.type === 'candidate') {
+                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
                 }
             };
-
-            set({ ws: ws });
         };
 
         connect();
@@ -212,17 +186,9 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     stopBroadcast: () => {
         const state = get();
         if (state.broadcastInterval) clearInterval(state.broadcastInterval);
-        if (state.ws) {
-            state.ws.onclose = null;
-            state.ws.close();
-        }
-        set({ 
-            isBroadcasting: false, 
-            ws: null, 
-            broadcastInterval: null, 
-            roomId: null,
-            position: 0 
-        });
+        if (state.pc) state.pc.close();
+        if (state.ws) state.ws.close();
+        set({ isBroadcasting: false, ws: null, pc: null, dc: null, broadcastInterval: null, roomId: null, position: 0 });
     },
 
     joinRoom: (id, url) => {
@@ -239,26 +205,59 @@ export const useRoomStore = create<RoomState>((set, get) => ({
             const wsUrl = `${cleanBase}/${roomId}/`;
             const ws = new WebSocket(wsUrl);
 
-            ws.onmessage = (e) => {
+            ws.onopen = async () => {
+                const pc = new RTCPeerConnection({ iceServers }) as any;
+                set({ pc, ws });
+
+                pc.onicecandidate = (event: any) => {
+                    if (event.candidate && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+                    }
+                };
+
+                pc.ondatachannel = (event: any) => {
+                    const dc = event.channel;
+                    set({ dc });
+                    dc.onopen = async () => {
+                        try {
+                            await ExpoPlayAudioStream.setSoundConfig({ 
+                                sampleRate: 44100, playbackMode: PlaybackModes.CONVERSATION 
+                            });
+                            await ExpoPlayAudioStream.startBufferedAudioStream({
+                                turnId: "room-stream",
+                                encoding: EncodingTypes.PCM_S16LE,
+                                bufferConfig: { targetBufferMs: 300, minBufferMs: 150, maxBufferMs: 600 }
+                            });
+                        } catch (e) {
+                             console.warn('[RoomStore] Player Init Err:', e);
+                        }
+                    };
+
+                    dc.onmessage = (msg: any) => {
+                        ExpoPlayAudioStream.playAudioBuffered(msg.data, "room-stream");
+                    };
+                };
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                ws.send(JSON.stringify({ type: 'offer', offer, role: 'listener' }));
+            };
+
+            ws.onmessage = async (e) => {
                 try {
                     const data = JSON.parse(e.data);
+                    const pc = get().pc;
+                    if (!pc) return;
+                    
                     if (data.type === 'metadata') {
-                        console.log('[RoomStore] Remote Metadata:', data.title);
-                        set({ remoteSongInfo: { title: data.title, artist: data.artist } });
+                         set({ remoteSongInfo: { title: data.title, artist: data.artist } });
+                    } else if (data.type === 'answer') {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    } else if (data.type === 'candidate') {
+                        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
                     }
-                } catch {
-                    // Raw binary chunks processed by HTTP stream
-                }
+                } catch { }
             };
-
-            ws.onerror = () => set({ broadcastError: 'Listener connection error' });
-            ws.onclose = () => {
-                if (get().isListening) {
-                    setTimeout(() => { if (get().isListening) connect(); }, 3000);
-                }
-            };
-
-            set({ ws });
         };
 
         connect();
@@ -266,10 +265,9 @@ export const useRoomStore = create<RoomState>((set, get) => ({
 
     leaveRoom: () => {
         const state = get();
-        if (state.ws) {
-            state.ws.onclose = null;
-            state.ws.close();
-        }
-        set({ roomId: null, isListening: false, ws: null, remoteSongInfo: null });
+        if (state.pc) state.pc.close();
+        if (state.ws) state.ws.close();
+        try { ExpoPlayAudioStream.stopBufferedAudioStream("room-stream"); } catch {}
+        set({ roomId: null, isListening: false, ws: null, pc: null, dc: null, remoteSongInfo: null });
     },
 }));

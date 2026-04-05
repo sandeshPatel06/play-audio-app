@@ -68,6 +68,14 @@ const config = {
             },
         ],
         'expo-font',
+        [
+            '@config-plugins/react-native-webrtc',
+            {
+                "cameraPermission": "Allow Play-Buzz to access your camera for video streaming.",
+                "microphonePermission": "Allow Play-Buzz to access your microphone for room chat.",
+                "appleSpeechRecognitionPermission": "Allow Play-Buzz to use speech recognition.",
+            }
+        ],
     ],
     extra: {
         router: {},

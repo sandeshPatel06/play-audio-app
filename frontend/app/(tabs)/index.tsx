@@ -18,7 +18,6 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-    Image,
     useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -336,10 +335,11 @@ export default function LibraryScreen() {
     if (loading) {
         return (
             <View style={[styles.container, { backgroundColor: colors.screenBackground, justifyContent: 'center', alignItems: 'center' }]}>
-                <Image 
-                    source={require('../../assets/images/splash-icon.png')} 
-                    style={{ width: isSmall ? 80 : 100, height: isSmall ? 80 : 100, marginBottom: 20 }} 
-                    resizeMode="contain" 
+                <Ionicons 
+                    name="musical-notes" 
+                    size={isSmall ? 80 : 100} 
+                    color={colors.accent} 
+                    style={{ marginBottom: 20 }} 
                 />
                 <ActivityIndicator size="small" color={colors.accent} />
                 <Text style={{ color: colors.textMuted, marginTop: 20, fontWeight: '600', fontSize: isSmall ? 14 : 16 }}>Scan in progress...</Text>
