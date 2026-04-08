@@ -68,14 +68,6 @@ const config = {
             },
         ],
         'expo-font',
-        [
-            '@config-plugins/react-native-webrtc',
-            {
-                "cameraPermission": "Allow Just-Play to access your camera for video streaming.",
-                "microphonePermission": "Allow Just-Play to access your microphone for room chat.",
-                "appleSpeechRecognitionPermission": "Allow Just-Play to use speech recognition.",
-            }
-        ],
     ],
     extra: {
         router: {},

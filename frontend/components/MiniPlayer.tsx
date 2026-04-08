@@ -63,7 +63,7 @@ export default function MiniPlayer() {
     const { colors } = useTheme();
     const { 
         currentSong, isPlaying, handlePlayPause, handleNext, handlePrevious, 
-        position, duration, nowPlayingContext, remoteSongInfo
+        position, duration, nowPlayingContext
     } = useAudio();
     const safePush = useSafeRouterPush();
     
@@ -117,16 +117,11 @@ export default function MiniPlayer() {
                             <View style={styles.info}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                     <Text numberOfLines={1} style={[styles.title, { color: colors.text, flex: 1 }]}>
-                                        {nowPlayingContext?.type === 'remote' ? (remoteSongInfo?.title || 'Syncing...') : currentSong.filename}
+                                        {currentSong.filename}
                                     </Text>
-                                    {nowPlayingContext?.type === 'remote' && (
-                                        <View style={{ backgroundColor: colors.accent, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
-                                            <Text style={{ color: 'white', fontSize: 8, fontWeight: '900' }}>ROOM</Text>
-                                        </View>
-                                    )}
                                 </View>
                                 <Text numberOfLines={1} style={[styles.artist, { color: colors.textMuted }]}>
-                                    {nowPlayingContext?.type === 'remote' ? (remoteSongInfo?.artist || 'Listening Room') : 'Unknown Artist'}
+                                    {'Unknown Artist'}
                                 </Text>
                             </View>
                         </Pressable>

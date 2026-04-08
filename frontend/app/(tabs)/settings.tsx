@@ -381,16 +381,6 @@ export default function SettingsScreen() {
             />
             <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
             <ToolRow
-              icon="radio-outline"
-              iconBg={colors.settingsTeal}
-              label="Listening Room"
-              hint="Stream audio to another device"
-              colors={colors}
-              onPress={() => safePush('/room')}
-              isSmall={isSmall}
-            />
-            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
-            <ToolRow
               icon="link"
               iconBg={colors.settingsBlue}
               label="Play From Link"

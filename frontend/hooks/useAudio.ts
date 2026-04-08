@@ -6,7 +6,6 @@ import * as MediaLibrary from 'expo-media-library';
 import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { NowPlayingContext, useAudioStore } from '../store/useAudioStore';
-import { useRoomStore } from '../store/useRoomStore';
 
 const SUPPORTED_EXTENSIONS = new Set([
     'mp3', 'aac', 'm4a', 'wav', 'aiff', 'aif', 'flac',
@@ -118,7 +117,6 @@ const preloadArtwork = (): Promise<string> | null => {
 
 export const useAudio = () => {
     const store = useAudioStore();
-    const { remoteSongInfo } = useRoomStore();
     const playerRef = useRef<AudioPlayer | null>(null);
     const artworkLoadedRef = useRef(false);
 
@@ -593,7 +591,7 @@ export const useAudio = () => {
 
             store.setQueue([track]);
             store.setCurrentIndex(0);
-            store.setNowPlayingContext({ type: 'remote', title: 'Stream Queue' });
+            store.setNowPlayingContext({ type: 'library', title: 'Stream Queue' });
             await loadAudio(track, true);
             return true;
         } catch {
@@ -603,7 +601,6 @@ export const useAudio = () => {
 
     return {
         ...store,
-        remoteSongInfo,
         loadAudio,
         handlePlayPause,
         handleNext,

@@ -78,7 +78,6 @@ export default function FullPlayerScreen() {
     addToPlaylist,
     deleteSong,
     toggleLike,
-    remoteSongInfo,
   } = useAudio();
 
   const queueTypeLabel =
@@ -86,9 +85,7 @@ export default function FullPlayerScreen() {
       ? 'Playlist'
       : nowPlayingContext?.type === 'liked'
         ? 'Liked Songs'
-        : nowPlayingContext?.type === 'remote'
-          ? 'Link Stream'
-          : 'Library';
+        : 'Library';
 
   const queueTitle = nowPlayingContext?.title || 'Queue';
 
@@ -248,17 +245,12 @@ export default function FullPlayerScreen() {
           <View style={styles.songTitleRow}>
                 <View style={[styles.currentSongInfo, { opacity: isVideoTrack ? 0.3 : 1 }]}>
                   <Text numberOfLines={1} style={[styles.songTitle, { color: colors.text }]}>
-                    {nowPlayingContext?.type === 'remote' ? (remoteSongInfo?.title || 'Syncing...') : currentSong.filename}
+                    {currentSong.filename}
                   </Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                     <Text numberOfLines={1} style={[styles.songSub, { color: colors.mutedText }]}>
-                      {nowPlayingContext?.type === 'remote' ? (remoteSongInfo?.artist || 'Listening Room') : 'Unknown Artist'}
+                      {'Unknown Artist'}
                     </Text>
-                    {nowPlayingContext?.type === 'remote' && (
-                      <View style={{ backgroundColor: colors.accent + '20', borderColor: colors.accent, borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 }}>
-                        <Text style={{ color: colors.accent, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>ROOM</Text>
-                      </View>
-                    )}
                   </View>
                 </View>
             <ScalePressable
@@ -272,15 +264,6 @@ export default function FullPlayerScreen() {
             </ScalePressable>
           </View>
 
-          {nowPlayingContext?.type === 'remote' ? (
-            <View style={[styles.sliderWrap, { alignItems: 'center', justifyContent: 'center', paddingVertical: 20 }]}>
-              <View style={[styles.liveBadge, { backgroundColor: colors.accent + '20', borderColor: colors.accent, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
-                <View style={[styles.liveDot, { backgroundColor: colors.accent }]} />
-                <Text style={{ color: colors.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1 }}>LIVE STREAM</Text>
-              </View>
-              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 12, fontWeight: '600' }}>Synchronization is controlled by the host</Text>
-            </View>
-          ) : (
             <View style={styles.sliderWrap}>
               <Slider
                 style={styles.slider}
@@ -311,54 +294,45 @@ export default function FullPlayerScreen() {
                 </Text>
               </View>
             </View>
-          )}
 
-          <View style={[styles.controlRow, { justifyContent: nowPlayingContext?.type === 'remote' ? 'center' : 'space-between' }]}>
-            {nowPlayingContext?.type !== 'remote' && (
-              <ScalePressable style={styles.smallControl} onPress={() => setShuffle(!shuffle)}>
-                <Ionicons name="shuffle" size={22} color={shuffle ? colors.accent : colors.mutedIcon} />
-              </ScalePressable>
-            )}
+          <View style={[styles.controlRow, { justifyContent: 'space-between' }]}>
+            <ScalePressable style={styles.smallControl} onPress={() => setShuffle(!shuffle)}>
+              <Ionicons name="shuffle" size={22} color={shuffle ? colors.accent : colors.mutedIcon} />
+            </ScalePressable>
             
-            {nowPlayingContext?.type !== 'remote' && (
-              <ScalePressable style={[styles.mainControl, { backgroundColor: colors.mainControlBackground, borderColor: colors.mainControlBorder }]} onPress={handlePrevious}>
-                <Ionicons name="play-skip-back" size={24} color={colors.text} />
-              </ScalePressable>
-            )}
+            <ScalePressable style={[styles.mainControl, { backgroundColor: colors.mainControlBackground, borderColor: colors.mainControlBorder }]} onPress={handlePrevious}>
+              <Ionicons name="play-skip-back" size={24} color={colors.text} />
+            </ScalePressable>
 
             <ScalePressable 
               style={[
                 styles.playControl, 
                 { 
                   backgroundColor: colors.accent,
-                  width: nowPlayingContext?.type === 'remote' ? 84 : 64,
-                  height: nowPlayingContext?.type === 'remote' ? 84 : 64,
-                  borderRadius: nowPlayingContext?.type === 'remote' ? 42 : 32
+                  width: 64,
+                  height: 64,
+                  borderRadius: 32
                 }
               ]} 
               onPress={handlePlayPause}
             >
               <Ionicons 
                 name={isPlaying ? 'pause' : 'play'} 
-                size={nowPlayingContext?.type === 'remote' ? 42 : 30} 
+                size={30} 
                 color={colors.onAccent} 
               />
             </ScalePressable>
 
-            {nowPlayingContext?.type !== 'remote' && (
-              <ScalePressable style={[styles.mainControl, { backgroundColor: colors.mainControlBackground, borderColor: colors.mainControlBorder }]} onPress={handleNext}>
-                <Ionicons name="play-skip-forward" size={24} color={colors.text} />
-              </ScalePressable>
-            )}
+            <ScalePressable style={[styles.mainControl, { backgroundColor: colors.mainControlBackground, borderColor: colors.mainControlBorder }]} onPress={handleNext}>
+              <Ionicons name="play-skip-forward" size={24} color={colors.text} />
+            </ScalePressable>
 
-            {nowPlayingContext?.type !== 'remote' && (
-              <ScalePressable style={styles.smallControl} onPress={onToggleRepeat}>
-                <View>
-                  <Ionicons name="repeat" size={22} color={repeatMode !== 'off' ? colors.accent : colors.mutedIcon} />
-                  {repeatMode === 'one' ? <Text style={[styles.repeatOne, { color: colors.accent }]}>1</Text> : null}
-                </View>
-              </ScalePressable>
-            )}
+            <ScalePressable style={styles.smallControl} onPress={onToggleRepeat}>
+              <View>
+                <Ionicons name="repeat" size={22} color={repeatMode !== 'off' ? colors.accent : colors.mutedIcon} />
+                {repeatMode === 'one' ? <Text style={[styles.repeatOne, { color: colors.accent }]}>1</Text> : null}
+              </View>
+            </ScalePressable>
           </View>
         </View>
 

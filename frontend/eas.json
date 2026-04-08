@@ -6,25 +6,13 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_WS_URL": "wss://play-veee.onrender.com/ws/stream/",
-        "EXPO_PUBLIC_API_URL": "https://play-veee.onrender.com/listen/"
-      }
+      "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_WS_URL": "wss://play-veee.onrender.com/ws/stream/",
-        "EXPO_PUBLIC_API_URL": "https://play-veee.onrender.com/listen/"
-      }
+      "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_WS_URL": "wss://play-veee.onrender.com/ws/stream/",
-        "EXPO_PUBLIC_API_URL": "https://play-veee.onrender.com/listen/"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
