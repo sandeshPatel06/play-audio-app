@@ -415,7 +415,7 @@ export default function AudioRuntime() {
     const attachActivePlayerListeners = useCallback((player: AudioPlayer) => {
         clearActiveSubscriptions();
 
-        activeStatusSubscriptionRef.current = player.addListener('playbackStatusUpdate', (status) => {
+        activeStatusSubscriptionRef.current = (player as any).addListener('playbackStatusUpdate', (status: any) => {
             const state = useAudioStore.getState();
             state.setPosition(status.currentTime);
             state.setDuration(status.duration || state.currentTrack?.duration || 0);
@@ -501,7 +501,7 @@ export default function AudioRuntime() {
             }
         });
 
-        activeSampleSubscriptionRef.current = player.addListener('audioSampleUpdate', (sample) => {
+        activeSampleSubscriptionRef.current = (player as any).addListener('audioSampleUpdate', (sample: any) => {
             const state = useAudioStore.getState();
             if (!state.currentTrack?.isLocal) {
                 return;

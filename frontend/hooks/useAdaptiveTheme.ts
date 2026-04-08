@@ -12,7 +12,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 
 export function useAdaptiveTheme() {
-    const { colors, resolvedTheme, accentColor } = useTheme();
+    const { colors, resolvedTheme, accentColor } = useTheme() as any;
     const { width } = useWindowDimensions();
 
     return useMemo(() => {

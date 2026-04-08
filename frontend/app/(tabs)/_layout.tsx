@@ -62,7 +62,7 @@ export default function TabsLayout() {
                 name="index"
                 options={{
                     title: 'Library',
-                    tabBarIcon: ({ color, focused }) => (
+                    tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
                         <Ionicons
                             name={focused ? "library" : "library-outline"}
                             size={28}
@@ -75,7 +75,7 @@ export default function TabsLayout() {
                 name="search"
                 options={{
                     title: 'Search',
-                    tabBarIcon: ({ color, focused }) => (
+                    tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
                         <Ionicons
                             name={focused ? "search" : "search-outline"}
                             size={28}
@@ -88,7 +88,7 @@ export default function TabsLayout() {
                 name="settings"
                 options={{
                     title: 'Settings',
-                    tabBarIcon: ({ color, focused }) => (
+                    tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
                         <Ionicons
                             name={focused ? "settings" : "settings-outline"}
                             size={28}

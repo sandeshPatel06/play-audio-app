@@ -40,7 +40,7 @@ export function GlassSurface({
     contentStyle,
     blurIntensity,
 }: GlassSurfaceProps) {
-    const theme = useAdaptiveTheme();
+    const theme = useAdaptiveTheme() as any;
 
     const backgroundColor = useMemo(() => ({
         glass: theme.surfaces.glass,
@@ -405,7 +405,7 @@ export function SkeletonBlock({ height, width = '100%', style }: SkeletonBlockPr
             style={[
                 {
                     height,
-                    width,
+                    width: width as any,
                     borderRadius: theme.radii.md,
                     backgroundColor: theme.colors.cardBackgroundStrong,
                     opacity,

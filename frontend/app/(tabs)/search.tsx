@@ -14,14 +14,10 @@ import ScalePressable from '../../components/ScalePressable';
 import {
     ActionChip,
     EmptyState,
-    GlassHeader,
-    GlassSurface,
-    PageShell,
     SectionCard,
-    SkeletonBlock,
 } from '../../components/ui/primitives';
 import { useTheme } from '../../context/ThemeContext';
-import { useAdaptiveTheme, usePageSpacing } from '../../hooks/useAdaptiveTheme';
+import { useAdaptiveTheme } from '../../hooks/useAdaptiveTheme';
 import { useAudio } from '../../hooks/useAudio';
 import { useJioSaavnSearch, useJioSaavnPlayer } from '../../hooks/useJioSaavn';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
@@ -36,7 +32,6 @@ export default function SearchScreen() {
     const { width: screenWidth } = useWindowDimensions();
     const { colors, resolvedTheme } = useTheme();
     const theme = useAdaptiveTheme();
-    const page = usePageSpacing();
     const isSmall = screenWidth < 375;
     const styles = useMemo(() => createStyles(colors, isSmall), [colors, isSmall]);
     const {
@@ -53,8 +48,6 @@ export default function SearchScreen() {
         currentSong,
         onlineSourceEnabled,
         onlineSourcePreference,
-        setOnlineSourceEnabled,
-        setOnlineSourcePreference,
     } = useAudio();
     const safePush = useSafeRouterPush();
     const [query, setQuery] = useState('');
@@ -217,7 +210,7 @@ export default function SearchScreen() {
                 </ScalePressable>
             </SectionCard>
 
-            <SectionCard style={styles.playlistSection} contentStyle={{ padding: theme.spacing.card }}>
+            <SectionCard style={styles.playlistIcon} contentStyle={{ padding: theme.spacing.card }}>
                 <View style={styles.playlistHeader}>
                     <View>
                         <Text style={[styles.playlistHeaderText, { color: colors.text }]}>Your Playlists</Text>
