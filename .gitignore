@@ -36,6 +36,7 @@ __pycache__/
 *$py.class
 backend/venv/
 backend/.venv/
+.codex
 
 # Database
 #backend/db.sqlite3

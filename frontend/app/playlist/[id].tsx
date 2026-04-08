@@ -6,7 +6,6 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useMemo } from 'react';
 import { FlatList, Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MiniPlayer from '../../components/MiniPlayer';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
@@ -199,8 +198,6 @@ export default function PlaylistDetailsScreen() {
                     );
                 }}
             />
-
-            <MiniPlayer />
         </View>
     );
 }

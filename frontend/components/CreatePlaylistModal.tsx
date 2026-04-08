@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import ScalePressable from './ScalePressable';
+import { GlassDialog } from './ui/primitives';
 
 interface CreatePlaylistModalProps {
     visible: boolean;
@@ -31,7 +32,8 @@ export default function CreatePlaylistModal({ visible, onClose, onCreate }: Crea
             onRequestClose={onClose}
         >
             <View style={[styles.modalOverlay, { backgroundColor: colors.modalOverlay }]}>
-                <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.modalBorder, shadowColor: colors.modalShadow }]}>
+                <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+                <GlassDialog style={styles.modalContent}>
                     <Text style={[styles.modalTitle, { color: colors.text }]}>New Playlist</Text>
                     <TextInput
                         style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardBackgroundSubtle }]}
@@ -53,7 +55,7 @@ export default function CreatePlaylistModal({ visible, onClose, onCreate }: Crea
                             <Text style={{ color: canSubmit ? colors.onAccent : colors.textMuted, fontWeight: 'bold' }}>Create</Text>
                         </ScalePressable>
                     </View>
-                </View>
+                </GlassDialog>
             </View>
         </Modal>
     );
@@ -66,16 +68,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
     },
-    modalContent: {
-        width: '100%',
-        padding: 25,
-        borderRadius: 24,
-        borderWidth: 1,
-        elevation: 20,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-    },
+    modalContent: { width: '100%' },
     modalTitle: {
         fontSize: 20,
         fontWeight: '800',

@@ -23,7 +23,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddToPlaylistModal from '../../components/AddToPlaylistModal';
 import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
-import MiniPlayer from '../../components/MiniPlayer';
 import ScalePressable from '../../components/ScalePressable';
 import { SongItem, GridItem, SectionHeader } from '../../components/SongListItems';
 import { CORE_COLORS, withAlpha } from '../../constants/colors';
@@ -232,8 +231,7 @@ export default function LibraryScreen() {
             } else {
                 setPermissionGranted(false);
             }
-        } catch (error) {
-            console.error('Permission request failed:', error);
+        } catch {
             setPermissionGranted(false);
             setNoticeState({
                 visible: true,
@@ -574,8 +572,6 @@ export default function LibraryScreen() {
                 message={noticeState.message}
                 onClose={() => setNoticeState((prev) => ({ ...prev, visible: false }))}
             />
-
-            <MiniPlayer />
         </View>
     );
 }

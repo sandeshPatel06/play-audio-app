@@ -1,4 +1,5 @@
-import { Asset } from 'expo-media-library';
+import { AudioTrack } from '../types/audio';
+import { normalizeTrack } from './audioTracks';
 
 export interface JioSaavnSong {
     id: string;
@@ -21,7 +22,7 @@ export interface JioSaavnSearchResult {
 
 const DEFAULT_API_BASE = 'https://jiosaavn-api.vercel.app';
 
-const mapApiResponseToSong = (item: any): JioSaavnSong => {
+export const mapApiResponseToSong = (item: any): JioSaavnSong => {
     try {
         if (!item) throw new Error('Empty song data');
         
@@ -50,8 +51,7 @@ const mapApiResponseToSong = (item: any): JioSaavnSong => {
             language: String(item.language || moreInfo.language || 'english'),
             permaUrl: String(item.permaUrl || item.perma_url || item.link || ''),
         };
-    } catch (e) {
-        console.error('[JioSaavn] Mapping error:', e, item);
+    } catch {
         return {
             id: 'error',
             title: 'Error Loading Track',
@@ -92,8 +92,7 @@ export const createJioSaavnClient = (baseUrl: string = DEFAULT_API_BASE) => {
                 totalResults: results.length,
             };
         } catch (error) {
-            console.error('[JioSaavn] Search exception:', error);
-            return { results: [], totalResults: 0 };
+            throw error instanceof Error ? error : new Error('JioSaavn search failed');
         }
     };
 
@@ -111,8 +110,7 @@ export const createJioSaavnClient = (baseUrl: string = DEFAULT_API_BASE) => {
             const song = mapApiResponseToSong(data);
             return song.id === 'error' ? null : song;
         } catch (error) {
-            console.error('[JioSaavn] Details exception:', error);
-            return null;
+            throw error instanceof Error ? error : new Error('JioSaavn track lookup failed');
         }
     };
 
@@ -129,8 +127,7 @@ export const createJioSaavnClient = (baseUrl: string = DEFAULT_API_BASE) => {
             const data = await response.json();
             const charts = Array.isArray(data) ? data : data?.results || [];
             return charts.slice(0, limit).map(mapApiResponseToSong).filter((s: JioSaavnSong) => s.id !== 'error');
-        } catch (error) {
-            console.error('[JioSaavn] Charts exception:', error);
+        } catch {
             return [];
         }
     };
@@ -148,32 +145,38 @@ export const createJioSaavnClient = (baseUrl: string = DEFAULT_API_BASE) => {
             const data = await response.json();
             const results = Array.isArray(data) ? data : data?.results || [];
             return results.slice(0, limit).map(mapApiResponseToSong).filter((s: JioSaavnSong) => s.id !== 'error');
-        } catch (error) {
-            console.warn('[JioSaavn] Trending fallback:', error);
+        } catch {
             return getTopCharts(limit);
         }
     };
 
-    const toAsset = (song: JioSaavnSong): Asset & { imageUrl?: string; artists?: string } => ({
-        id: `jiosaavn:${song.id}`,
-        uri: song.streamingUrl,
-        filename: song.title,
-        mediaType: 'audio' as const,
-        creationTime: Date.now(),
-        modificationTime: Date.now(),
-        duration: song.duration,
-        width: 0,
-        height: 0,
-        imageUrl: song.imageUrl,
-        artists: song.artists,
-    });
+    const toTrack = (song: JioSaavnSong): AudioTrack =>
+        normalizeTrack({
+            id: `jiosaavn:${song.id}`,
+            uri: song.streamingUrl,
+            source: 'jiosaavn',
+            filename: song.title,
+            title: song.title,
+            artist: song.artists || 'Unknown Artist',
+            artists: song.artists || 'Unknown Artist',
+            album: song.album || 'JioSaavn',
+            imageUrl: song.imageUrl,
+            duration: song.duration,
+            mediaType: 'audio',
+            creationTime: Date.now(),
+            modificationTime: Date.now(),
+            isLocal: false,
+            permaUrl: song.permaUrl,
+            year: song.year,
+            language: song.language,
+        });
 
     return {
         search,
         getSongDetails,
         getTopCharts,
         getTrending,
-        toAsset,
+        toTrack,
     };
 };
 

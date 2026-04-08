@@ -2,21 +2,32 @@ import { Ionicons } from '@expo/vector-icons';
 
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
+import { FlashList } from '@shopify/flash-list';
 import { StatusBar } from 'expo-status-bar';
-import React, { memo, useCallback, useMemo, useState, useEffect } from 'react';
-import { FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, useWindowDimensions } from 'react-native';
+import React, { memo, startTransition, useCallback, useDeferredValue, useMemo, useState, useEffect } from 'react';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, useWindowDimensions } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionDialog, ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
-import MiniPlayer from '../../components/MiniPlayer';
 import PlaylistNameModal from '../../components/PlaylistNameModal';
 import ScalePressable from '../../components/ScalePressable';
+import {
+    ActionChip,
+    EmptyState,
+    GlassHeader,
+    GlassSurface,
+    PageShell,
+    SectionCard,
+    SkeletonBlock,
+} from '../../components/ui/primitives';
 import { useTheme } from '../../context/ThemeContext';
+import { useAdaptiveTheme, usePageSpacing } from '../../hooks/useAdaptiveTheme';
 import { useAudio } from '../../hooks/useAudio';
 import { useJioSaavnSearch, useJioSaavnPlayer } from '../../hooks/useJioSaavn';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 import { useAudioStore } from '../../store/useAudioStore';
 import { JioSaavnSong } from '../../services/jiosaavn';
+import { getSearchSourceState } from '../../utils/searchSources';
 
 
 
@@ -24,6 +35,8 @@ export default function SearchScreen() {
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const { colors, resolvedTheme } = useTheme();
+    const theme = useAdaptiveTheme();
+    const page = usePageSpacing();
     const isSmall = screenWidth < 375;
     const styles = useMemo(() => createStyles(colors, isSmall), [colors, isSmall]);
     const {
@@ -39,9 +52,13 @@ export default function SearchScreen() {
         deletePlaylist,
         currentSong,
         onlineSourceEnabled,
+        onlineSourcePreference,
+        setOnlineSourceEnabled,
+        setOnlineSourcePreference,
     } = useAudio();
     const safePush = useSafeRouterPush();
     const [query, setQuery] = useState('');
+    const deferredQuery = useDeferredValue(query);
     const [isCreatePlaylistVisible, setIsCreatePlaylistVisible] = useState(false);
     const [isPlaylistActionVisible, setIsPlaylistActionVisible] = useState(false);
     const [isDeletePlaylistVisible, setDeletePlaylistVisible] = useState(false);
@@ -52,7 +69,12 @@ export default function SearchScreen() {
         message: '',
     });
 
-    const { results: jioResults, loading: jioLoading, search: jioSearch } = useJioSaavnSearch();
+    const {
+        results: jioResults,
+        loading: jioLoading,
+        search: jioSearch,
+        clearResults: clearJioResults,
+    } = useJioSaavnSearch();
     const { playAll: playAllJioSongs } = useJioSaavnPlayer();
 
     const selectedPlaylist = useMemo(
@@ -62,44 +84,41 @@ export default function SearchScreen() {
 
     const filteredItems = useMemo(
         () => {
-            if (!query.trim()) return [];
-            const q = query.toLowerCase().trim();
+            if (!deferredQuery.trim()) return [];
+            const q = deferredQuery.toLowerCase().trim();
             return library.filter(item => item.filename.toLowerCase().includes(q));
         },
-        [library, query]
+        [deferredQuery, library]
     );
 
-    const searchCacheRef = React.useRef<Map<string, JioSaavnSong[]>>(new Map());
-    const abortControllerRef = React.useRef<AbortController | null>(null);
-    
+    const {
+        trimmedQuery: trimmedDeferredQuery,
+        shouldShowLocalResults,
+        shouldShowOnlineResults,
+        shouldSearchOnline,
+    } = useMemo(
+        () => getSearchSourceState(deferredQuery, onlineSourceEnabled, onlineSourcePreference),
+        [deferredQuery, onlineSourceEnabled, onlineSourcePreference]
+    );
+
     useEffect(() => {
-        if (!onlineSourceEnabled || query.trim().length < 2) {
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-                abortControllerRef.current = null;
-            }
-            return;
-        }
-        
-        const cacheKey = query.trim().toLowerCase();
-        if (searchCacheRef.current.has(cacheKey)) {
+        if (!shouldSearchOnline) {
+            clearJioResults();
             return;
         }
 
-        abortControllerRef.current?.abort();
-        abortControllerRef.current = new AbortController();
-        
         const timer = setTimeout(() => {
-            jioSearch(query);
-        }, 600);
-        
-        return () => {
-            clearTimeout(timer);
-            abortControllerRef.current?.abort();
-        };
-    }, [query, onlineSourceEnabled, jioSearch]);
+            jioSearch(trimmedDeferredQuery);
+        }, 400);
 
+        return () => clearTimeout(timer);
+    }, [clearJioResults, jioSearch, shouldSearchOnline, trimmedDeferredQuery]);
 
+    const noResults =
+        trimmedDeferredQuery.length > 0 &&
+        filteredItems.length === 0 &&
+        jioResults.length === 0 &&
+        !jioLoading;
 
     const openPlayerSafely = useCallback(() => {
         safePush('/player');
@@ -167,77 +186,88 @@ export default function SearchScreen() {
 
     const renderSections = () => (
         <View style={styles.sections}>
-            <ScalePressable
-                style={[styles.sectionCard, { backgroundColor: colors.accentSurface, borderColor: colors.accent + '33' }]}
-                onPress={async () => {
-                    const started = await playLikedSongs();
-                    if (started) {
-                        if (autoOpenPlayerOnPlay) openPlayerSafely();
-                    } else {
-                        showNotice('No Liked Songs', 'Like songs first, then play them from here.');
-                    }
-                }}
+            <SectionCard
+                variant="accentSurface"
+                style={[styles.sectionCard, { borderColor: colors.accent + '55' }]}
+                contentStyle={{ padding: theme.spacing.card }}
             >
-                <View style={[styles.sectionIcon, { backgroundColor: colors.accent }]}>
-                    <Ionicons name="heart" size={26} color={colors.onAccent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Liked Songs</Text>
-                    <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                        {likedIds.size} tracks · Tap to play
-                    </Text>
-                </View>
-                <View style={[styles.countPill, { backgroundColor: colors.accent }]}>
-                    <Text style={[styles.countPillText, { color: colors.onAccent }]}>{likedIds.size}</Text>
-                </View>
-            </ScalePressable>
-
-            <View style={styles.playlistHeader}>
-                <View>
-                    <Text style={[styles.playlistHeaderText, { color: colors.text }]}>Your Playlists</Text>
-                    <Text style={[styles.playlistCountText, { color: colors.textMuted }]}>{playlists.length} playlists</Text>
-                </View>
                 <ScalePressable
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsCreatePlaylistVisible(true); }}
-                    style={[styles.addBtn, { backgroundColor: colors.accentSurface, borderColor: colors.accent + '44' }]}
+                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                    onPress={async () => {
+                        const started = await playLikedSongs();
+                        if (started) {
+                            if (autoOpenPlayerOnPlay) openPlayerSafely();
+                        } else {
+                            showNotice('No Liked Songs', 'Like songs first, then play them from here.');
+                        }
+                    }}
                 >
-                    <Ionicons name="add" size={20} color={colors.accent} />
-                    <Text style={{ color: colors.accent, fontWeight: '700', fontSize: 13, marginLeft: 4 }}>New</Text>
-                </ScalePressable>
-            </View>
-
-            {playlists.map(p => (
-                <ScalePressable
-                    key={p.id}
-                    style={[styles.playlistItem, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                    onPress={() => safePush(`/playlist/${p.id}`)}
-                >
-                    <View style={[styles.playlistIcon, { backgroundColor: colors.cardBackgroundStrong }]}>
-                        <Ionicons name="musical-notes" size={20} color={colors.accent} />
+                    <View style={[styles.sectionIcon, { backgroundColor: colors.accent }]}>
+                        <Ionicons name="heart" size={26} color={colors.onAccent} />
                     </View>
-                    <View style={styles.playlistInfo}>
-                        <Text numberOfLines={1} style={[styles.playlistName, { color: colors.text }]}>{p.name}</Text>
-                        <Text numberOfLines={1} style={[styles.playlistMeta, { color: colors.textMuted }]}>
-                            {p.assetIds.length} songs
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Liked Songs</Text>
+                        <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
+                            {likedIds.size} tracks · Tap to play
                         </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginRight: 4 }} />
-                    <TouchableOpacity
-                        onPress={() => openPlaylistActions(p.id)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={styles.playlistMenuBtn}
-                    >
-                        <Ionicons name="ellipsis-vertical" size={18} color={colors.textMuted} />
-                    </TouchableOpacity>
+                    <View style={[styles.countPill, { backgroundColor: colors.accent }]}>
+                        <Text style={[styles.countPillText, { color: colors.onAccent }]}>{likedIds.size}</Text>
+                    </View>
                 </ScalePressable>
-            ))}
+            </SectionCard>
 
-            {playlists.length === 0 && (
-                <View style={[styles.emptyPlaylist, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}>
-                    <Ionicons name="journal-outline" size={40} color={colors.textMuted} style={{ opacity: 0.3, marginBottom: 12 }} />
-                    <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center' }}>Create your first playlist to get started.</Text>
+            <SectionCard style={styles.playlistSection} contentStyle={{ padding: theme.spacing.card }}>
+                <View style={styles.playlistHeader}>
+                    <View>
+                        <Text style={[styles.playlistHeaderText, { color: colors.text }]}>Your Playlists</Text>
+                        <Text style={[styles.playlistCountText, { color: colors.textMuted }]}>{playlists.length} playlists</Text>
+                    </View>
+                    <ActionChip
+                        label="New"
+                        icon="add"
+                        selected
+                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsCreatePlaylistVisible(true); }}
+                    />
                 </View>
-            )}
+
+                {playlists.map((p) => (
+                    <ScalePressable
+                        key={p.id}
+                        style={[styles.playlistItem, { backgroundColor: colors.cardBackgroundSubtle, borderColor: colors.cardBorder }]}
+                        onPress={() => safePush(`/playlist/${p.id}`)}
+                    >
+                        <View style={[styles.playlistIcon, { backgroundColor: colors.cardBackgroundStrong }]}>
+                            <Ionicons name="musical-notes" size={20} color={colors.accent} />
+                        </View>
+                        <View style={styles.playlistInfo}>
+                            <Text numberOfLines={1} style={[styles.playlistName, { color: colors.text }]}>{p.name}</Text>
+                            <Text numberOfLines={1} style={[styles.playlistMeta, { color: colors.textMuted }]}>
+                                {p.assetIds.length} songs
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginRight: 4 }} />
+                        <TouchableOpacity
+                            onPress={() => openPlaylistActions(p.id)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={styles.playlistMenuBtn}
+                        >
+                            <Ionicons name="ellipsis-vertical" size={18} color={colors.textMuted} />
+                        </TouchableOpacity>
+                    </ScalePressable>
+                ))}
+
+                {playlists.length === 0 && (
+                    <EmptyState
+                        icon="journal-outline"
+                        title="No Playlists Yet"
+                        message="Create your first playlist to save mixes, moods, and favorite runs."
+                        actionLabel="Create Playlist"
+                        onAction={() => setIsCreatePlaylistVisible(true)}
+                        style={styles.emptyPlaylist}
+                    />
+                )}
+            </SectionCard>
         </View>
     );
 
@@ -262,7 +292,11 @@ export default function SearchScreen() {
                     style={[styles.searchInput, { color: colors.text }]}
                     selectionColor={colors.accent}
                     value={query}
-                    onChangeText={setQuery}
+                    onChangeText={(text) => {
+                        startTransition(() => {
+                            setQuery(text);
+                        });
+                    }}
                 />
                 {query.length > 0 && (
                     <ScalePressable onPress={() => setQuery('')}>
@@ -271,22 +305,12 @@ export default function SearchScreen() {
                 )}
             </View>
 
-            <FlatList
-                data={query ? filteredItems : []}
+            <FlashList
+                data={shouldShowLocalResults ? filteredItems : []}
                 renderItem={renderSearchItem}
                 keyExtractor={(item: any) => item.id || item.filename}
                 extraData={[currentSong?.id, likedIds, showVideoBadges, colors.text]}
-                removeClippedSubviews={true}
-                maxToRenderPerBatch={10}
-                initialNumToRender={15}
-                windowSize={5}
-                updateCellsBatchingPeriod={50}
-                getItemLayout={(_, index) => ({
-                    length: 72,
-                    offset: 72 * index,
-                    index,
-                })}
-                ListHeaderComponent={!query ? renderSections : (onlineSourceEnabled && jioResults.length > 0) ? (
+                ListHeaderComponent={!trimmedDeferredQuery ? renderSections : (shouldShowOnlineResults && jioResults.length > 0) ? (
                     <View style={styles.jioSection}>
                         <View style={styles.jioHeader}>
                             <Ionicons name="cloud-outline" size={18} color={colors.accent} />
@@ -304,17 +328,19 @@ export default function SearchScreen() {
                         ))}
                     </View>
                 ) : null}
-                ListEmptyComponent={query && !jioLoading ? (
+                ListEmptyComponent={noResults ? (
                     <View style={styles.empty}>
                         <Ionicons name="search-outline" size={56} color={colors.textMuted} style={{ opacity: 0.4 }} />
                         <Text style={[styles.emptyTitle, { color: colors.text }]}>No Results</Text>
-                        <Text style={{ color: colors.textMuted, fontSize: 14, marginTop: 4 }}>Try a different search term</Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 14, marginTop: 4 }}>
+                            {shouldSearchOnline ? 'Try a different search term.' : 'Try a different search term or switch source preference.'}
+                        </Text>
                     </View>
                 ) : null}
                 contentContainerStyle={{ paddingBottom: 160 + insets.bottom, paddingHorizontal: 16 }}
                 showsVerticalScrollIndicator={false}
             />
-            {jioLoading && (
+            {jioLoading && shouldShowOnlineResults && (
                 <View style={styles.jioLoading}>
                     <ActivityIndicator size="small" color={colors.accent} />
                     <Text style={[styles.jioLoadingText, { color: colors.textMuted }]}>Searching online...</Text>
@@ -365,8 +391,6 @@ export default function SearchScreen() {
                 message={noticeState.message}
                 onClose={() => setNoticeState((prev) => ({ ...prev, visible: false }))}
             />
-
-            <MiniPlayer />
         </View>
     );
 }

@@ -1,618 +1,429 @@
-import { AudioStatus, createAudioPlayer, AudioPlayer } from 'expo-audio';
-import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
-import { useCallback, useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
-import { NowPlayingContext, useAudioStore } from '../store/useAudioStore';
+import { useCallback, useMemo } from 'react';
+import { audioRuntimeController } from '../services/audioRuntimeController';
+import { mediaAssetToTrack, normalizeTrack } from '../services/audioTracks';
+import {
+    AudioTrack,
+    DeleteTracksResult,
+    NowPlayingContext,
+    getLikedTracks,
+    getPlaylistTracks,
+    selectQueueTracks,
+    useAudioStore,
+} from '../store/useAudioStore';
 
-const SUPPORTED_EXTENSIONS = new Set([
-    'mp3', 'aac', 'm4a', 'wav', 'aiff', 'aif', 'flac',
-    'alac', 'ogg', 'opus', 'wma', 'amr', 'mid', 'midi',
-    'mp4', 'm4v', 'mov', 'webm',
-    'dsf', 'dff', 'pcm'
-]);
+type LegacyAudioItem = MediaLibrary.Asset & Record<string, any>;
 
-const getScanRoots = () => {
-    if (Platform.OS === 'web') return [];
-    const fs = FileSystem as { documentDirectory?: string; cacheDirectory?: string };
-    return [fs.documentDirectory, fs.cacheDirectory].filter(Boolean) as string[];
+type CompatPlaylist = ReturnType<typeof useAudioStore.getState>['playlists'][number] & {
+    assetIds: string[];
 };
 
-const LOCAL_SCAN_ROOTS = getScanRoots();
-
-const LOCAL_SCAN_MAX_DEPTH = 3;
-
-const fileNameFromUri = (uri: string) => {
-    const cleanUri = uri.split('?')[0];
-    return cleanUri.substring(cleanUri.lastIndexOf('/') + 1) || 'track';
+const inferLegacyMediaType = (item: LegacyAudioItem): AudioTrack['mediaType'] => {
+    const mediaType = String(item.mediaType || '').toLowerCase();
+    if (
+        mediaType.includes('video') ||
+        /\.(mp4|m4v|mov|webm|m3u8)(\?.*)?$/i.test(`${item.filename || ''} ${item.uri || ''}`)
+    ) {
+        return 'video';
+    }
+    return 'audio';
 };
 
-const isVideoExtension = (extension?: string | null) =>
-    !!extension && ['mp4', 'm4v', 'mov', 'webm'].includes(extension.toLowerCase());
+const isAudioTrack = (item: LegacyAudioItem | AudioTrack): item is AudioTrack =>
+    typeof (item as AudioTrack).source === 'string';
 
-const isSupportedAudioFile = (uri: string) => {
-    const filename = fileNameFromUri(uri).toLowerCase();
-    const extension = filename.split('.').pop();
-    return !!extension && SUPPORTED_EXTENSIONS.has(extension);
+const coerceTrack = (item: LegacyAudioItem | AudioTrack) => {
+    if (isAudioTrack(item)) {
+        return normalizeTrack(item);
+    }
+
+    if (String(item.id || '').startsWith('jiosaavn:')) {
+        return normalizeTrack({
+            id: String(item.id),
+            uri: String(item.uri),
+            source: 'jiosaavn',
+            filename: String(item.filename || item.title || 'Track'),
+            title: String(item.title || item.filename || 'Track'),
+            artist: String(item.artist || item.artists || 'Unknown Artist'),
+            artists: String(item.artists || item.artist || 'Unknown Artist'),
+            album: String(item.album || 'Saavn'),
+            imageUrl: item.imageUrl,
+            duration: Number(item.duration || 0),
+            mediaType: inferLegacyMediaType(item),
+            creationTime: Number(item.creationTime || Date.now()),
+            modificationTime: Number(item.modificationTime || item.creationTime || Date.now()),
+            isLocal: false,
+            permaUrl: item.permaUrl,
+            year: item.year,
+            language: item.language,
+        });
+    }
+
+    if (String(item.id || '').startsWith('remote:')) {
+        return normalizeTrack({
+            id: String(item.id),
+            uri: String(item.uri),
+            source: 'remote',
+            filename: String(item.filename || item.title || 'Stream'),
+            title: String(item.title || item.filename || 'Stream'),
+            artist: String(item.artist || item.artists || 'Unknown Artist'),
+            artists: String(item.artists || item.artist || 'Unknown Artist'),
+            album: String(item.album || 'Direct Stream'),
+            imageUrl: item.imageUrl,
+            duration: Number(item.duration || 0),
+            mediaType: inferLegacyMediaType(item),
+            creationTime: Number(item.creationTime || Date.now()),
+            modificationTime: Number(item.modificationTime || item.creationTime || Date.now()),
+            isLocal: false,
+        });
+    }
+
+    return mediaAssetToTrack(item);
 };
 
-const trackFromUri = (
-    uri: string,
-    id: string,
-    filename?: string,
-    creationTime = Date.now()
-): MediaLibrary.Asset =>
-    {
-        const name = filename || fileNameFromUri(uri);
-        const extension = name.toLowerCase().split('.').pop();
-        return {
-            id,
-            uri,
-            filename: name,
-            mediaType: isVideoExtension(extension) ? MediaLibrary.MediaType.video : MediaLibrary.MediaType.audio,
-            creationTime,
-            modificationTime: creationTime,
-            duration: 0,
-            width: 0,
-            height: 0,
-        } as MediaLibrary.Asset;
+export const useAudioPlayer = () => {
+    const currentTrack = useAudioStore((state) => state.currentTrack);
+    const nowPlayingContext = useAudioStore((state) => state.nowPlayingContext);
+    const isPlaying = useAudioStore((state) => state.isPlaying);
+    const isBuffering = useAudioStore((state) => state.isBuffering);
+    const playbackStatus = useAudioStore((state) => state.playbackStatus);
+    const playbackError = useAudioStore((state) => state.playbackError);
+    const position = useAudioStore((state) => state.position);
+    const duration = useAudioStore((state) => state.duration);
+    const waveformSamples = useAudioStore((state) => state.waveformSamples);
+    const adaptiveAccent = useAudioStore((state) => state.adaptiveAccent);
+    const playbackRate = useAudioStore((state) => state.playbackRate);
+    const setPlaybackRate = useAudioStore((state) => state.setPlaybackRate);
+
+    const playPause = useCallback(() => audioRuntimeController.playPause(), []);
+    const next = useCallback(() => audioRuntimeController.next(), []);
+    const previous = useCallback(() => audioRuntimeController.previous(), []);
+    const seekTo = useCallback((seconds: number) => audioRuntimeController.seekTo(seconds), []);
+    const clearPlaybackError = useCallback(() => useAudioStore.getState().setPlaybackError(null), []);
+
+    return {
+        currentTrack,
+        nowPlayingContext,
+        isPlaying,
+        isBuffering,
+        playbackStatus,
+        playbackError,
+        position,
+        duration,
+        waveformSamples,
+        adaptiveAccent,
+        playbackRate,
+        setPlaybackRate,
+        playPause,
+        next,
+        previous,
+        seekTo,
+        clearPlaybackError,
     };
-
-const scanLocalDirectory = async (root: string, depth = 0): Promise<MediaLibrary.Asset[]> => {
-    if (Platform.OS === 'web' || depth > LOCAL_SCAN_MAX_DEPTH) return [];
-    const result: MediaLibrary.Asset[] = [];
-    try {
-        const entries = await FileSystem.readDirectoryAsync(root);
-        for (const entry of entries) {
-            const uri = `${root}${entry}`;
-            const info = await FileSystem.getInfoAsync(uri);
-            if (!info.exists) continue;
-
-            if (info.isDirectory) {
-                const children = await scanLocalDirectory(`${uri}/`, depth + 1);
-                result.push(...children);
-                continue;
-            }
-
-            if (isSupportedAudioFile(uri)) {
-                result.push(trackFromUri(uri, `local:${uri}`, entry, Date.now()));
-            }
-        }
-    } catch {
-        // Ignore inaccessible subfolders in app cache/doc storage.
-    }
-    return result;
 };
 
-const LOCK_SCREEN_OPTIONS = {
-    showSeekBackward: true,
-    showSeekForward: true,
+export const usePlaybackQueue = () => {
+    const queue = useAudioStore(selectQueueTracks);
+    const currentIndex = useAudioStore((state) => state.currentIndex);
+    const shuffle = useAudioStore((state) => state.shuffle);
+    const repeatMode = useAudioStore((state) => state.repeatMode);
+    const setShuffle = useAudioStore((state) => state.setShuffle);
+    const setRepeatMode = useAudioStore((state) => state.setRepeatMode);
+
+    const selectQueueItem = useCallback((index: number) => audioRuntimeController.selectQueueItem(index), []);
+    const enqueueTracks = useCallback((tracks: AudioTrack[], position: 'next' | 'end') =>
+        audioRuntimeController.enqueueTracks(tracks, position), []);
+    const moveQueueItem = useCallback((from: number, to: number) =>
+        audioRuntimeController.moveQueueItem(from, to), []);
+    const removeQueueItem = useCallback((index: number) =>
+        audioRuntimeController.removeQueueItem(index), []);
+
+    return {
+        queue,
+        currentIndex,
+        shuffle,
+        repeatMode,
+        setShuffle,
+        setRepeatMode,
+        selectQueueItem,
+        enqueueTracks,
+        moveQueueItem,
+        removeQueueItem,
+    };
 };
 
-let globalHasTriggeredTrackEnd = false;
-let cachedArtworkUrl: string | null = null;
-let artworkCachePromise: Promise<string> | null = null;
+export const useAudioPreferences = () => {
+    const autoOpenPlayerOnPlay = useAudioStore((state) => state.autoOpenPlayerOnPlay);
+    const showVideoBadges = useAudioStore((state) => state.showVideoBadges);
+    const enableLockScreenControls = useAudioStore((state) => state.enableLockScreenControls);
+    const onlineSourceEnabled = useAudioStore((state) => state.onlineSourceEnabled);
+    const onlineSourcePreference = useAudioStore((state) => state.onlineSourcePreference);
+    const gaplessPlaybackEnabled = useAudioStore((state) => state.gaplessPlaybackEnabled);
+    const crossfadeEnabled = useAudioStore((state) => state.crossfadeEnabled);
+    const crossfadeDurationSec = useAudioStore((state) => state.crossfadeDurationSec);
+    const sleepTimer = useAudioStore((state) => state.sleepTimer);
 
-const preloadArtwork = (): Promise<string> | null => {
-    if (cachedArtworkUrl) {
-        return Promise.resolve(cachedArtworkUrl);
-    }
-    if (artworkCachePromise) {
-        return artworkCachePromise;
-    }
-    try {
-        artworkCachePromise = (async () => {
-            const artworkAsset = Asset.fromModule(require('../assets/images/placeholder.png'));
-            await artworkAsset.downloadAsync();
-            cachedArtworkUrl = artworkAsset.localUri || artworkAsset.uri;
-            return cachedArtworkUrl;
-        })();
-        return artworkCachePromise;
-    } catch {
-        return null;
-    }
+    return {
+        autoOpenPlayerOnPlay,
+        showVideoBadges,
+        enableLockScreenControls,
+        onlineSourceEnabled,
+        onlineSourcePreference,
+        gaplessPlaybackEnabled,
+        crossfadeEnabled,
+        crossfadeDurationSec,
+        sleepTimer,
+        setAutoOpenPlayerOnPlay: useAudioStore((state) => state.setAutoOpenPlayerOnPlay),
+        setShowVideoBadges: useAudioStore((state) => state.setShowVideoBadges),
+        setEnableLockScreenControls: useAudioStore((state) => state.setEnableLockScreenControls),
+        setOnlineSourceEnabled: useAudioStore((state) => state.setOnlineSourceEnabled),
+        setOnlineSourcePreference: useAudioStore((state) => state.setOnlineSourcePreference),
+        setGaplessPlaybackEnabled: useAudioStore((state) => state.setGaplessPlaybackEnabled),
+        setCrossfadeEnabled: useAudioStore((state) => state.setCrossfadeEnabled),
+        setCrossfadeDurationSec: useAudioStore((state) => state.setCrossfadeDurationSec),
+        setSleepTimer: useAudioStore((state) => state.setSleepTimer),
+        cancelSleepTimer: useAudioStore((state) => state.cancelSleepTimer),
+    };
+};
+
+export const useLibraryActions = () => {
+    const permissionGranted = useAudioStore((state) => state.permissionGranted);
+    const libraryScanStatus = useAudioStore((state) => state.libraryScanStatus);
+    const library = useAudioStore((state) => state.library);
+    const setPermissionGranted = useAudioStore((state) => state.setPermissionGranted);
+    const setCurrentIndex = useAudioStore((state) => state.setCurrentIndex);
+
+    const refreshLibrary = useCallback(() => audioRuntimeController.refreshLibrary(), []);
+    const deleteSong = useCallback((track: LegacyAudioItem | AudioTrack) =>
+        audioRuntimeController.deleteTrack(coerceTrack(track)), []);
+    const deleteSongs = useCallback((tracks: (LegacyAudioItem | AudioTrack)[]): Promise<DeleteTracksResult> =>
+        audioRuntimeController.deleteTracks(tracks.map(coerceTrack)), []);
+    const playFromUrl = useCallback((url: string) => audioRuntimeController.playFromUrl(url), []);
+
+    return {
+        permissionGranted,
+        libraryScanStatus,
+        library,
+        setPermissionGranted,
+        setCurrentIndex,
+        refreshLibrary,
+        deleteSong,
+        deleteSongs,
+        playFromUrl,
+    };
 };
 
 export const useAudio = () => {
-    const store = useAudioStore();
-    const playerRef = useRef<AudioPlayer | null>(null);
-    const artworkLoadedRef = useRef(false);
+    const library = useAudioStore((state) => state.library);
+    const currentTrack = useAudioStore((state) => state.currentTrack);
+    const queue = useAudioStore(selectQueueTracks);
+    const currentIndex = useAudioStore((state) => state.currentIndex);
+    const nowPlayingContext = useAudioStore((state) => state.nowPlayingContext);
+    const playlistsRaw = useAudioStore((state) => state.playlists);
+    const likedIdsRaw = useAudioStore((state) => state.likedIds);
+    const toggleLikeStore = useAudioStore((state) => state.toggleLike);
+    const createPlaylist = useAudioStore((state) => state.createPlaylist);
+    const addToPlaylist = useAudioStore((state) => state.addToPlaylist);
+    const deletePlaylist = useAudioStore((state) => state.deletePlaylist);
+    const setCurrentIndex = useAudioStore((state) => state.setCurrentIndex);
 
-    const disposePlayer = useCallback(() => {
-        store.player?.remove();
-        store.setPlayer(null);
-        playerRef.current = null;
-    }, [store]);
+    const {
+        currentTrack: playerTrack,
+        isPlaying,
+        isBuffering,
+        playbackStatus,
+        playbackError,
+        position,
+        duration,
+        waveformSamples,
+        adaptiveAccent,
+        playbackRate,
+        setPlaybackRate,
+        playPause,
+        next,
+        previous,
+        seekTo,
+        clearPlaybackError,
+    } = useAudioPlayer();
 
-    const clearPlaybackState = useCallback(() => {
-        store.player?.pause();
-        disposePlayer();
-        store.setCurrentSong(null);
-        store.setIsPlaying(false);
-        store.setQueue([]);
-        store.setCurrentIndex(-1);
-        store.setNowPlayingContext(null);
-        store.setPosition(0);
-        store.setDuration(0);
-        globalHasTriggeredTrackEnd = false;
-    }, [disposePlayer, store]);
+    const {
+        shuffle,
+        repeatMode,
+        setShuffle,
+        setRepeatMode,
+        selectQueueItem,
+        enqueueTracks,
+        moveQueueItem,
+        removeQueueItem,
+    } = usePlaybackQueue();
 
-    const resolvePlayableUri = useCallback(async (asset: MediaLibrary.Asset) => {
-        // Local/remote tracks already carry a direct playable URI.
-        if (
-            asset.id.startsWith('local:') ||
-            asset.id.startsWith('remote:') ||
-            asset.id.startsWith('jiosaavn:') ||
-            Platform.OS === 'web'
-        ) {
-            return asset.uri;
-        }
+    const {
+        autoOpenPlayerOnPlay,
+        showVideoBadges,
+        enableLockScreenControls,
+        onlineSourceEnabled,
+        onlineSourcePreference,
+        gaplessPlaybackEnabled,
+        crossfadeEnabled,
+        crossfadeDurationSec,
+        sleepTimer,
+        setAutoOpenPlayerOnPlay,
+        setShowVideoBadges,
+        setEnableLockScreenControls,
+        setOnlineSourceEnabled,
+        setOnlineSourcePreference,
+        setGaplessPlaybackEnabled,
+        setCrossfadeEnabled,
+        setCrossfadeDurationSec,
+        setSleepTimer,
+        cancelSleepTimer,
+    } = useAudioPreferences();
 
-        try {
-            const info = await MediaLibrary.getAssetInfoAsync(asset);
-            return info.localUri || info.uri || asset.uri;
-        } catch {
-            return asset.uri;
-        }
-    }, []);
+    const {
+        permissionGranted,
+        libraryScanStatus,
+        setPermissionGranted,
+        refreshLibrary,
+        deleteSong,
+        deleteSongs,
+        playFromUrl,
+    } = useLibraryActions();
 
-    const ensureDeletePermission = useCallback(async () => {
-        if (Platform.OS === 'web') return false;
-        const existing = await MediaLibrary.getPermissionsAsync(false, ['audio', 'video']);
-        if (existing.status === 'granted') return true;
+    const likedIds = useMemo(() => new Set(likedIdsRaw), [likedIdsRaw]);
+    const playlists = useMemo<CompatPlaylist[]>(
+        () => playlistsRaw.map((playlist) => ({
+            ...playlist,
+            assetIds: playlist.trackIds,
+        })),
+        [playlistsRaw]
+    );
 
-        const requested = await MediaLibrary.requestPermissionsAsync(false, ['audio', 'video']);
-        if (requested.status === 'granted') return true;
-
-        // Fallback for runtimes that honor writeOnly differently.
-        const writeRequested = await MediaLibrary.requestPermissionsAsync(true, ['audio', 'video']);
-        return writeRequested.status === 'granted';
-    }, []);
-
-    const setupLockScreenControls = useCallback(async (player: AudioPlayer, metadata: any) => {
-        if (!store.enableLockScreenControls) {
-            player.clearLockScreenControls();
+    const toggleLike = useCallback((track: string | LegacyAudioItem | AudioTrack) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (typeof track === 'string') {
+            toggleLikeStore(track);
             return;
         }
-
-        const artwork = await preloadArtwork();
-        const finalMetadata = {
-            ...metadata,
-            artworkUrl: artwork || metadata.artworkUrl,
-        };
-
-        try {
-            await player.setActiveForLockScreen(true, finalMetadata, LOCK_SCREEN_OPTIONS);
-            await player.updateLockScreenMetadata(finalMetadata);
-        } catch (error) {
-            console.warn('Lock screen setup failed:', error);
-        }
-    }, [store.enableLockScreenControls]);
-
-    const loadAudio = useCallback(async (asset: MediaLibrary.Asset, shouldPlay = true) => {
-        try {
-            const playableUri = await resolvePlayableUri(asset);
-            
-            if (!playableUri) {
-                console.error('[Audio] No playable URI found for asset:', asset.id);
-                return;
-            }
-
-            store.setCurrentSong({ ...asset, uri: playableUri } as MediaLibrary.Asset);
-            store.setIsPlaying(shouldPlay);
-            globalHasTriggeredTrackEnd = false;
-
-            const metadata = {
-                title: asset.filename,
-                artist: (asset as any).artists || 'Unknown Artist',
-                albumTitle: (asset as any).album || (asset.id.startsWith('jiosaavn:') ? 'Saavn' : 'Files'),
-                artworkUrl: (asset as any).imageUrl || cachedArtworkUrl || undefined,
-            };
-
-            const freshPlayer = useAudioStore.getState().player;
-            if (!freshPlayer) {
-                const newPlayer = createAudioPlayer(playableUri, {
-                    keepAudioSessionActive: true,
-                });
-                store.setPlayer(newPlayer);
-                playerRef.current = newPlayer;
-                await setupLockScreenControls(newPlayer, metadata);
-                newPlayer.setPlaybackRate(store.playbackRate);
-                if (shouldPlay) {
-                    await newPlayer.play();
-                }
-            } else {
-                await freshPlayer.replace(playableUri);
-                // On some versions, we might need to reset lock screen status after replace
-                await setupLockScreenControls(freshPlayer, metadata);
-                freshPlayer.setPlaybackRate(store.playbackRate);
-                if (shouldPlay) {
-                    await freshPlayer.play();
-                }
-            }
-            
-            artworkLoadedRef.current = false;
-        } catch (error) {
-            console.error('Error loading audio:', error);
-        }
-    }, [resolvePlayableUri, store, setupLockScreenControls]);
+        toggleLikeStore(coerceTrack(track));
+    }, [toggleLikeStore]);
 
     const startQueuePlayback = useCallback(async (
-        playbackQueue: MediaLibrary.Asset[],
+        playbackQueue: (LegacyAudioItem | AudioTrack)[],
         startIndex = 0,
         context: NowPlayingContext = { type: 'library', title: 'Library Queue' }
     ) => {
-        if (playbackQueue.length === 0) return;
-        const safeIndex = Math.min(Math.max(startIndex, 0), playbackQueue.length - 1);
-
-        store.setQueue(playbackQueue);
-        store.setCurrentIndex(safeIndex);
-        store.setNowPlayingContext(context ?? { type: 'library', title: 'Library Queue' });
-        await loadAudio(playbackQueue[safeIndex]);
-    }, [loadAudio, store]);
-
-    const handleNext = useCallback(async () => {
-        if (store.queue.length === 0) return;
-
-        if (store.repeatMode === 'one') {
-            store.player?.seekTo(0);
-            store.player?.play();
-            return;
-        }
-
-        let nextIndex;
-        if (store.shuffle) {
-            nextIndex = Math.floor(Math.random() * store.queue.length);
-        } else {
-            nextIndex = store.currentIndex + 1;
-            if (nextIndex >= store.queue.length) {
-                if (store.repeatMode === 'all') {
-                    nextIndex = 0;
-                } else {
-                    return;
-                }
-            }
-        }
-
-        const nextSong = store.queue[nextIndex];
-        store.setCurrentIndex(nextIndex);
-        await loadAudio(nextSong);
-    }, [store, loadAudio]);
-
-    const handlePrevious = useCallback(async () => {
-        if (store.queue.length === 0) return;
-
-        let prevIndex = store.currentIndex - 1;
-        if (prevIndex < 0) {
-            if (store.repeatMode === 'all') {
-                prevIndex = store.queue.length - 1;
-            } else {
-                prevIndex = 0;
-            }
-        }
-
-        const prevSong = store.queue[prevIndex];
-        store.setCurrentIndex(prevIndex);
-        await loadAudio(prevSong);
-    }, [loadAudio, store]);
-
-    const toggleLike = useCallback((id: string) => {
-        if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-        store.toggleLike(id);
-    }, [store]);
-
-    const playLikedSongs = useCallback(async () => {
-        const likedSongs = store.library.filter((song) => store.likedIds.has(song.id));
-        if (likedSongs.length === 0) return false;
-        await startQueuePlayback(likedSongs, 0, { type: 'liked', title: 'Liked Songs' });
-        return true;
-    }, [startQueuePlayback, store.library, store.likedIds]);
-
-    const playPlaylist = useCallback(async (playlistId: string) => {
-        const playlist = store.playlists.find((p) => p.id === playlistId);
-        if (!playlist) return false;
-
-        const playlistSongs = playlist.assetIds
-            .map((assetId) => store.library.find((song) => song.id === assetId))
-            .filter(Boolean) as MediaLibrary.Asset[];
-
-        if (playlistSongs.length === 0) return false;
-        await startQueuePlayback(playlistSongs, 0, {
-            type: 'playlist',
-            title: playlist.name,
-            playlistId: playlist.id,
-        });
-        return true;
-    }, [startQueuePlayback, store.library, store.playlists]);
-
-    const onPlaybackStatusUpdate = useCallback((status: AudioStatus) => {
-        store.setPosition(status.currentTime);
-        store.setDuration(status.duration);
-        store.setIsPlaying(status.playing);
-
-        const nearTrackEnd = status.playing && status.duration > 0 && status.currentTime >= (status.duration - 0.5);
-
-        if (nearTrackEnd && !globalHasTriggeredTrackEnd) {
-            globalHasTriggeredTrackEnd = true;
-            handleNext();
-            return;
-        }
-
-        if (!nearTrackEnd || status.currentTime < Math.max(status.duration - 1, 0)) {
-            globalHasTriggeredTrackEnd = false;
-        }
-    }, [handleNext, store]);
-
-    useEffect(() => {
-        if (store.player) {
-            const subscription = store.player.addListener('playbackStatusUpdate', onPlaybackStatusUpdate);
-            return () => {
-                subscription.remove();
-            };
-        }
-    }, [store.player, onPlaybackStatusUpdate]);
-
-    useEffect(() => {
-        if (!store.player) return;
-        store.player.setPlaybackRate(store.playbackRate);
-    }, [store.player, store.playbackRate]);
-
-    useEffect(() => {
-        if (!store.player) return;
-        const playerIsPlaying = store.player.playing;
-        if (store.isPlaying && !playerIsPlaying) {
-            store.player.play();
-        } else if (!store.isPlaying && playerIsPlaying) {
-            store.player.pause();
-        }
-    }, [store.player, store.isPlaying]);
-
-    const handlePlayPause = useCallback(async () => {
-        if (!store.player) return;
-        if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-        if (store.isPlaying) {
-            store.player.pause();
-        } else {
-            store.player.play();
-        }
-    }, [store.player, store.isPlaying]);
-
-    const refreshLibrary = useCallback(async () => {
-        if (Platform.OS === 'web') return false;
-        try {
-            const { status } = await MediaLibrary.requestPermissionsAsync();
-            if (status !== 'granted') return false;
-
-            let allAssets: MediaLibrary.Asset[] = [];
-            let hasNextPage = true;
-            let endCursor: string | undefined;
-
-            while (hasNextPage) {
-                const media: MediaLibrary.PagedInfo<MediaLibrary.Asset> = await MediaLibrary.getAssetsAsync({
-                    mediaType: [MediaLibrary.MediaType.audio, MediaLibrary.MediaType.video],
-                    sortBy: 'creationTime',
-                    first: 500,
-                    after: endCursor,
-                });
-
-                allAssets = [...allAssets, ...media.assets];
-                hasNextPage = media.hasNextPage;
-                endCursor = media.endCursor;
-            }
-
-            const filteredAssets = allAssets.filter((asset) => {
-                const filename = asset.filename.toLowerCase();
-                const extension = filename.split('.').pop();
-                return extension && SUPPORTED_EXTENSIONS.has(extension);
-            });
-
-            const localTracks = (
-                await Promise.all(LOCAL_SCAN_ROOTS.map((root) => scanLocalDirectory(root)))
-            ).flat();
-            
-            const merged = [...filteredAssets, ...localTracks];
-            const dedupedByUri = new Map<string, MediaLibrary.Asset>();
-            for (const track of merged) {
-                if (!dedupedByUri.has(track.uri)) {
-                    dedupedByUri.set(track.uri, track);
-                }
-            }
-            const mergedAssets = Array.from(dedupedByUri.values());
-
-            const state = useAudioStore.getState();
-            state.setLibrary(mergedAssets);
-
-            if (state.currentSong) {
-                const refreshedCurrent = mergedAssets.find((asset) => asset.id === state.currentSong?.id);
-                if (!refreshedCurrent) {
-                    state.player?.pause();
-                    state.player?.remove();
-                    state.setPlayer(null);
-                    state.setCurrentSong(null);
-                    state.setIsPlaying(false);
-                    state.setQueue([]);
-                    state.setCurrentIndex(-1);
-                    state.setNowPlayingContext(null);
-                    state.setPosition(0);
-                    state.setDuration(0);
-                    globalHasTriggeredTrackEnd = false;
-                } else {
-                    state.setCurrentSong(refreshedCurrent);
-                    const refreshedQueue = state.queue
-                        .map((queued) => mergedAssets.find((asset) => asset.id === queued.id))
-                        .filter(Boolean) as MediaLibrary.Asset[];
-                    state.setQueue(refreshedQueue);
-                    const refreshedIndex = refreshedQueue.findIndex((asset) => asset.id === refreshedCurrent.id);
-                    state.setCurrentIndex(refreshedIndex);
-                }
-            }
-            return true;
-        } catch (error) {
-            console.error('Error fetching audio assets:', error);
-            return false;
-        }
+        const tracks = playbackQueue.map(coerceTrack);
+        return audioRuntimeController.replaceQueue(tracks, startIndex, context, true);
     }, []);
 
-    const deleteSongInternal = useCallback(async (
-        asset: MediaLibrary.Asset,
-        options: {
-            refreshAfterDelete?: boolean;
-            mediaLibraryPermissionGranted?: boolean;
-        } = {}
-    ) => {
-        const { refreshAfterDelete = true, mediaLibraryPermissionGranted = false } = options;
+    const loadAudio = useCallback(async (
+        item: LegacyAudioItem | AudioTrack,
+        shouldPlay = true
+    ) => audioRuntimeController.playTrack(coerceTrack(item), shouldPlay), []);
 
-        if (Platform.OS !== 'web' && asset.id.startsWith('local:') && asset.uri.startsWith('file://')) {
-            await FileSystem.deleteAsync(asset.uri, { idempotent: true });
-            if (refreshAfterDelete) {
-                await refreshLibrary();
-            }
-            if (store.currentSong?.id === asset.id) {
-                clearPlaybackState();
-            }
-            return true;
-        }
-
-        if (Platform.OS === 'web') return false;
-
-        const allowed = mediaLibraryPermissionGranted || await ensureDeletePermission();
-        if (!allowed) {
+    const playLikedSongs = useCallback(async () => {
+        const likedTracks = getLikedTracks(useAudioStore.getState());
+        if (likedTracks.length === 0) {
             return false;
         }
 
-        const success = await MediaLibrary.deleteAssetsAsync([asset]);
-        if (success) {
-            if (refreshAfterDelete) {
-                await refreshLibrary();
-            }
-            if (store.currentSong?.id === asset.id) {
-                clearPlaybackState();
-            }
-            return true;
-        }
+        return audioRuntimeController.replaceQueue(likedTracks, 0, { type: 'liked', title: 'Liked Songs' }, true);
+    }, []);
 
-        return false;
-    }, [clearPlaybackState, ensureDeletePermission, refreshLibrary, store.currentSong?.id]);
-
-    const deleteSong = useCallback(async (asset: MediaLibrary.Asset) => {
-        try {
-            return await deleteSongInternal(asset);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            if (message.includes("didn't grant write permission")) {
-                try {
-                    const allowed = await ensureDeletePermission();
-                    if (!allowed) return false;
-
-                    return await deleteSongInternal(asset, {
-                        mediaLibraryPermissionGranted: true,
-                    });
-                } catch {
-                    // fall through to default error logging
-                }
-            }
-            console.error('Delete failed:', error);
+    const playPlaylist = useCallback(async (playlistId: string) => {
+        const playlist = useAudioStore.getState().playlists.find((entry) => entry.id === playlistId);
+        if (!playlist) {
             return false;
         }
-    }, [deleteSongInternal, ensureDeletePermission]);
 
-    const seekTo = useCallback(async (positionSeconds: number) => {
-        if (store.player) {
-            globalHasTriggeredTrackEnd = false;
-            await store.player.seekTo(positionSeconds);
-        }
-    }, [store.player]);
-
-    const deleteSongs = useCallback(async (assets: MediaLibrary.Asset[]) => {
-        if (assets.length === 0) {
-            return { success: true, deletedCount: 0, failedCount: 0 };
-        }
-
-        const localAssets = assets.filter((asset) => asset.id.startsWith('local:'));
-        const mediaLibraryAssets = assets.filter((asset) => !asset.id.startsWith('local:'));
-        const mediaLibraryPermissionGranted = mediaLibraryAssets.length > 0
-            ? await ensureDeletePermission()
-            : false;
-
-        let deletedCount = 0;
-        let shouldRefreshLibrary = false;
-
-        for (const asset of localAssets) {
-            const success = await deleteSongInternal(asset, {
-                refreshAfterDelete: false,
-            });
-            if (success) {
-                deletedCount += 1;
-                shouldRefreshLibrary = true;
-            }
-        }
-
-        if (mediaLibraryPermissionGranted) {
-            for (const asset of mediaLibraryAssets) {
-                const success = await deleteSongInternal(asset, {
-                    refreshAfterDelete: false,
-                    mediaLibraryPermissionGranted: true,
-                });
-                if (success) {
-                    deletedCount += 1;
-                    shouldRefreshLibrary = true;
-                }
-            }
-        }
-
-        if (shouldRefreshLibrary) {
-            await refreshLibrary();
-        }
-
-        return {
-            success: deletedCount === assets.length,
-            deletedCount,
-            failedCount: assets.length - deletedCount,
-        };
-    }, [deleteSongInternal, ensureDeletePermission, refreshLibrary]);
-
-    const playFromUrl = useCallback(async (url: string) => {
-        const trimmed = url.trim();
-        if (!/^https?:\/\//i.test(trimmed)) return false;
-
-        try {
-            const parsed = new URL(trimmed);
-            const filenameFromPath = decodeURIComponent(fileNameFromUri(parsed.toString()));
-            const filename = filenameFromPath && filenameFromPath !== 'track'
-                ? filenameFromPath
-                : `${parsed.hostname}.stream`;
-            const track = trackFromUri(parsed.toString(), `remote:${parsed.toString()}`, filename, Date.now());
-
-            store.setQueue([track]);
-            store.setCurrentIndex(0);
-            store.setNowPlayingContext({ type: 'library', title: 'Stream Queue' });
-            await loadAudio(track, true);
-            return true;
-        } catch {
+        const tracks = getPlaylistTracks(useAudioStore.getState(), playlistId);
+        if (tracks.length === 0) {
             return false;
         }
-    }, [loadAudio, store]);
+
+        return audioRuntimeController.replaceQueue(
+            tracks,
+            0,
+            {
+                type: 'playlist',
+                title: playlist.name,
+                playlistId: playlist.id,
+            },
+            true
+        );
+    }, []);
+
+    const clearAudio = useCallback(() => audioRuntimeController.stop(), []);
 
     return {
-        ...store,
-        loadAudio,
-        handlePlayPause,
-        handleNext,
-        handlePrevious,
+        permissionGranted,
+        libraryScanStatus,
+        setPermissionGranted,
+        library: library as unknown as MediaLibrary.Asset[],
+        currentSong: currentTrack as unknown as MediaLibrary.Asset | null,
+        currentTrack: playerTrack,
+        queue: queue as unknown as MediaLibrary.Asset[],
+        currentIndex,
+        nowPlayingContext,
+        playlists,
+        likedIds,
+        isPlaying,
+        isBuffering,
+        playbackStatus,
+        playbackError,
+        position,
+        duration,
+        waveformSamples,
+        adaptiveAccent,
+        playbackRate,
+        shuffle,
+        repeatMode,
+        autoOpenPlayerOnPlay,
+        showVideoBadges,
+        enableLockScreenControls,
+        onlineSourceEnabled,
+        onlineSourcePreference,
+        gaplessPlaybackEnabled,
+        crossfadeEnabled,
+        crossfadeDurationSec,
+        sleepTimer,
+        setCurrentIndex,
+        setPlaybackRate,
+        setShuffle,
+        setRepeatMode,
+        setAutoOpenPlayerOnPlay,
+        setShowVideoBadges,
+        setEnableLockScreenControls,
+        setOnlineSourceEnabled,
+        setOnlineSourcePreference,
+        setGaplessPlaybackEnabled,
+        setCrossfadeEnabled,
+        setCrossfadeDurationSec,
+        setSleepTimer,
+        cancelSleepTimer,
+        handlePlayPause: playPause,
+        handleNext: next,
+        handlePrevious: previous,
         seekTo,
+        clearPlaybackError,
         refreshLibrary,
         deleteSong,
         deleteSongs,
         toggleLike,
+        createPlaylist,
+        addToPlaylist: (playlistId: string, track: string | LegacyAudioItem | AudioTrack) =>
+            addToPlaylist(playlistId, typeof track === 'string' ? track : coerceTrack(track)),
+        deletePlaylist,
         playLikedSongs,
         playPlaylist,
         startQueuePlayback,
         playFromUrl,
+        loadAudio,
+        clearAudio,
+        selectQueueItem,
+        enqueueTracks,
+        moveQueueItem,
+        removeQueueItem,
     };
 };

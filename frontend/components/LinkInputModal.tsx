@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import ScalePressable from './ScalePressable';
+import { GlassDialog } from './ui/primitives';
 
 interface LinkInputModalProps {
     visible: boolean;
@@ -29,7 +30,8 @@ export default function LinkInputModal({ visible, onClose, onSubmit }: LinkInput
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
             <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
-                <View style={[styles.content, { backgroundColor: colors.surface, borderColor: colors.modalBorder, shadowColor: colors.modalShadow }]}>
+                <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+                <GlassDialog style={styles.content}>
                     <Text style={[styles.title, { color: colors.text }]}>Play From Link</Text>
                     <Text style={[styles.subtitle, { color: colors.textMuted }]}>Paste a direct media URL (mp3/mp4/m3u8).</Text>
 
@@ -61,7 +63,7 @@ export default function LinkInputModal({ visible, onClose, onSubmit }: LinkInput
                             <Text style={{ color: canSubmit ? colors.onAccent : colors.textMuted, fontWeight: '700' }}>Play</Text>
                         </ScalePressable>
                     </View>
-                </View>
+                </GlassDialog>
             </View>
         </Modal>
     );
@@ -74,16 +76,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
     },
-    content: {
-        width: '100%',
-        padding: 24,
-        borderRadius: 24,
-        borderWidth: 1,
-        elevation: 20,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-    },
+    content: { width: '100%' },
     title: {
         fontSize: 20,
         fontWeight: '800',

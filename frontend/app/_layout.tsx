@@ -1,20 +1,25 @@
 import { setAudioModeAsync } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
+import AppQueryProvider from '../components/AppQueryProvider';
+import AudioRuntime from '../components/AudioRuntime';
+import GlobalMiniPlayer from '../components/GlobalMiniPlayer';
 import { CORE_COLORS } from '../constants/colors';
+import { GlassSurface, PageShell } from '../components/ui/primitives';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, LogBox, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
+import { useAdaptiveTheme } from '../hooks/useAdaptiveTheme';
 import { enableScreens } from 'react-native-screens';
 
 // Disable native screens support to prevent splash screen conflicts
 try {
   enableScreens(false);
-} catch (e) {
-  console.warn('[Layout] Failed to disable screens:', e);
+} catch {
+  // Ignore screen toggling issues in runtimes that manage this internally.
 }
 
 LogBox.ignoreLogs([
@@ -28,16 +33,30 @@ const LOADING_COLORS = {
 };
 
 function LoadingView() {
-  console.log('[Layout] Rendering LoadingView');
+  const theme = useAdaptiveTheme();
+
   return (
-    <View style={styles.loading}>
+    <PageShell style={styles.loading}>
+      <View style={styles.loadingAccentRing} />
       <View style={styles.loadingContent}>
-        <Ionicons name="musical-notes" size={80} color={CORE_COLORS.tealAccent} style={{ marginBottom: 20 }} />
-        <Text style={styles.loadingTitle}>Just Play</Text>
-        <ActivityIndicator size="small" color={CORE_COLORS.tealAccent} style={styles.loadingIndicator} />
-        <Text style={styles.loadingSubtitle}>Preparing your sonic experience...</Text>
+        <GlassSurface
+          variant="glassStrong"
+          style={styles.loadingCard}
+          contentStyle={{
+            alignItems: 'center',
+            paddingHorizontal: theme.spacing.xl,
+            paddingVertical: theme.spacing.xxl,
+          }}
+        >
+          <View style={[styles.loadingIconWrap, { backgroundColor: theme.colors.accentSurface }]}>
+            <Ionicons name="musical-notes" size={48} color={theme.accent} />
+          </View>
+          <Text style={[styles.loadingTitle, { color: theme.colors.text }]}>Play-Veee</Text>
+          <Text style={[styles.loadingSubtitle, { color: theme.colors.textMuted }]}>Preparing your sonic experience...</Text>
+          <ActivityIndicator size="small" color={theme.accent} style={styles.loadingIndicator} />
+        </GlassSurface>
       </View>
-    </View>
+    </PageShell>
   );
 }
 
@@ -51,14 +70,15 @@ function RootLayoutContent() {
       shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
       shouldRouteThroughEarpiece: false,
-      
-
-    }).catch(e => console.warn('[Layout] Audio setup error:', e));
+    }).catch(() => {
+      // Audio mode setup is best-effort on app boot.
+    });
   }, []);
 
   return (
     <>
       <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+      <AudioRuntime />
       <Stack
         screenOptions={{
           headerStyle: {
@@ -93,19 +113,21 @@ function RootLayoutContent() {
         />
         <Stack.Screen name="playlist/[id]" options={{ headerShown: false }} />
       </Stack>
+      <GlobalMiniPlayer />
       {!isReady && <LoadingView />}
     </>
   );
 }
 
 export default function RootLayout() {
-  console.log('[Layout] RootLayout rendering');
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <RootLayoutContent />
-        </ThemeProvider>
+        <AppQueryProvider>
+          <ThemeProvider>
+            <RootLayoutContent />
+          </ThemeProvider>
+        </AppQueryProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -124,8 +146,31 @@ const styles = StyleSheet.create({
     backgroundColor: CORE_COLORS.darkBG,
   },
   loadingContent: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingCard: {
+    width: '100%',
+    maxWidth: 360,
+  },
+  loadingIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  loadingAccentRing: {
+    position: 'absolute',
+    top: 120,
+    alignSelf: 'center',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(20,184,166,0.06)',
   },
   loadingImage: {
     width: 140,
@@ -133,18 +178,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   loadingTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: CORE_COLORS.darkText,
-    marginTop: 16,
+    fontSize: 30,
+    fontWeight: '900',
+    marginTop: 4,
   },
   loadingIndicator: {
     marginTop: 24,
   },
   loadingSubtitle: {
     fontSize: 14,
-    fontWeight: '500',
-    color: CORE_COLORS.switchTrackOff,
+    fontWeight: '600',
     marginTop: 8,
   },
 });

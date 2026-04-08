@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
+import { useAdaptiveTheme } from '../../hooks/useAdaptiveTheme';
 
 export default function TabsLayout() {
     const { colors } = useTheme();
+    const theme = useAdaptiveTheme();
     const insets = useSafeAreaInsets();
 
     return (
@@ -16,27 +19,42 @@ export default function TabsLayout() {
                     bottom: Math.max(12, insets.bottom),
                     left: 16,
                     right: 16,
-                    height: 68,
-                    borderRadius: 20,
+                    height: 72,
+                    borderRadius: theme.radii.xl,
                     elevation: 15,
                     borderTopWidth: 0,
-                    backgroundColor: colors.tabBarBackground,
-                    shadowColor: '#000',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1,
+                    borderColor: colors.floatingBorder,
+                    shadowColor: colors.tabBarShadow,
                     shadowOffset: { width: 0, height: 10 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 25,
+                    shadowOpacity: 0.22,
+                    shadowRadius: 22,
+                    overflow: 'hidden',
                 },
+                tabBarBackground: () => (
+                    <BlurView
+                        tint={theme.isDark ? 'dark' : 'light'}
+                        intensity={theme.blurIntensity}
+                        style={{
+                            flex: 1,
+                            borderRadius: theme.radii.xl,
+                            backgroundColor: theme.surfaces.floating,
+                        }}
+                        experimentalBlurMethod="dimezisBlurView"
+                    />
+                ),
                 tabBarActiveTintColor: colors.accent,
                 tabBarInactiveTintColor: colors.textMuted,
                 tabBarShowLabel: true,
                 tabBarLabelPosition: 'below-icon',
                 tabBarLabelStyle: {
                     fontSize: 11,
-                    fontWeight: 'bold',
-                    marginBottom:-2,
+                    fontWeight: '800',
+                    marginBottom: -1,
                 },
                 tabBarItemStyle: {
-                    paddingTop:3,
+                    paddingTop: 4,
                 },
             }}
         >

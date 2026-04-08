@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { ACCENT_COLORS, CORE_COLORS, getThemeColors, ThemeColors, ThemeName } from '../constants/colors';
+import { useAudioStore } from '../store/useAudioStore';
 
 export type ThemeType = ThemeName | 'system';
 
@@ -110,14 +111,16 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const [theme, setThemeState] = useState<ThemeType>(defaultTheme);
     const [accentColor, setAccentColorState] = useState<string>(defaultAccent);
     const [isReady, setIsReady] = useState(false);
+    const adaptiveAccent = useAudioStore((state) => state.adaptiveAccent);
 
     // Resolve theme synchronously - always default to dark if systemTheme is null
     const resolvedTheme: ThemeName = (theme === 'system' ? (systemTheme || defaultResolvedTheme) : theme) as ThemeName;
+    const activeAccent = adaptiveAccent || accentColor;
 
     // Compute colors - with fallback to prevent any undefined
     let colors: ThemeColors;
     try {
-        colors = getThemeColors(resolvedTheme, accentColor);
+        colors = getThemeColors(resolvedTheme, activeAccent);
     } catch {
         colors = fallbackColors;
     }
@@ -126,14 +129,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         let mounted = true;
 
         const loadPreferences = async () => {
-            console.log('[Theme] Loading preferences...');
             try {
                 const [savedTheme, savedAccent] = await Promise.all([
                     AsyncStorage.getItem(THEME_STORAGE_KEY),
                     AsyncStorage.getItem(ACCENT_STORAGE_KEY),
                 ]);
-
-                console.log('[Theme] Saved preferences:', { savedTheme, savedAccent });
 
                 if (!mounted) return;
 
@@ -147,17 +147,15 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
                         setAccentColorState(validAccent);
                     }
                 }
-            } catch (e) {
-                console.warn('[Theme] Load error:', e);
+            } catch {
+                // Fall back to defaults if persisted theme data is unavailable.
             } finally {
                 if (mounted) {
-                    console.log('[Theme] Initialization ready');
                     setIsReady(true);
                 }
             }
         };
 
-        // Small delay then load
         loadPreferences();
 
         return () => {

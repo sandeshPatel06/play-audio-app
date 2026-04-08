@@ -5,9 +5,11 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
-import { useAudio } from '../hooks/useAudio';
+import { useAdaptiveTheme } from '../hooks/useAdaptiveTheme';
+import { useAudioPlayer, usePlaybackQueue } from '../hooks/useAudio';
 import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
 import ScalePressable from './ScalePressable';
+import { GlassSurface } from './ui/primitives';
 
 function MiniVideoThumbnail({ uri, isPlaying }: { uri: string, isPlaying: boolean }) {
     const videoPlayer = useVideoPlayer(
@@ -61,18 +63,26 @@ export default function MiniPlayer() {
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const { colors } = useTheme();
-    const { 
-        currentSong, isPlaying, handlePlayPause, handleNext, handlePrevious, 
-        position, duration, nowPlayingContext
-    } = useAudio();
+    const theme = useAdaptiveTheme();
+    const {
+        currentTrack,
+        isPlaying,
+        position,
+        duration,
+        playPause,
+        next,
+        previous,
+    } = useAudioPlayer();
+    const { queue, currentIndex } = usePlaybackQueue();
     const safePush = useSafeRouterPush();
     
     const isSmall = screenWidth < 375;
     const styles = useMemo(() => createStyles(colors, isSmall), [colors, isSmall]);
 
-    if (!currentSong) return null;
+    if (!currentTrack) return null;
 
-    const isVideo = currentSong.mediaType === 'video';
+    const isVideo = currentTrack.mediaType === 'video';
+    const canSkip = queue.length > 1 || currentIndex > 0;
     
     // Protect against NaN or undefined preventing the progress bar from rendering
     const safePosition = isNaN(position) ? 0 : Math.max(0, position);
@@ -88,47 +98,59 @@ export default function MiniPlayer() {
 
     const onPlayPause = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        handlePlayPause();
+        playPause();
     };
 
     const onNext = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        handleNext();
+        next();
     };
 
     const onPrev = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        handlePrevious();
+        previous();
     };
 
     return (
-        <View style={[styles.container, { bottom: Math.max(12, insets.bottom) + 88, shadowColor: colors.floatingShadow }]}>
-            <View style={[styles.backgroundPanel, { backgroundColor: colors.floatingBackground, borderColor: colors.floatingBorder }]}>
+        <View style={[styles.container, { bottom: Math.max(12, insets.bottom) + 90, shadowColor: colors.floatingShadow }]}>
+            <GlassSurface
+                variant="floating"
+                blurIntensity={theme.blurIntensity + 4}
+                style={[styles.backgroundPanel, { borderColor: colors.floatingBorder }]}
+            >
                 <View style={styles.contentWrapper}>
                     <View style={styles.mainRow}>
                         <Pressable onPress={() => safePush('/player')} style={styles.leftSection}>
-                            {isVideo && currentSong.uri ? (
+                            {isVideo && currentTrack.uri ? (
                                 <View style={styles.artwork} pointerEvents="none">
-                                    <MiniVideoThumbnail uri={currentSong.uri} isPlaying={isPlaying} />
+                                    <MiniVideoThumbnail uri={currentTrack.uri} isPlaying={isPlaying} />
                                 </View>
                             ) : (
-                                <Image source={require('../assets/images/placeholder.png')} style={styles.artwork} />
+                                <Image
+                                    source={currentTrack.imageUrl ? { uri: currentTrack.imageUrl } : require('../assets/images/placeholder.png')}
+                                    style={styles.artwork}
+                                />
                             )}
                             <View style={styles.info}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                     <Text numberOfLines={1} style={[styles.title, { color: colors.text, flex: 1 }]}>
-                                        {currentSong.filename}
+                                        {currentTrack.title}
                                     </Text>
                                 </View>
                                 <Text numberOfLines={1} style={[styles.artist, { color: colors.textMuted }]}>
-                                    {'Unknown Artist'}
+                                    {currentTrack.artist}
                                 </Text>
+                                <View style={[styles.contextChip, { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}>
+                                    <Text style={[styles.contextChipText, { color: colors.accent }]}>
+                                        {isVideo ? 'Video' : 'Now Playing'}
+                                    </Text>
+                                </View>
                             </View>
                         </Pressable>
 
                         <View style={styles.controlsSide}>
                             <View style={styles.primaryControls}>
-                                {nowPlayingContext?.type !== 'remote' && (
+                                {canSkip && (
                                     <ScalePressable onPress={onPrev} hitSlop={15} style={styles.skipBtn}>
                                         <Ionicons name="play-skip-back" size={24} color={colors.text} />
                                     </ScalePressable>
@@ -136,7 +158,7 @@ export default function MiniPlayer() {
                                 <ScalePressable onPress={onPlayPause} hitSlop={15} style={styles.playBtn}>
                                     <Ionicons name={isPlaying ? "pause" : "play"} size={28} color={colors.text} />
                                 </ScalePressable>
-                                {nowPlayingContext?.type !== 'remote' && (
+                                {canSkip && (
                                     <ScalePressable onPress={onNext} hitSlop={15} style={styles.skipBtn}>
                                         <Ionicons name="play-skip-forward" size={24} color={colors.text} />
                                     </ScalePressable>
@@ -150,10 +172,10 @@ export default function MiniPlayer() {
                         <View style={[styles.progressBarContainer, { backgroundColor: colors.progressTrack }]}>
                             <View style={[styles.progressBar, { width: `${progress * 100}%`, backgroundColor: colors.accent }]} />
                         </View>
-                        <Text style={[styles.timeText, { color: colors.textMuted }]} numberOfLines={1}>{formatTime(duration)}</Text>
+                        <Text style={[styles.timeText, { color: colors.textMuted }]} numberOfLines={1}>{formatTime(safeDuration)}</Text>
                     </Pressable>
                 </View>
-            </View>
+            </GlassSurface>
         </View>
     );
 }
@@ -164,25 +186,24 @@ function createStyles(colors: any, isSmall: boolean) {
     return StyleSheet.create({
         container: {
             position: 'absolute',
-            left: isSmall ? 4 : 8,
-            right: isSmall ? 4 : 8,
-            height: isSmall ? 78 : 86,
+            left: isSmall ? 8 : 12,
+            right: isSmall ? 8 : 12,
+            height: isSmall ? 88 : 96,
             zIndex: 50,
             elevation: 10,
             shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.4,
-            shadowRadius: 10,
+            shadowOpacity: 0.24,
+            shadowRadius: 18,
         },
         backgroundPanel: {
             flex: 1,
-            borderRadius: isSmall ? 6 : 8,
+            borderRadius: isSmall ? 18 : 22,
             borderWidth: 1,
-            overflow: 'hidden',
         },
         contentWrapper: {
             flex: 1,
-            paddingHorizontal: isSmall ? 10 : 12,
-            paddingVertical: isSmall ? 8 : 10,
+            paddingHorizontal: isSmall ? 12 : 14,
+            paddingVertical: isSmall ? 10 : 12,
             justifyContent: 'center',
         },
         mainRow: {
@@ -191,10 +212,10 @@ function createStyles(colors: any, isSmall: boolean) {
             flex: 1,
         },
         artwork: {
-            width: isSmall ? 40 : 44,
-            height: isSmall ? 40 : 44,
-            borderRadius: isSmall ? 3 : 4,
-            marginRight: 10,
+            width: isSmall ? 46 : 50,
+            height: isSmall ? 46 : 50,
+            borderRadius: isSmall ? 12 : 14,
+            marginRight: 12,
             overflow: 'hidden',
         },
         leftSection: {
@@ -208,18 +229,32 @@ function createStyles(colors: any, isSmall: boolean) {
             justifyContent: 'center',
         },
         title: {
-            fontSize: isSmall ? 12 : 13,
-            fontWeight: '700',
-            marginBottom: 2,
+            fontSize: isSmall ? 13 : 14,
+            fontWeight: '800',
+            marginBottom: 1,
         },
         artist: {
-            fontSize: isSmall ? 10 : 11,
-            fontWeight: '500',
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '600',
+        },
+        contextChip: {
+            alignSelf: 'flex-start',
+            marginTop: 6,
+            borderRadius: 999,
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+            borderWidth: 1,
+        },
+        contextChipText: {
+            fontSize: 10,
+            fontWeight: '800',
+            textTransform: 'uppercase',
+            letterSpacing: 0.8,
         },
         controlsSide: {
             justifyContent: 'center',
             alignItems: 'center',
-            width: isSmall ? 100 : 110,
+            width: isSmall ? 112 : 122,
         },
         primaryControls: {
             flexDirection: 'row',
@@ -237,21 +272,21 @@ function createStyles(colors: any, isSmall: boolean) {
         progressRow: {
             flexDirection: 'row',
             alignItems: 'center',
-            height: isSmall ? 12 : 14,
-            marginTop: isSmall ? 4 : 6,
+            height: isSmall ? 16 : 18,
+            marginTop: isSmall ? 6 : 8,
         },
         timeText: {
             fontSize: isSmall ? 9 : 10,
-            fontWeight: '500',
+            fontWeight: '600',
             fontVariant: ['tabular-nums'],
             width: isSmall ? 32 : 36,
             textAlign: 'center',
         },
         progressBarContainer: {
             flex: 1,
-            height: isSmall ? 3 : 4,
-            borderRadius: isSmall ? 1.5 : 2,
-            marginHorizontal: 4,
+            height: isSmall ? 4 : 5,
+            borderRadius: 999,
+            marginHorizontal: 6,
             overflow: 'hidden',
         },
         progressBarBg: {
@@ -259,7 +294,7 @@ function createStyles(colors: any, isSmall: boolean) {
         },
         progressBar: {
             height: '100%',
-            borderRadius: isSmall ? 1.5 : 2,
+            borderRadius: 999,
         },
     });
 }

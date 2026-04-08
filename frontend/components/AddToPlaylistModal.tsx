@@ -5,11 +5,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { Playlist } from '../store/useAudioStore';
 import ScalePressable from './ScalePressable';
+import { BottomSheetScaffold } from './ui/primitives';
+
+type PlaylistOption = Playlist & {
+    assetIds?: string[];
+};
 
 interface AddToPlaylistModalProps {
     visible: boolean;
     onClose: () => void;
-    playlists: Playlist[];
+    playlists: PlaylistOption[];
     onSelect: (playlistId: string) => void;
 }
 
@@ -25,24 +30,18 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
             onRequestClose={onClose}
         >
             <View style={[styles.modalOverlay, { backgroundColor: colors.modalOverlay }]}>
-                {/* Backdrop — closes modal on tap */}
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-                {/* Sheet */}
-                <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.modalBorder, paddingBottom: insets.bottom + 20 }]}>
-                    {/* Drag handle */}
-                    <View style={[styles.handle, { backgroundColor: colors.textMuted }]} />
-
-                    <View style={styles.header}>
-                        <View>
-                            <Text style={[styles.title, { color: colors.text }]}>Add to Playlist</Text>
-                            <Text style={[styles.subtitle, { color: colors.textMuted }]}>{playlists.length} playlists</Text>
-                        </View>
+                <BottomSheetScaffold
+                    title="Add to Playlist"
+                    subtitle={`${playlists.length} playlists`}
+                    style={{ paddingBottom: insets.bottom + 20 }}
+                    trailing={
                         <ScalePressable style={[styles.closeButton, { backgroundColor: colors.cardBackground }]} onPress={onClose}>
                             <Ionicons name="close" size={20} color={colors.textMuted} />
                         </ScalePressable>
-                    </View>
-
+                    }
+                >
                     <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
                         {playlists.length === 0 ? (
                             <View style={styles.empty}>
@@ -66,7 +65,9 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.name, { color: colors.text }]}>{playlist.name}</Text>
-                                        <Text style={[styles.meta, { color: colors.textMuted }]}>{playlist.assetIds.length} songs</Text>
+                                        <Text style={[styles.meta, { color: colors.textMuted }]}>
+                                            {(playlist.assetIds || playlist.trackIds).length} songs
+                                        </Text>
                                     </View>
                                     <View style={[styles.addChip, { backgroundColor: colors.accentSurface }]}>
                                         <Ionicons name="add" size={18} color={colors.accent} />
@@ -75,7 +76,7 @@ export default function AddToPlaylistModal({ visible, onClose, playlists, onSele
                             ))
                         )}
                     </ScrollView>
-                </View>
+                </BottomSheetScaffold>
             </View>
         </Modal>
     );
@@ -86,43 +87,12 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'flex-end',
     },
-    sheet: {
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        borderTopWidth: 1,
-        paddingHorizontal: 22,
-        paddingTop: 14,
-        maxHeight: '75%',
-    },
-    handle: {
-        width: 40,
-        height: 4,
-        borderRadius: 2,
-        alignSelf: 'center',
-        marginBottom: 18,
-        opacity: 0.4,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 18,
-    },
     closeButton: {
         width: 38,
         height: 38,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: '800',
-    },
-    subtitle: {
-        fontSize: 13,
-        fontWeight: '500',
-        marginTop: 2,
     },
     list: {
         flexGrow: 1,

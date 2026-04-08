@@ -6,12 +6,12 @@ import { ScrollView, StatusBar, StyleSheet, Switch, Text, View, useWindowDimensi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmDialog, NoticeDialog } from '../../components/AppDialogs';
 import LinkInputModal from '../../components/LinkInputModal';
-import MiniPlayer from '../../components/MiniPlayer';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
 
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
+import { createSleepTimerState, formatSleepTimerLabel } from '../../utils/sleepTimer';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -42,6 +42,15 @@ export default function SettingsScreen() {
     setOnlineSourceEnabled,
     onlineSourcePreference,
     setOnlineSourcePreference,
+    gaplessPlaybackEnabled,
+    setGaplessPlaybackEnabled,
+    crossfadeEnabled,
+    setCrossfadeEnabled,
+    crossfadeDurationSec,
+    setCrossfadeDurationSec,
+    sleepTimer,
+    setSleepTimer,
+    cancelSleepTimer,
     refreshLibrary,
     clearAudio,
     playFromUrl,
@@ -81,6 +90,17 @@ export default function SettingsScreen() {
     else setRepeatMode('off');
   };
 
+  const setSleepPreset = (minutes: number | null) => {
+    Haptics.selectionAsync();
+
+    if (minutes === null) {
+      cancelSleepTimer();
+      return;
+    }
+
+    setSleepTimer(createSleepTimerState(minutes, Date.now(), sleepTimer.fadeWindowMs));
+  };
+
   const handleRescan = async () => {
     const ok = await refreshLibrary();
     if (ok) showNotice('Library Updated', 'Rescan completed successfully.');
@@ -101,6 +121,7 @@ export default function SettingsScreen() {
 
   const repeatLabel = repeatMode === 'off' ? 'Off' : repeatMode === 'all' ? 'All' : 'One';
   const repeatIcon = repeatMode === 'one' ? 'repeat-outline' : 'repeat';
+  const sleepTimerLabel = formatSleepTimerLabel(sleepTimer);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
@@ -363,6 +384,90 @@ export default function SettingsScreen() {
                 );
               })}
             </View>
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <ToggleRow
+              icon="swap-horizontal-outline"
+              label="Gapless Playback"
+              hint="Preload the next track for smoother transitions"
+              value={gaplessPlaybackEnabled}
+              onToggle={setGaplessPlaybackEnabled}
+              colors={colors}
+              isSmall={isSmall}
+            />
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <ToggleRow
+              icon="color-wand-outline"
+              label="Crossfade"
+              hint="Blend supported transitions with a short fade"
+              value={crossfadeEnabled}
+              onToggle={setCrossfadeEnabled}
+              colors={colors}
+              isSmall={isSmall}
+            />
+            {crossfadeEnabled && (
+              <>
+                <Text style={[styles.inlineLabel, { color: colors.text }]}>Crossfade Duration</Text>
+                <View style={styles.speedRow}>
+                  {([2, 3, 5] as const).map((seconds) => {
+                    const selected = crossfadeDurationSec === seconds;
+                    return (
+                      <ScalePressable
+                        key={seconds}
+                        onPress={() => { Haptics.selectionAsync(); setCrossfadeDurationSec(seconds); }}
+                        style={[
+                          styles.speedPill,
+                          {
+                            borderColor: selected ? colors.accent : colors.cardBorder,
+                            backgroundColor: selected ? colors.accentSurface : colors.cardBackgroundSubtle,
+                          },
+                        ]}
+                      >
+                        <Text style={{ color: selected ? colors.accent : colors.textMuted, fontSize: isSmall ? 12 : 13, fontWeight: '700' }}>
+                          {seconds}s
+                        </Text>
+                      </ScalePressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+            <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
+            <View style={styles.actionRow}>
+              <View style={[styles.iconBox, { backgroundColor: colors.iconBackground }]}>
+                <Ionicons name="moon-outline" size={isSmall ? 16 : 18} color={colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Sleep Timer</Text>
+                <Text style={[styles.rowHint, { color: colors.textMuted }]}>Fades out during the last 5 minutes before stop</Text>
+              </View>
+              <View style={[styles.valueBadge, { backgroundColor: sleepTimer.enabled ? colors.accentSurface : colors.cardBackgroundSubtle }]}>
+                <Text style={[styles.valueBadgeText, { color: sleepTimer.enabled ? colors.accent : colors.textMuted }]}>
+                  {sleepTimerLabel}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.speedRow}>
+              {[null, 15, 30, 45, 60].map((minutes) => {
+                const selected = minutes === null ? !sleepTimer.enabled : sleepTimer.presetMinutes === minutes;
+                return (
+                  <ScalePressable
+                    key={minutes === null ? 'sleep-off' : `sleep-${minutes}`}
+                    onPress={() => setSleepPreset(minutes)}
+                    style={[
+                      styles.speedPill,
+                      {
+                        borderColor: selected ? colors.accent : colors.cardBorder,
+                        backgroundColor: selected ? colors.accentSurface : colors.cardBackgroundSubtle,
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: selected ? colors.accent : colors.textMuted, fontSize: isSmall ? 12 : 13, fontWeight: '700' }}>
+                      {minutes === null ? 'Off' : `${minutes}m`}
+                    </Text>
+                  </ScalePressable>
+                );
+              })}
+            </View>
           </View>
         </View>
 
@@ -452,8 +557,6 @@ export default function SettingsScreen() {
         message={noticeState.message}
         onClose={() => setNoticeState((prev) => ({ ...prev, visible: false }))}
       />
-
-      <MiniPlayer />
     </View>
   );
 }

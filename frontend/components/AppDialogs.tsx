@@ -3,6 +3,7 @@ import React from 'react';
 import {
     Image,
     Modal,
+    Pressable,
     StyleSheet,
     Text,
     View,
@@ -10,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import ScalePressable from './ScalePressable';
+import { BottomSheetScaffold, GlassDialog } from './ui/primitives';
 
 interface BaseDialogProps {
     visible: boolean;
@@ -50,18 +52,24 @@ export function ActionDialog({ visible, title, subtitle, imageSource, message, a
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={[styles.overlaySheet, { backgroundColor: colors.modalOverlay }]}>
-                <View style={[styles.sheet, { backgroundColor: colors.surface, borderTopColor: colors.modalBorder, paddingBottom: Math.max(insets.bottom, 24) }]}>
-                    <View style={styles.headerRow}>
-                        {!!imageSource && <Image source={imageSource} style={styles.headerImage} />}
-                        <View style={{ flex: 1, paddingRight: 12 }}>
-                            <Text numberOfLines={1} style={[styles.title, { color: colors.text, paddingRight: 0 }]}>{title}</Text>
-                            {!!subtitle && <Text numberOfLines={1} style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>}
-                        </View>
-                        <ScalePressable style={styles.closeButton} onPress={onClose} hitSlop={8}>
+                <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+                <BottomSheetScaffold
+                    title={title}
+                    subtitle={subtitle}
+                    style={{ paddingBottom: Math.max(insets.bottom, 24) }}
+                    trailing={
+                        <ScalePressable style={[styles.closeButton, { backgroundColor: colors.cardBackground }]} onPress={onClose} hitSlop={8}>
                             <Ionicons name="close" size={22} color={colors.textMuted} />
                         </ScalePressable>
-                    </View>
-                    <View style={[styles.divider, { borderBottomColor: colors.border }]} />
+                    }
+                >
+                    {!!imageSource && (
+                        <View style={[styles.sheetHero, { backgroundColor: colors.cardBackgroundSubtle, borderColor: colors.cardBorder }]}>
+                            <Image source={imageSource} style={styles.headerImage} />
+                            {!!message && <Text style={[styles.message, { color: colors.textMuted, flex: 1 }]}>{message}</Text>}
+                        </View>
+                    )}
+                    {!imageSource && !!message && <Text style={[styles.message, { color: colors.textMuted, marginBottom: 6 }]}>{message}</Text>}
 
                     <View style={styles.actionsWrap}>
                         {actions.map((action) => (
@@ -69,7 +77,10 @@ export function ActionDialog({ visible, title, subtitle, imageSource, message, a
                                 key={action.key}
                                 style={[
                                     styles.actionRow,
-                                    { backgroundColor: action.danger ? colors.dangerSurface : 'transparent' },
+                                    {
+                                        backgroundColor: action.danger ? colors.dangerSurface : colors.cardBackgroundSubtle,
+                                        borderColor: action.danger ? colors.dangerBorder : colors.cardBorder,
+                                    },
                                 ]}
                                 onPress={action.onPress}
                             >
@@ -89,7 +100,7 @@ export function ActionDialog({ visible, title, subtitle, imageSource, message, a
                             </ScalePressable>
                         ))}
                     </View>
-                </View>
+                </BottomSheetScaffold>
             </View>
         </Modal>
     );
@@ -110,7 +121,8 @@ export function ConfirmDialog({
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
-                <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.modalBorder }]}>
+                <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+                <GlassDialog>
                     <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
                     {!!message && <Text style={[styles.message, { color: colors.textMuted }]}>{message}</Text>}
 
@@ -129,7 +141,7 @@ export function ConfirmDialog({
                             <Text style={[styles.buttonText, { color: danger ? colors.onDanger : colors.onAccent }]}>{confirmText}</Text>
                         </ScalePressable>
                     </View>
-                </View>
+                </GlassDialog>
             </View>
         </Modal>
     );
@@ -147,7 +159,8 @@ export function NoticeDialog({
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
-                <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.modalBorder }]}>
+                <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+                <GlassDialog>
                     <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
                     {!!message && <Text style={[styles.message, { color: colors.textMuted }]}>{message}</Text>}
 
@@ -157,7 +170,7 @@ export function NoticeDialog({
                     >
                         <Text style={[styles.buttonText, { color: colors.onAccent }]}>{buttonText}</Text>
                     </ScalePressable>
-                </View>
+                </GlassDialog>
             </View>
         </Modal>
     );
@@ -167,23 +180,12 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         justifyContent: 'center',
+        alignItems: 'center',
         padding: 20,
     },
     overlaySheet: {
         flex: 1,
         justifyContent: 'flex-end',
-    },
-    sheet: {
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        paddingHorizontal: 20,
-        paddingTop: 24,
-        borderTopWidth: 1,
-    },
-    dialog: {
-        borderRadius: 28,
-        padding: 22,
-        borderWidth: 1,
     },
     headerRow: {
         flexDirection: 'row',
@@ -203,7 +205,15 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 12,
-        marginRight: 12,
+    },
+    sheetHero: {
+        borderWidth: 1,
+        borderRadius: 18,
+        padding: 14,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
     },
     message: {
         marginTop: 10,
@@ -229,8 +239,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         minHeight: 56,
-        paddingHorizontal: 8,
+        paddingHorizontal: 14,
         borderRadius: 16,
+        borderWidth: 1,
     },
     actionLabel: {
         fontSize: 16,
