@@ -19,7 +19,7 @@ import { useAdaptiveTheme, usePageSpacing } from '../../hooks/useAdaptiveTheme';
 import ScalePressable from '../ScalePressable';
 
 const ANDROID_BLUR_PROPS = Platform.OS === 'android'
-    ? { experimentalBlurMethod: 'dimezisBlurView' as const }
+    ? { blurMethod: 'dimezisBlurView' as const }
     : {};
 
 type ChildProps = {

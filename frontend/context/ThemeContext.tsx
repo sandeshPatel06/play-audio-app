@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { ACCENT_COLORS, CORE_COLORS, getThemeColors, ThemeColors, ThemeName } from '../constants/colors';
 import { useAudioStore } from '../store/useAudioStore';
@@ -117,13 +117,14 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const resolvedTheme: ThemeName = (theme === 'system' ? (systemTheme || defaultResolvedTheme) : theme) as ThemeName;
     const activeAccent = adaptiveAccent || accentColor;
 
-    // Compute colors - with fallback to prevent any undefined
-    let colors: ThemeColors;
-    try {
-        colors = getThemeColors(resolvedTheme, activeAccent);
-    } catch {
-        colors = fallbackColors;
-    }
+    // Compute colors - memoized so consumers only re-render when theme/accent actually changes
+    const colors = useMemo<ThemeColors>(() => {
+        try {
+            return getThemeColors(resolvedTheme, activeAccent);
+        } catch {
+            return fallbackColors;
+        }
+    }, [resolvedTheme, activeAccent]);
 
     useEffect(() => {
         let mounted = true;
@@ -163,17 +164,17 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
-    const setTheme = (nextTheme: ThemeType) => {
+    const setTheme = useCallback((nextTheme: ThemeType) => {
         setThemeState(nextTheme);
         AsyncStorage.setItem(THEME_STORAGE_KEY, nextTheme).catch(() => {});
-    };
+    }, []);
 
-    const setAccentColor = (color: string) => {
+    const setAccentColor = useCallback((color: string) => {
         setAccentColorState(color);
         AsyncStorage.setItem(ACCENT_STORAGE_KEY, color).catch(() => {});
-    };
+    }, []);
 
-    const value: ThemeContextType = {
+    const value = useMemo<ThemeContextType>(() => ({
         theme,
         resolvedTheme,
         accentColor,
@@ -181,7 +182,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         setTheme,
         setAccentColor,
         colors,
-    };
+    }), [theme, resolvedTheme, accentColor, isReady, setTheme, setAccentColor, colors]);
 
     return (
         <ThemeContext.Provider value={value}>

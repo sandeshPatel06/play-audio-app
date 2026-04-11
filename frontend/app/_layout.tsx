@@ -1,3 +1,4 @@
+import 'react-native-reanimated';
 import { setAudioModeAsync } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
@@ -7,7 +8,7 @@ import GlobalMiniPlayer from '../components/GlobalMiniPlayer';
 import { CORE_COLORS } from '../constants/colors';
 import { GlassSurface, PageShell } from '../components/ui/primitives';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, ActivityIndicator, StyleSheet, LogBox, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -75,25 +76,25 @@ function RootLayoutContent() {
     });
   }, []);
 
+  const stackScreenOptions = useMemo(() => ({
+    headerStyle: {
+      backgroundColor: colors?.background || LOADING_COLORS.background,
+    },
+    headerTintColor: colors?.text || LOADING_COLORS.text,
+    headerShadowVisible: false,
+    contentStyle: {
+      backgroundColor: colors?.background || LOADING_COLORS.background,
+    },
+    animation: 'fade' as const,
+    gestureEnabled: true,
+    gestureDirection: 'horizontal' as const,
+  }), [colors?.background, colors?.text]);
+
   return (
     <>
       <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       <AudioRuntime />
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: colors?.background || LOADING_COLORS.background,
-          },
-          headerTintColor: colors?.text || LOADING_COLORS.text,
-          headerShadowVisible: false,
-          contentStyle: {
-            backgroundColor: colors?.background || LOADING_COLORS.background,
-          },
-          animation: 'fade',
-          gestureEnabled: true,
-          gestureDirection: 'horizontal',
-        }}
-      >
+      <Stack screenOptions={stackScreenOptions}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen 
           name="player" 

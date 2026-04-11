@@ -6,7 +6,7 @@ const darkColors = getThemeColors('dark', ACCENT_COLORS.teal);
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
     name: 'just-play',
-    slug: 'test-vee',
+    slug: 'just-play',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
@@ -72,12 +72,12 @@ const config = {
     extra: {
         router: {},
         eas: {
-            projectId: '802e617d-6acc-4290-9a3b-edb83e17e119',
+            projectId: '966b1ba1-9ca7-426f-bde1-fd32f6379959',
         },
         EXPO_PUBLIC_WS_URL: process.env.EXPO_PUBLIC_WS_URL,
         EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
     },
-    owner: 'userofplayvee',
+    owner: 'userofplayvee2',
 };
 
 module.exports = config;

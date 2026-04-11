@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { useCallback, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { audioRuntimeController } from '../services/audioRuntimeController';
 import { mediaAssetToTrack, normalizeTrack } from '../services/audioTracks';
 import {
@@ -124,7 +125,7 @@ export const useAudioPlayer = () => {
 };
 
 export const usePlaybackQueue = () => {
-    const queue = useAudioStore(selectQueueTracks);
+    const queue = useAudioStore(useShallow(selectQueueTracks));
     const currentIndex = useAudioStore((state) => state.currentIndex);
     const shuffle = useAudioStore((state) => state.shuffle);
     const repeatMode = useAudioStore((state) => state.repeatMode);
@@ -217,7 +218,7 @@ export const useLibraryActions = () => {
 export const useAudio = () => {
     const library = useAudioStore((state) => state.library);
     const currentTrack = useAudioStore((state) => state.currentTrack);
-    const queue = useAudioStore(selectQueueTracks);
+    const queue = useAudioStore(useShallow(selectQueueTracks));
     const currentIndex = useAudioStore((state) => state.currentIndex);
     const nowPlayingContext = useAudioStore((state) => state.nowPlayingContext);
     const playlistsRaw = useAudioStore((state) => state.playlists);
