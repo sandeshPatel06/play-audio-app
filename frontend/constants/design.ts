@@ -8,7 +8,7 @@ export type SurfaceVariant =
     | 'danger'
     | 'accentSurface';
 
-export interface SurfaceTokens {
+interface SurfaceTokens {
     glass: string;
     glassStrong: string;
     solidCard: string;
@@ -22,7 +22,7 @@ export interface SurfaceTokens {
     shadow: string;
 }
 
-export interface TypeScale {
+interface TypeScale {
     hero: number;
     title: number;
     sectionTitle: number;
@@ -34,7 +34,7 @@ export interface TypeScale {
     eyebrow: number;
 }
 
-export interface MotionTokens {
+interface MotionTokens {
     pressMs: number;
     feedbackMs: number;
     cardMs: number;
@@ -43,14 +43,14 @@ export interface MotionTokens {
     pressScale: number;
 }
 
-export interface ArtworkPalette {
+interface ArtworkPalette {
     accent: string;
     halo: string;
     glow: string;
     overlay: string;
 }
 
-export interface RadiusTokens {
+interface RadiusTokens {
     sm: number;
     md: number;
     lg: number;
@@ -58,7 +58,7 @@ export interface RadiusTokens {
     pill: number;
 }
 
-export interface SpacingTokens {
+interface SpacingTokens {
     xxs: number;
     xs: number;
     sm: number;

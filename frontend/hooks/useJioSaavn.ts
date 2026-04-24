@@ -5,7 +5,6 @@ import { audioRuntimeController } from '../services/audioRuntimeController';
 import { jioSaavn, JioSaavnSong } from '../services/jiosaavn';
 
 const SEARCH_CACHE_PREFIX = 'play.jiosaavn.search.';
-const SONG_CACHE_PREFIX = 'play.jiosaavn.song.';
 const SEARCH_LIMIT = 20;
 
 type CachedValue<T> = {
@@ -85,32 +84,6 @@ export const useJioSaavnSearch = (initialQuery = '') => {
     };
 };
 
-export const useJioSaavnTrack = (songId: string | null) => {
-    return useQuery({
-        queryKey: ['jiosaavn', 'track', songId],
-        enabled: Boolean(songId),
-        staleTime: 24 * 60 * 60 * 1000,
-        gcTime: 24 * 60 * 60 * 1000,
-        retry: 1,
-        queryFn: async () => {
-            const cacheKey = `${SONG_CACHE_PREFIX}${songId}`;
-
-            try {
-                const track = await jioSaavn.getSongDetails(String(songId));
-                if (track) {
-                    await writeCache(cacheKey, track);
-                }
-                return track;
-            } catch (error) {
-                const cached = await readCache<JioSaavnSong | null>(cacheKey);
-                if (cached) {
-                    return cached.value;
-                }
-                throw error;
-            }
-        },
-    });
-};
 
 export const useJioSaavnPlayer = () => {
     const playSong = useCallback(async (song: JioSaavnSong) => {

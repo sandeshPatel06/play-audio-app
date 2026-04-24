@@ -29,7 +29,7 @@ const STORAGE_KEY = 'sonic-flow-storage';
 
 const normalizeName = (name: string) => name.trim().replace(/\s+/g, ' ');
 
-export interface AudioStoreState {
+interface AudioStoreState {
     permissionGranted: boolean;
     libraryScanStatus: 'idle' | 'scanning' | 'ready' | 'error';
     library: AudioTrack[];
@@ -422,10 +422,7 @@ export const useAudioStore = create<AudioStoreState>()(
 
 export const selectQueueTracks = (state: AudioStoreState) => state.queue.map((entry) => entry.track);
 
-export const selectCurrentQueueEntry = (state: AudioStoreState) =>
-    state.currentIndex >= 0 ? state.queue[state.currentIndex] ?? null : null;
-
-export const getTrackById = (state: AudioStoreState, trackId: string) =>
+const getTrackById = (state: AudioStoreState, trackId: string) =>
     state.library.find((track) => track.id === trackId) ||
     state.trackSnapshots[trackId] ||
     null;
@@ -456,12 +453,6 @@ export type {
     AudioTrack,
     DeleteTracksResult,
     NowPlayingContext,
-    OnlineSourcePreference,
     PlaybackError,
-    PlaybackStatus,
     Playlist,
-    QueueEntry,
-    RecentTrack,
-    RepeatMode,
-    SleepTimerState,
 } from '../types/audio';

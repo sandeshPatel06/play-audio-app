@@ -11,6 +11,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
 import { useSafeRouterBack } from '../../hooks/useSafeRouterBack';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
+import { CORE_COLORS } from '../../constants/colors';
 
 export default function PlaylistDetailsScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();

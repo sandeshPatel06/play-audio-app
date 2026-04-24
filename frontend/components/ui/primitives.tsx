@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import {
-    Animated,
     Platform,
     PressableProps,
     ScrollView,
@@ -15,7 +14,7 @@ import {
 } from 'react-native';
 import { SurfaceVariant } from '../../constants/design';
 import { withAlpha } from '../../constants/colors';
-import { useAdaptiveTheme, usePageSpacing } from '../../hooks/useAdaptiveTheme';
+import { useAdaptiveTheme } from '../../hooks/useAdaptiveTheme';
 import ScalePressable from '../ScalePressable';
 
 const ANDROID_BLUR_PROPS = Platform.OS === 'android'
@@ -133,60 +132,7 @@ export function PageShell({ children, style, contentStyle, glowOffset = 'right' 
     );
 }
 
-interface GlassHeaderProps {
-    eyebrow?: string;
-    title: string;
-    subtitle?: string;
-    leading?: React.ReactNode;
-    trailing?: React.ReactNode;
-    style?: StyleProp<ViewStyle>;
-}
 
-export function GlassHeader({
-    eyebrow,
-    title,
-    subtitle,
-    leading,
-    trailing,
-    style,
-}: GlassHeaderProps) {
-    const theme = useAdaptiveTheme();
-    const page = usePageSpacing();
-
-    return (
-        <View style={[{ paddingHorizontal: page.horizontal }, style]}>
-            <GlassSurface
-                variant="glassStrong"
-                contentStyle={[
-                    styles.headerSurface,
-                    {
-                        paddingHorizontal: theme.spacing.card,
-                        paddingVertical: theme.spacing.md,
-                        gap: theme.spacing.sm,
-                    },
-                ]}
-            >
-                {leading ? <View style={styles.headerEdge}>{leading}</View> : null}
-                <View style={styles.headerCopy}>
-                    {eyebrow ? (
-                        <Text style={[styles.eyebrow, { color: theme.accent, fontSize: theme.typeScale.eyebrow }]}>
-                            {eyebrow}
-                        </Text>
-                    ) : null}
-                    <Text style={[styles.headerTitle, { color: theme.colors.text, fontSize: theme.typeScale.title }]}>
-                        {title}
-                    </Text>
-                    {subtitle ? (
-                        <Text style={[styles.headerSubtitle, { color: theme.colors.textMuted, fontSize: theme.typeScale.bodySmall }]}>
-                            {subtitle}
-                        </Text>
-                    ) : null}
-                </View>
-                {trailing ? <View style={styles.headerEdge}>{trailing}</View> : null}
-            </GlassSurface>
-        </View>
-    );
-}
 
 interface SectionCardProps extends ChildProps {
     style?: StyleProp<ViewStyle>;
@@ -274,52 +220,6 @@ export function ActionChip({
     );
 }
 
-interface SegmentedControlOption<T extends string> {
-    label: string;
-    value: T;
-    icon?: keyof typeof Ionicons.glyphMap;
-}
-
-interface SegmentedControlProps<T extends string> {
-    options: SegmentedControlOption<T>[];
-    value: T;
-    onChange: (value: T) => void;
-    style?: StyleProp<ViewStyle>;
-}
-
-export function SegmentedControl<T extends string>({
-    options,
-    value,
-    onChange,
-    style,
-}: SegmentedControlProps<T>) {
-    const theme = useAdaptiveTheme();
-
-    return (
-        <GlassSurface
-            variant="glass"
-            style={style}
-            contentStyle={[
-                styles.segmentedWrap,
-                {
-                    padding: theme.spacing.xxs,
-                    gap: theme.spacing.xs,
-                },
-            ]}
-        >
-            {options.map((option) => (
-                <ActionChip
-                    key={option.value}
-                    label={option.label}
-                    icon={option.icon}
-                    selected={value === option.value}
-                    onPress={() => onChange(option.value)}
-                    style={styles.segmentedChip}
-                />
-            ))}
-        </GlassSurface>
-    );
-}
 
 interface EmptyStateProps {
     icon: keyof typeof Ionicons.glyphMap;
@@ -366,55 +266,6 @@ export function EmptyState({
     );
 }
 
-interface SkeletonBlockProps {
-    height: number;
-    width?: number | string;
-    style?: StyleProp<ViewStyle>;
-}
-
-export function SkeletonBlock({ height, width = '100%', style }: SkeletonBlockProps) {
-    const theme = useAdaptiveTheme();
-    const opacity = useRef(new Animated.Value(0.45)).current;
-
-    useEffect(() => {
-        const loop = Animated.loop(
-            Animated.sequence([
-                Animated.timing(opacity, {
-                    toValue: 0.85,
-                    duration: theme.motion.cardMs,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(opacity, {
-                    toValue: 0.45,
-                    duration: theme.motion.cardMs,
-                    useNativeDriver: true,
-                }),
-            ])
-        );
-
-        loop.start();
-
-        return () => {
-            loop.stop();
-            opacity.stopAnimation();
-        };
-    }, [opacity, theme.motion.cardMs]);
-
-    return (
-        <Animated.View
-            style={[
-                {
-                    height,
-                    width: width as any,
-                    borderRadius: theme.radii.md,
-                    backgroundColor: theme.colors.cardBackgroundStrong,
-                    opacity,
-                },
-                style,
-            ]}
-        />
-    );
-}
 
 interface GlassDialogProps extends ChildProps {
     style?: StyleProp<ViewStyle>;
@@ -531,32 +382,7 @@ const styles = StyleSheet.create({
         height: 220,
         borderRadius: 110,
     },
-    headerSurface: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    headerEdge: {
-        minWidth: 44,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    headerCopy: {
-        flex: 1,
-    },
-    eyebrow: {
-        fontWeight: '800',
-        textTransform: 'uppercase',
-        letterSpacing: 1.4,
-        marginBottom: 2,
-    },
-    headerTitle: {
-        fontWeight: '900',
-        letterSpacing: -0.3,
-    },
-    headerSubtitle: {
-        marginTop: 4,
-        fontWeight: '600',
-    },
+
     actionChip: {
         minHeight: 40,
         borderWidth: 1,
@@ -570,12 +396,7 @@ const styles = StyleSheet.create({
     actionChipText: {
         fontWeight: '800',
     },
-    segmentedWrap: {
-        flexDirection: 'row',
-    },
-    segmentedChip: {
-        flex: 1,
-    },
+
     emptyCardContent: {
         alignItems: 'center',
         justifyContent: 'center',

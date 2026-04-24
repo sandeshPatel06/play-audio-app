@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import {
     createArtworkPalette,
     createMotionTokens,
@@ -39,19 +39,3 @@ export function useAdaptiveTheme() {
     }, [accentColor, colors, resolvedTheme, width]);
 }
 
-export function usePageSpacing() {
-    const insets = useSafeAreaInsets();
-    const theme = useAdaptiveTheme();
-
-    return useMemo(() => ({
-        compact: theme.compact,
-        horizontal: theme.spacing.screen,
-        cardPadding: theme.spacing.card,
-        sectionGap: theme.spacing.section,
-        topInset: insets.top,
-        bottomInset: insets.bottom,
-        headerTop: insets.top + theme.spacing.sm,
-        scrollBottom: insets.bottom + 148,
-        floatingBottom: insets.bottom + theme.spacing.md,
-    }), [insets.bottom, insets.top, theme.compact, theme.spacing.card, theme.spacing.md, theme.spacing.screen, theme.spacing.section, theme.spacing.sm]);
-}

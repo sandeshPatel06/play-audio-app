@@ -2,7 +2,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { ACCENT_COLORS } from '../constants/colors';
 import { AudioTrack } from '../types/audio';
 
-export const SUPPORTED_EXTENSIONS = new Set([
+const SUPPORTED_EXTENSIONS = new Set([
     'mp3', 'aac', 'm4a', 'wav', 'aiff', 'aif', 'flac',
     'alac', 'ogg', 'opus', 'wma', 'amr', 'mid', 'midi',
     'mp4', 'm4v', 'mov', 'webm',
@@ -14,7 +14,7 @@ export const fileNameFromUri = (uri: string) => {
     return cleanUri.substring(cleanUri.lastIndexOf('/') + 1) || 'track';
 };
 
-export const isVideoExtension = (extension?: string | null) =>
+const isVideoExtension = (extension?: string | null) =>
     !!extension && ['mp4', 'm4v', 'mov', 'webm', 'm3u8'].includes(extension.toLowerCase());
 
 export const isPlayableVideoTrack = (track: Pick<AudioTrack, 'filename' | 'uri' | 'mediaType'>) =>

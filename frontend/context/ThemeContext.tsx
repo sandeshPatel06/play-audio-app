@@ -4,7 +4,7 @@ import { useColorScheme } from 'react-native';
 import { ACCENT_COLORS, CORE_COLORS, getThemeColors, ThemeColors, ThemeName } from '../constants/colors';
 import { useAudioStore } from '../store/useAudioStore';
 
-export type ThemeType = ThemeName | 'system';
+type ThemeType = ThemeName | 'system';
 
 interface ThemeContextType {
     theme: ThemeType;
@@ -21,7 +21,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const THEME_STORAGE_KEY = 'play.theme';
 const ACCENT_STORAGE_KEY = 'play.accent';
 
-export { ACCENT_COLORS };
+
 
 const defaultTheme: ThemeType = 'system';
 const defaultAccent = ACCENT_COLORS.teal;

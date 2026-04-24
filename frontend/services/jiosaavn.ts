@@ -15,7 +15,7 @@ export interface JioSaavnSong {
     permaUrl: string;
 }
 
-export interface JioSaavnSearchResult {
+interface JioSaavnSearchResult {
     results: JioSaavnSong[];
     totalResults: number;
 }

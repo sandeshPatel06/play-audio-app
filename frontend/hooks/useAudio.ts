@@ -160,7 +160,7 @@ export const usePlaybackQueue = () => {
     };
 };
 
-export const useAudioPreferences = () => {
+const useAudioPreferences = () => {
     const autoOpenPlayerOnPlay = useAudioStore((state) => state.autoOpenPlayerOnPlay);
     const showVideoBadges = useAudioStore((state) => state.showVideoBadges);
     const enableLockScreenControls = useAudioStore((state) => state.enableLockScreenControls);
@@ -194,7 +194,7 @@ export const useAudioPreferences = () => {
     };
 };
 
-export const useLibraryActions = () => {
+const useLibraryActions = () => {
     const permissionGranted = useAudioStore((state) => state.permissionGranted);
     const libraryScanStatus = useAudioStore((state) => state.libraryScanStatus);
     const library = useAudioStore((state) => state.library);

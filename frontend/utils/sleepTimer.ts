@@ -1,6 +1,6 @@
 import { SleepTimerState } from '../types/audio';
 
-export const DEFAULT_SLEEP_TIMER_FADE_MS = 5 * 60 * 1000;
+const DEFAULT_SLEEP_TIMER_FADE_MS = 5 * 60 * 1000;
 
 export const DEFAULT_SLEEP_TIMER: SleepTimerState = {
     enabled: false,
