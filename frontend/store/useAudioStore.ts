@@ -61,6 +61,8 @@ export interface AudioStoreState {
     crossfadeEnabled: boolean;
     crossfadeDurationSec: number;
     sleepTimer: SleepTimerState;
+    volume: number;
+    isMuted: boolean;
 
     setPermissionGranted: (granted: boolean) => void;
     setLibraryScanStatus: (status: AudioStoreState['libraryScanStatus']) => void;
@@ -91,6 +93,8 @@ export interface AudioStoreState {
     setCrossfadeDurationSec: (seconds: number) => void;
     setSleepTimer: (state: SleepTimerState) => void;
     cancelSleepTimer: () => void;
+    setVolume: (volume: number) => void;
+    setMuted: (isMuted: boolean) => void;
     rememberTrack: (track: AudioTrack) => void;
     rememberTracks: (tracks: AudioTrack[]) => void;
     toggleLike: (track: AudioTrack | string) => void;
@@ -138,6 +142,8 @@ const initialState = {
     crossfadeEnabled: false,
     crossfadeDurationSec: 3,
     sleepTimer: DEFAULT_SLEEP_TIMER,
+    volume: 1,
+    isMuted: false,
 };
 
 const rememberTrackInMap = (
@@ -180,6 +186,8 @@ export const migratePersistedAudioState = (persistedState: unknown) => {
         gaplessPlaybackEnabled: state.gaplessPlaybackEnabled ?? true,
         crossfadeEnabled: state.crossfadeEnabled ?? false,
         crossfadeDurationSec: typeof state.crossfadeDurationSec === 'number' ? state.crossfadeDurationSec : 3,
+        volume: typeof state.volume === 'number' ? state.volume : 1,
+        isMuted: Boolean(state.isMuted),
     };
 };
 
@@ -221,6 +229,8 @@ export const useAudioStore = create<AudioStoreState>()(
             setCrossfadeDurationSec: (crossfadeDurationSec) => set({ crossfadeDurationSec }),
             setSleepTimer: (sleepTimer) => set({ sleepTimer }),
             cancelSleepTimer: () => set({ sleepTimer: DEFAULT_SLEEP_TIMER }),
+            setVolume: (volume) => set({ volume }),
+            setMuted: (isMuted) => set({ isMuted }),
 
             rememberTrack: (track) => set((state) => ({
                 trackSnapshots: rememberTrackInMap(state.trackSnapshots, track),
@@ -402,6 +412,8 @@ export const useAudioStore = create<AudioStoreState>()(
                 gaplessPlaybackEnabled: state.gaplessPlaybackEnabled,
                 crossfadeEnabled: state.crossfadeEnabled,
                 crossfadeDurationSec: state.crossfadeDurationSec,
+                volume: state.volume,
+                isMuted: state.isMuted,
             }),
             migrate: migratePersistedAudioState,
         }

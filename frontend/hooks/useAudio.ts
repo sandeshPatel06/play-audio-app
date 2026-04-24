@@ -101,6 +101,8 @@ export const useAudioPlayer = () => {
     const next = useCallback(() => audioRuntimeController.next(), []);
     const previous = useCallback(() => audioRuntimeController.previous(), []);
     const seekTo = useCallback((seconds: number) => audioRuntimeController.seekTo(seconds), []);
+    const setVolume = useAudioStore((state) => state.setVolume);
+    const setMuted = useAudioStore((state) => state.setMuted);
     const clearPlaybackError = useCallback(() => useAudioStore.getState().setPlaybackError(null), []);
 
     return {
@@ -115,7 +117,11 @@ export const useAudioPlayer = () => {
         waveformSamples,
         adaptiveAccent,
         playbackRate,
+        volume: useAudioStore((state) => state.volume),
+        isMuted: useAudioStore((state) => state.isMuted),
         setPlaybackRate,
+        setVolume,
+        setMuted,
         playPause,
         next,
         previous,
@@ -240,7 +246,11 @@ export const useAudio = () => {
         waveformSamples,
         adaptiveAccent,
         playbackRate,
+        volume,
+        isMuted,
         setPlaybackRate,
+        setVolume,
+        setMuted,
         playPause,
         next,
         previous,
@@ -329,7 +339,8 @@ export const useAudio = () => {
             return false;
         }
 
-        return audioRuntimeController.replaceQueue(likedTracks, 0, { type: 'liked', title: 'Liked Songs' }, true);
+        await audioRuntimeController.replaceQueue(likedTracks, 0, { type: 'liked', title: 'Liked Songs' }, true);
+        return true;
     }, []);
 
     const playPlaylist = useCallback(async (playlistId: string) => {
@@ -343,7 +354,7 @@ export const useAudio = () => {
             return false;
         }
 
-        return audioRuntimeController.replaceQueue(
+        await audioRuntimeController.replaceQueue(
             tracks,
             0,
             {
@@ -353,6 +364,7 @@ export const useAudio = () => {
             },
             true
         );
+        return true;
     }, []);
 
     const clearAudio = useCallback(() => audioRuntimeController.stop(), []);
@@ -378,6 +390,8 @@ export const useAudio = () => {
         waveformSamples,
         adaptiveAccent,
         playbackRate,
+        volume,
+        isMuted,
         shuffle,
         repeatMode,
         autoOpenPlayerOnPlay,
@@ -391,6 +405,8 @@ export const useAudio = () => {
         sleepTimer,
         setCurrentIndex,
         setPlaybackRate,
+        setVolume,
+        setMuted,
         setShuffle,
         setRepeatMode,
         setAutoOpenPlayerOnPlay,

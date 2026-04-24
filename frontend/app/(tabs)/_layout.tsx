@@ -18,7 +18,6 @@ function TabBarBackground() {
                 borderRadius: theme.radii.xl,
                 backgroundColor: theme.surfaces.floating,
             }}
-            blurMethod="dimezisBlurView"
         />
     );
 }
@@ -62,6 +61,7 @@ export default function TabsLayout() {
         },
         tabBarItemStyle: {
             paddingTop: 4,
+            marginBottom: -10,
         },
     }), [colors.accent, colors.floatingBorder, colors.tabBarShadow, colors.textMuted, insets.bottom, theme.radii.xl]);
 

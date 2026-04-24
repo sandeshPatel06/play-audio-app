@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useMemo } from 'react';
 import { FlatList, Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -9,12 +9,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScalePressable from '../../components/ScalePressable';
 import { useTheme } from '../../context/ThemeContext';
 import { useAudio } from '../../hooks/useAudio';
+import { useSafeRouterBack } from '../../hooks/useSafeRouterBack';
 import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 
 export default function PlaylistDetailsScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const router = useRouter();
+
     const safePush = useSafeRouterPush();
+    const safeBack = useSafeRouterBack();
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const { colors, resolvedTheme } = useTheme();
@@ -69,7 +71,7 @@ export default function PlaylistDetailsScreen() {
             <View style={[styles.center, { backgroundColor: colors.screenBackground }]}>
                 <Ionicons name="journal-outline" size={48} color={colors.textMuted} />
                 <Text style={{ color: colors.textMuted, marginTop: 14, fontWeight: '600' }}>Playlist not found.</Text>
-                <ScalePressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.accentSurface }]}>
+                <ScalePressable onPress={() => safeBack()} style={[styles.backBtn, { backgroundColor: colors.accentSurface }]}>
                     <Text style={{ color: colors.accent, fontWeight: '700' }}>Go Back</Text>
                 </ScalePressable>
             </View>
@@ -87,13 +89,13 @@ export default function PlaylistDetailsScreen() {
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                 <ScalePressable
                     style={[styles.headerBtn, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground }]}
-                    onPress={() => router.back()}
+                    onPress={() => safeBack()}
                 >
                     <Ionicons name="chevron-back" size={22} color={colors.text} />
                 </ScalePressable>
 
                 <View style={styles.headerCenter}>
-                    <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Playlist</Text>
+                    <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Playlist Collection</Text>
                     <Text numberOfLines={1} style={[styles.headerTitle, { color: colors.text }]}>{playlist.name}</Text>
                 </View>
 
@@ -242,26 +244,32 @@ function createStyles(colors: any, isSmall: boolean, screenWidth: number) {
             marginHorizontal: 12,
         },
         headerEyebrow: {
-            fontSize: isSmall ? 10 : 11,
-            fontWeight: '700',
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '800',
             textTransform: 'uppercase',
-            letterSpacing: 1.2,
-            marginBottom: 1,
+            letterSpacing: 1.5,
+            marginBottom: 2,
+            opacity: 0.8,
         },
         headerTitle: {
-            fontSize: isSmall ? 18 : 22,
-            fontWeight: '800',
-            letterSpacing: 0.2,
+            fontSize: isSmall ? 28 : 32,
+            fontWeight: '900',
+            letterSpacing: -1,
         },
         banner: {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             marginHorizontal: isSmall ? 12 : 16,
-            marginBottom: 12,
-            padding: isSmall ? 12 : 14,
-            borderRadius: isSmall ? 14 : 18,
+            marginBottom: 16,
+            padding: isSmall ? 16 : 20,
+            borderRadius: isSmall ? 18 : 22,
             borderWidth: 1,
+            shadowColor: CORE_COLORS.black,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.08,
+            shadowRadius: 15,
+            elevation: 4,
         },
         bannerCount: {
             fontSize: isSmall ? 14 : 16,

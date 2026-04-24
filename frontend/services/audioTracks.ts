@@ -67,7 +67,7 @@ export const mediaAssetToTrack = (asset: MediaLibrary.Asset & Record<string, any
         uri: asset.uri,
         source: 'library',
         filename: asset.filename,
-        title: asset.filename,
+        title: asset.filename.replace(/\.[^.]+$/, ''),
         artist: asset.artist || asset.artists || 'Unknown Artist',
         artists: asset.artists || asset.artist || 'Unknown Artist',
         album: asset.album || 'Files',

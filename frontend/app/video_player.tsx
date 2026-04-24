@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useRouter } from 'expo-router';
+
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Animated, Share, StyleSheet, Text, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
@@ -11,13 +11,15 @@ import ScalePressable from '../components/ScalePressable';
 import { CORE_COLORS, withAlpha } from '../constants/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../hooks/useAudio';
+import { useSafeRouterBack } from '../hooks/useSafeRouterBack';
 
 export default function VideoPlayerScreen() {
     useKeepAwake();
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
     const { colors } = useTheme();
-    const router = useRouter();
+
+    const safeBack = useSafeRouterBack();
     const isSmall = screenWidth < 375;
     const styles = useMemo(() => createStyles(colors, isSmall), [colors, isSmall]);
 
@@ -166,12 +168,12 @@ export default function VideoPlayerScreen() {
 
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]} pointerEvents={controlsVisible ? 'box-none' : 'none'}>
                 <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-                    <ScalePressable style={styles.iconBtn} onPress={() => router.back()}>
+                    <ScalePressable style={styles.iconBtn} onPress={() => safeBack()}>
                         <Ionicons name="chevron-down" size={28} color={colors.pureWhite} />
                     </ScalePressable>
                     <View style={styles.headerCenter}>
+                        <Text style={styles.headerEyebrow}>Cinematic View</Text>
                         <Text numberOfLines={1} style={styles.headerTitle}>{currentSong?.filename}</Text>
-                        <Text style={styles.headerEyebrow}>Video Stream</Text>
                     </View>
                     <ScalePressable style={styles.iconBtn} onPress={handlePiP}>
                         <Ionicons name="tv-outline" size={22} color={colors.pureWhite} />
@@ -243,8 +245,7 @@ function createStyles(colors: any, isSmall: boolean) {
             alignItems: 'center',
             paddingHorizontal: isSmall ? 16 : 20,
             paddingTop: isSmall ? 50 : 60,
-            paddingBottom: 20,
-            backgroundColor: withAlpha(CORE_COLORS.white, 0.5),
+            paddingBottom: 30,
         },
         iconBtn: {
             width: isSmall ? 40 : 44,
@@ -261,15 +262,18 @@ function createStyles(colors: any, isSmall: boolean) {
         },
         headerTitle: {
             color: CORE_COLORS.white,
-            fontSize: isSmall ? 16 : 18,
-            fontWeight: '700',
+            fontSize: isSmall ? 20 : 24,
+            fontWeight: '900',
             textAlign: 'center',
+            letterSpacing: -0.5,
         },
         headerEyebrow: {
-            color: withAlpha(CORE_COLORS.white, 0.7),
+            color: withAlpha(CORE_COLORS.white, 0.8),
             fontSize: isSmall ? 11 : 12,
-            fontWeight: '600',
-            marginTop: 2,
+            fontWeight: '800',
+            textTransform: 'uppercase',
+            letterSpacing: 2,
+            marginBottom: 4,
         },
         bottomControls: {
             position: 'absolute',

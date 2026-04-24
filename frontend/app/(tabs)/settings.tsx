@@ -638,8 +638,19 @@ function createStyles(colors: any, isSmall: boolean, screenWidth: number) {
     container: { flex: 1 },
     bgGlow: { position: 'absolute', top: -100, right: -100, width: isSmall ? 280 : 320, height: isSmall ? 280 : 320, borderRadius: 160, opacity: 0.08 },
     header: { paddingHorizontal: isSmall ? 16 : 20, marginBottom: 16 },
-    headerEyebrow: { fontSize: isSmall ? 10 : 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 2 },
-    headerTitle: { fontSize: isSmall ? 26 : 32, fontWeight: '900', letterSpacing: -0.2 },
+    headerEyebrow: {
+        fontSize: isSmall ? 11 : 12,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        marginBottom: 2,
+        opacity: 0.8,
+    },
+    headerTitle: {
+        fontSize: isSmall ? 32 : 36,
+        fontWeight: '900',
+        letterSpacing: -1,
+    },
     scrollView: { flex: 1 },
     section: { marginBottom: 24, paddingHorizontal: isSmall ? 12 : 16 },
     statsCard: { 
