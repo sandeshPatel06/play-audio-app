@@ -6,21 +6,23 @@ Play is a mobile-first audio streaming app built with Expo and React Native.
 
 ```text
 play/
-├── frontend/   # Expo app
+├── app/            # Expo Router app
+├── assets/         # App assets
+├── components/     # UI components
+├── Makefile        # Project management
 └── README.md
+
 ```
 
-## Frontend
+The app uses Expo Router and is designed for high-performance audio playback.
 
-The frontend uses Expo Router and is designed for high-performance audio playback.
-
-### Frontend local setup
+### Local setup
 
 ```bash
-cd frontend
 npm install
 npx expo start
 ```
+
 
 Useful commands:
 
@@ -41,36 +43,35 @@ If you see a warning like:
 the installed Android app was built with older native code. Rebuild it:
 
 ```bash
-cd frontend
 npm install
 npx expo prebuild --clean --platform android
 npm run android:rebuild
 ```
 
+
 If needed, uninstall the existing app from the device/emulator first.
 
 ### EAS builds
 
-The frontend EAS profiles are defined in [`frontend/eas.json`](./frontend/eas.json).
+The EAS profiles are defined in [`eas.json`](./eas.json).
 
 Build production Android:
 
 ```bash
-cd frontend
 eas build --profile production --platform android
 ```
 
 Build development client:
 
 ```bash
-cd frontend
 eas build --profile development --platform android
 ```
+
 
 ## Quick Start
 
 ```bash
-cd frontend
 npm install
 npx expo start
 ```
+
