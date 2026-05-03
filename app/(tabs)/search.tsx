@@ -24,7 +24,7 @@ import { useSafeRouterPush } from '../../hooks/useSafeRouterPush';
 import { useAudioStore } from '../../store/useAudioStore';
 import { JioSaavnSong } from '../../services/jiosaavn';
 import { getSearchSourceState } from '../../utils/searchSources';
-import { CORE_COLORS } from '../../constants/colors';
+
 
 
 export default function SearchScreen() {
@@ -406,17 +406,15 @@ function createStyles(colors: any, isSmall: boolean) {
             opacity: 0.1,
         },
         headerEyebrow: {
-            fontSize: isSmall ? 11 : 12,
-            fontWeight: '800',
+            fontSize: isSmall ? 10 : 12,
+            fontWeight: '700',
             textTransform: 'uppercase',
-            letterSpacing: 1.5,
+            letterSpacing: 1.2,
             marginBottom: 2,
-            opacity: 0.8,
         },
         headerTitle: {
-            fontSize: isSmall ? 32 : 36,
-            fontWeight: '900',
-            letterSpacing: -1,
+            fontSize: isSmall ? 24 : 28,
+            fontWeight: '800',
         },
         countPill: {
             borderRadius: 12,
@@ -442,17 +440,12 @@ function createStyles(colors: any, isSmall: boolean) {
         searchContainer: {
             flexDirection: 'row',
             alignItems: 'center',
-            marginHorizontal: isSmall ? 16 : 20,
-            borderRadius: isSmall ? 18 : 22,
+            marginHorizontal: isSmall ? 12 : 16,
+            borderRadius: isSmall ? 12 : 14,
             borderWidth: 1,
-            height: isSmall ? 48 : 54,
-            paddingHorizontal: isSmall ? 16 : 20,
-            marginBottom: 20,
-            shadowColor: CORE_COLORS.black,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.05,
-            shadowRadius: 10,
-            elevation: 2,
+            height: isSmall ? 42 : 46,
+            paddingHorizontal: isSmall ? 12 : 14,
+            marginBottom: 14,
         },
         searchInput: {
             flex: 1,
@@ -480,15 +473,15 @@ function createStyles(colors: any, isSmall: boolean) {
         },
         sections: { marginBottom: 16 },
         sectionCard: {
-            borderRadius: isSmall ? 22 : 26,
-            alignItems: 'stretch',
+            borderRadius: isSmall ? 18 : 20,
+            alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 16,
-            elevation: 4,
-            height: 100,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
+            marginBottom: 12,
+            elevation: 2,
+            height: 90,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
         },
         sectionIcon: {
             width: isSmall ? 42 : 48,
@@ -659,7 +652,7 @@ const SearchItemComponent = ({ item, onPress, onLike, isLiked, showVideoBadges, 
                     {Math.floor(item.duration / 60)}:{(item.duration % 60).toFixed(0).padStart(2, '0')}
                 </Text>
             </View>
-            <ScalePressable onPress={onLike} style={{ padding: 8, marginLeft: 4 }}>
+            <ScalePressable onPress={onLike} style={{ marginLeft: 4 }}>
                 <Ionicons
                     name={isLiked ? 'heart' : 'heart-outline'}
                     size={22}
