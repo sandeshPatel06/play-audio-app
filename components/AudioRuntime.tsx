@@ -64,27 +64,7 @@ const createFallbackWaveform = (track: AudioTrack, size = 40) => {
     return samples;
 };
 
-const collapseAudioSample = (sample: AudioSample, barCount = 40) => {
-    const channelFrames = sample.channels.flatMap((channel) => channel.frames);
-    if (channelFrames.length === 0) {
-        return [];
-    }
 
-    const windowSize = Math.max(1, Math.floor(channelFrames.length / barCount));
-    const nextWaveform: number[] = [];
-
-    for (let index = 0; index < barCount; index += 1) {
-        const start = index * windowSize;
-        const end = Math.min(channelFrames.length, start + windowSize);
-        const slice = channelFrames.slice(start, end);
-        const peak = slice.length === 0
-            ? 0
-            : slice.reduce((max, frame) => Math.max(max, Math.abs(frame)), 0);
-        nextWaveform.push(Math.max(0.08, Math.min(1, peak)));
-    }
-
-    return nextWaveform;
-};
 
 const getScanRoots = () => {
     const fs = FileSystem as {
@@ -179,6 +159,35 @@ export default function AudioRuntime() {
     const sleepTimerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const placeholderArtworkRef = useRef<string | null>(null);
     const artworkLoadingRef = useRef<Promise<string | null> | null>(null);
+    const animationFrameRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const stopPolling = useCallback(() => {
+        if (animationFrameRef.current !== null) {
+            clearInterval(animationFrameRef.current);
+            animationFrameRef.current = null;
+        }
+    }, []);
+
+    const startPolling = useCallback(() => {
+        if (animationFrameRef.current !== null) return;
+        
+        animationFrameRef.current = setInterval(() => {
+            const player = activePlayerRef.current;
+            if (player) {
+                const isPlaying = (player as any).playing;
+                const currentTime = (player as any).currentTime;
+                
+                if (isPlaying) {
+                    const state = useAudioStore.getState();
+                    // Update store regularly so Animated.timing has a consistent cadence
+                    if (Math.abs(state.position - currentTime) > 0.05) {
+                        state.setPosition(currentTime);
+                    }
+                }
+            }
+        }, 250); 
+    }, []);
+
 
     const clearCrossfadeInterval = useCallback(() => {
         if (crossfadeIntervalRef.current) {
@@ -189,7 +198,9 @@ export default function AudioRuntime() {
     }, []);
 
     const clearActiveSubscriptions = useCallback(() => {
+        stopPolling();
         activeStatusSubscriptionRef.current?.remove();
+
         activeStatusSubscriptionRef.current = null;
         activeSampleSubscriptionRef.current?.remove();
         activeSampleSubscriptionRef.current = null;
@@ -399,7 +410,8 @@ export default function AudioRuntime() {
             const playableUri = await resolvePlayableUri(nextTrack);
             const prepared = createAudioPlayer(playableUri, {
                 keepAudioSessionActive: true,
-                updateInterval: 250,
+                updateInterval: 100,
+
                 downloadFirst: !nextTrack.isLocal,
             });
             prepared.volume = 0;
@@ -415,12 +427,20 @@ export default function AudioRuntime() {
     const attachActivePlayerListeners = useCallback((player: AudioPlayer) => {
         clearActiveSubscriptions();
 
-        activeStatusSubscriptionRef.current = (player as any).addListener('playbackStatusUpdate', (status: any) => {
+        const updateFn = (status: any) => {
             const state = useAudioStore.getState();
             state.setPosition(status.currentTime);
+
+
             state.setDuration(status.duration || state.currentTrack?.duration || 0);
             state.setIsPlaying(status.playing);
+            if (status.playing) {
+                startPolling();
+            } else {
+                stopPolling();
+            }
             state.setIsBuffering(status.isBuffering);
+
             state.setPlaybackStatus(statusToPlaybackState(status));
 
             if (status.currentTime < Math.max((status.duration || 0) - 1, 0)) {
@@ -499,19 +519,10 @@ export default function AudioRuntime() {
                 finishHandledRef.current = true;
                 void audioRuntimeApiRef.current.next();
             }
-        });
+        };
 
-        activeSampleSubscriptionRef.current = (player as any).addListener('audioSampleUpdate', (sample: any) => {
-            const state = useAudioStore.getState();
-            if (!state.currentTrack?.isLocal) {
-                return;
-            }
+        activeStatusSubscriptionRef.current = (player as any).addListener('playbackStatusUpdate', updateFn);
 
-            const collapsed = collapseAudioSample(sample);
-            if (collapsed.length > 0) {
-                state.setWaveformSamples(collapsed);
-            }
-        });
     }, [clearActiveSubscriptions, clearCrossfadeInterval, maybePrepareUpcomingTrack, syncLockScreen, syncTrackState]);
 
     const stopPlayback = useCallback(async () => {
@@ -579,7 +590,8 @@ export default function AudioRuntime() {
                 if (!activePlayer) {
                     const player = createAudioPlayer(playableUri, {
                         keepAudioSessionActive: true,
-                        updateInterval: 250,
+                        updateInterval: 100,
+
                         downloadFirst: !resolvedTrack.isLocal,
                     });
                     activePlayerRef.current = player;
@@ -868,6 +880,11 @@ export default function AudioRuntime() {
         playFromUrl: (url: string) => Promise<boolean>;
         stop: () => Promise<void>;
     };
+
+    useEffect(() => {
+        startPolling();
+        return () => stopPolling();
+    }, [startPolling, stopPolling]);
 
     const audioRuntimeApiRef = useRef<AudioRuntimeBindings>({
         playTrack: async (_track: AudioTrack, _shouldPlay = true) => false,

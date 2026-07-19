@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
-import React, { useCallback, useEffect, useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAdaptiveTheme } from '../hooks/useAdaptiveTheme';
@@ -73,21 +73,54 @@ export default function MiniPlayer() {
         next,
         previous,
     } = useAudioPlayer();
+
     const { queue, currentIndex } = usePlaybackQueue();
     const safePush = useSafeRouterPush();
     
     const isSmall = screenWidth < 375;
     const styles = useMemo(() => createStyles(colors, isSmall), [colors, isSmall]);
 
+    const progressAnim = useRef(new Animated.Value(position)).current;
+
+    useEffect(() => {
+        Animated.timing(progressAnim, {
+            toValue: isPlaying ? position + 0.25 : position,
+            duration: isPlaying ? 250 : 100,
+            useNativeDriver: false,
+        }).start();
+    }, [position, isPlaying]);
+
+    // Keep text timestamp updated (every 250ms is fine)
+    const [textPosition, setTextPosition] = React.useState(position);
+    useEffect(() => {
+        setTextPosition(position);
+    }, [position]);
+
+
+    const artworkSource = useMemo(() => {
+        if (!currentTrack) return null;
+        return currentTrack.imageUrl 
+            ? { uri: currentTrack.imageUrl } 
+            : require('../assets/images/placeholder.png');
+    }, [currentTrack?.imageUrl]);
+
+
     if (!currentTrack) return null;
 
     const isVideo = currentTrack.mediaType === 'video';
     const canSkip = queue.length > 1 || currentIndex > 0;
-    
-    // Protect against NaN or undefined preventing the progress bar from rendering
-    const safePosition = isNaN(position) ? 0 : Math.max(0, position);
+
+
+
+    const safePosition = isNaN(textPosition) ? 0 : Math.max(0, textPosition);
     const safeDuration = isNaN(duration) || duration <= 0 ? 1 : duration;
-    const progress = Math.min(1, safePosition / safeDuration);
+
+    const widthInterpolation = progressAnim.interpolate({
+        inputRange: [0, safeDuration],
+        outputRange: ['0%', '100%'],
+        extrapolate: 'clamp'
+    });
+
 
     const formatTime = (seconds: number) => {
         if (isNaN(seconds) || seconds < 0) return '0:00';
@@ -112,7 +145,8 @@ export default function MiniPlayer() {
     };
 
     return (
-        <View style={[styles.container, { bottom: Math.max(12, insets.bottom) + 90, shadowColor: colors.floatingShadow }]}>
+        <View style={[styles.container, { bottom: Math.max(16, insets.bottom + 4) + 76, shadowColor: colors.floatingShadow }]}>
+
             <GlassSurface
                 variant="floating"
                 blurIntensity={theme.blurIntensity + 4}
@@ -127,10 +161,12 @@ export default function MiniPlayer() {
                                 </View>
                             ) : (
                                 <Image
-                                    source={currentTrack.imageUrl ? { uri: currentTrack.imageUrl } : require('../assets/images/placeholder.png')}
+                                    source={artworkSource}
                                     style={styles.artwork}
                                 />
                             )}
+
+
                             <View style={styles.info}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                     <Text numberOfLines={1} style={[styles.title, { color: colors.text, flex: 1 }]}>
@@ -170,7 +206,7 @@ export default function MiniPlayer() {
                     <Pressable onPress={() => safePush('/player')} style={styles.progressRow}>
                         <Text style={[styles.timeText, { color: colors.textMuted }]} numberOfLines={1}>{formatTime(safePosition)}</Text>
                         <View style={[styles.progressBarContainer, { backgroundColor: colors.progressTrack }]}>
-                            <View style={[styles.progressBar, { width: `${progress * 100}%`, backgroundColor: colors.accent }]} />
+                            <Animated.View style={[styles.progressBar, { width: widthInterpolation, backgroundColor: colors.accent }]} />
                         </View>
                         <Text style={[styles.timeText, { color: colors.textMuted }]} numberOfLines={1}>{formatTime(safeDuration)}</Text>
                     </Pressable>
@@ -261,14 +297,16 @@ function createStyles(colors: any, isSmall: boolean) {
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
-            paddingHorizontal: isSmall ? 4 : 6,
+            paddingHorizontal: 0,
         },
+
         skipBtn: {
-            padding: 4,
+            padding: 2,
         },
         playBtn: {
-            padding: 4,
+            padding: 2,
         },
+
         progressRow: {
             flexDirection: 'row',
             alignItems: 'center',

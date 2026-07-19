@@ -9,16 +9,19 @@ import { useAdaptiveTheme } from '../../hooks/useAdaptiveTheme';
 // Extracted as a stable component so Tabs doesn't get a new function ref each render
 function TabBarBackground() {
     const theme = useAdaptiveTheme();
+    const { colors } = useTheme();
     return (
         <BlurView
             tint={theme.isDark ? 'dark' : 'light'}
-            intensity={theme.blurIntensity}
+            intensity={theme.isDark ? 80 : 95}
+            blurMethod="none"
+
             style={{
                 flex: 1,
-                borderRadius: theme.radii.xl,
-                backgroundColor: theme.surfaces.floating,
+                backgroundColor: theme.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
             }}
         />
+
     );
 }
 
@@ -33,21 +36,22 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarStyle: {
             position: 'absolute' as const,
-            bottom: Math.max(12, insets.bottom),
-            left: 16,
-            right: 16,
-            height: 72,
-            borderRadius: theme.radii.xl,
-            elevation: 15,
+            bottom: Math.max(16, insets.bottom + 4),
+            left: 20,
+            right: 20,
+            height: 68,
+            borderRadius: 24,
+            elevation: 20,
             borderTopWidth: 0,
             backgroundColor: 'transparent',
-            borderWidth: 1,
+            borderWidth: 1.5,
             borderColor: colors.floatingBorder,
-            shadowColor: colors.tabBarShadow,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.22,
-            shadowRadius: 22,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.3,
+            shadowRadius: 24,
             overflow: 'hidden' as const,
+            paddingBottom: 0, // Reset default padding
         },
         tabBarBackground: tabBarBackgroundComponent,
         tabBarActiveTintColor: colors.accent,
@@ -55,15 +59,17 @@ export default function TabsLayout() {
         tabBarShowLabel: true,
         tabBarLabelPosition: 'below-icon' as const,
         tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: '800' as const,
-            marginBottom: -1,
+            marginBottom: 10,
+            letterSpacing: 0.4,
         },
         tabBarItemStyle: {
-            paddingTop: 4,
-            marginBottom: -10,
+            paddingTop: 10,
         },
-    }), [colors.accent, colors.floatingBorder, colors.tabBarShadow, colors.textMuted, insets.bottom, theme.radii.xl]);
+        tabBarHideOnKeyboard: true,
+    }), [colors.accent, colors.floatingBorder, colors.textMuted, insets.bottom, theme.radii.xl]);
+
 
     return (
         <Tabs screenOptions={screenOptions}>

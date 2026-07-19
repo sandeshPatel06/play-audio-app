@@ -234,8 +234,10 @@ export default function VideoPlayerScreen() {
 function createStyles(colors: any, isSmall: boolean) {
     return StyleSheet.create({
         container: {
+            flex: 1,
             backgroundColor: CORE_COLORS.black,
         },
+
         header: {
             position: 'absolute',
             top: 0,

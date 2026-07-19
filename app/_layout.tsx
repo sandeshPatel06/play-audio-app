@@ -9,19 +9,21 @@ import { CORE_COLORS } from '../constants/colors';
 import { GlassSurface, PageShell } from '../components/ui/primitives';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo } from 'react';
-import { View, ActivityIndicator, StyleSheet, LogBox, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, LogBox, Text, AppState } from 'react-native';
+
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { useAdaptiveTheme } from '../hooks/useAdaptiveTheme';
 import { enableScreens } from 'react-native-screens';
 
-// Disable native screens support to prevent splash screen conflicts
+// Enable native screens for better stack management and performance
 try {
-  enableScreens(false);
+  enableScreens(true);
 } catch {
-  // Ignore screen toggling issues in runtimes that manage this internally.
+  // Ignore screen toggling issues
 }
+
 
 LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state',
@@ -64,17 +66,35 @@ function LoadingView() {
 function RootLayoutContent() {
   const { colors, resolvedTheme, isReady } = useTheme();
 
-  // 1. Audio setup - non-blocking
+  // 1. Audio setup & App State - non-blocking
   useEffect(() => {
-    setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-      shouldRouteThroughEarpiece: false,
-    }).catch(() => {
-      // Audio mode setup is best-effort on app boot.
+    const setupAudio = async () => {
+      try {
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          interruptionMode: 'doNotMix',
+          shouldRouteThroughEarpiece: false,
+        });
+      } catch {
+        // Best-effort
+      }
+    };
+
+    setupAudio();
+
+    // Re-apply settings on app resume to prevent issues on some Android devices
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        setupAudio();
+      }
     });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
+
 
   const stackScreenOptions = useMemo(() => ({
     headerStyle: {
@@ -85,10 +105,12 @@ function RootLayoutContent() {
     contentStyle: {
       backgroundColor: colors?.background || LOADING_COLORS.background,
     },
-    animation: 'fade' as const,
+    animation: 'default' as const,
     gestureEnabled: true,
     gestureDirection: 'horizontal' as const,
+    fullScreenGestureEnabled: true,
   }), [colors?.background, colors?.text]);
+
 
   return (
     <>
