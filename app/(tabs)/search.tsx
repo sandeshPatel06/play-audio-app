@@ -272,15 +272,16 @@ export default function SearchScreen() {
 
             <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
 
-            <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-                <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Browse</Text>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>Discover</Text>
+            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+                <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Music Discovery</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Explore</Text>
             </View>
 
+
             <View style={[styles.searchContainer, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-                <Ionicons name="search" size={20} color={colors.textMuted} />
+                <Ionicons name="search" size={20} color={colors.textMuted} style={{ marginRight: 10 }} />
                 <TextInput
-                    placeholder="Search songs, artists..."
+                    placeholder="Search library or online..."
                     placeholderTextColor={colors.textMuted}
                     style={[styles.searchInput, { color: colors.text }]}
                     selectionColor={colors.accent}
@@ -292,11 +293,12 @@ export default function SearchScreen() {
                     }}
                 />
                 {query.length > 0 && (
-                    <ScalePressable onPress={() => setQuery('')}>
+                    <ScalePressable onPress={() => setQuery('')} hitSlop={10}>
                         <Ionicons name="close-circle" size={20} color={colors.textMuted} />
                     </ScalePressable>
                 )}
             </View>
+
 
             <FlashList
                 data={shouldShowLocalResults ? filteredItems : []}
@@ -398,24 +400,27 @@ function createStyles(colors: any, isSmall: boolean) {
         },
         bgGlow: {
             position: 'absolute',
-            top: -140,
-            right: -80,
-            width: 360,
-            height: 360,
-            borderRadius: 180,
-            opacity: 0.1,
+            top: -100,
+            right: -100,
+            width: 400,
+            height: 400,
+            borderRadius: 200,
+            opacity: 0.08,
         },
         headerEyebrow: {
-            fontSize: isSmall ? 10 : 12,
-            fontWeight: '700',
+            fontSize: isSmall ? 11 : 12,
+            fontWeight: '800',
             textTransform: 'uppercase',
-            letterSpacing: 1.2,
+            letterSpacing: 1.5,
             marginBottom: 2,
+            opacity: 0.8,
         },
         headerTitle: {
-            fontSize: isSmall ? 24 : 28,
-            fontWeight: '800',
+            fontSize: isSmall ? 32 : 36,
+            fontWeight: '900',
+            letterSpacing: -1,
         },
+
         countPill: {
             borderRadius: 12,
             paddingHorizontal: isSmall ? 8 : 10,
@@ -440,19 +445,26 @@ function createStyles(colors: any, isSmall: boolean) {
         searchContainer: {
             flexDirection: 'row',
             alignItems: 'center',
-            marginHorizontal: isSmall ? 12 : 16,
-            borderRadius: isSmall ? 12 : 14,
-            borderWidth: 1,
-            height: isSmall ? 42 : 46,
-            paddingHorizontal: isSmall ? 12 : 14,
-            marginBottom: 14,
+            marginHorizontal: isSmall ? 16 : 20,
+            borderRadius: 20,
+            borderWidth: 1.5,
+            height: isSmall ? 48 : 54,
+            paddingHorizontal: 16,
+            marginBottom: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 2,
         },
         searchInput: {
             flex: 1,
-            marginLeft: 10,
-            fontSize: isSmall ? 14 : 16,
+            fontSize: isSmall ? 15 : 16,
+            fontWeight: '600',
             height: '100%',
+            padding: 0,
         },
+
         resultItem: {
             flexDirection: 'row',
             alignItems: 'center',

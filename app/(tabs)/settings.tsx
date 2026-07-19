@@ -130,10 +130,11 @@ export default function SettingsScreen() {
       {/* Ambient glow */}
       <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
 
-      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-        <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Personalize</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Preferences</Text>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
       </View>
+
 
       <ScrollView
         style={styles.scrollView}
@@ -165,15 +166,17 @@ export default function SettingsScreen() {
                     styles.themeCard,
                     {
                       borderColor: selected ? accentColor : colors.cardBorder,
-                      backgroundColor: selected ? accentColor + '10' : colors.cardBackground,
-                      paddingVertical: 14,
+                      backgroundColor: selected ? accentColor + '15' : colors.cardBackground,
+                      borderWidth: selected ? 2 : 1.5,
+                      paddingVertical: 16,
                       flexDirection: 'row',
-                      gap: 8,
+                      gap: 10,
                       justifyContent: 'center',
                     },
                   ]}
                   onPress={() => handleThemeChange(opt)}
                 >
+
                   <Ionicons
                     name={opt === 'dark' ? 'moon' : opt === 'light' ? 'sunny' : 'phone-portrait-outline'}
                     size={16}
@@ -206,10 +209,11 @@ export default function SettingsScreen() {
           <View style={[styles.card, { borderColor: colors.cardBorder, backgroundColor: colors.cardBackground, marginTop: 12 }]}>
             <View style={styles.accentHeader}>
               <View>
-                <Text style={[styles.rowLabel, { color: colors.text }]}>Accent Color</Text>
-                <Text style={[styles.rowHint, { color: colors.textMuted }]}>Highlights, buttons, and active states</Text>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Interface Tint</Text>
+                <Text style={[styles.rowHint, { color: colors.textMuted }]}>Custom color for active elements</Text>
               </View>
-              <View style={[styles.accentCurrentDot, { backgroundColor: accentColor, borderColor: colors.pureWhite, borderWidth: 3 }]} />
+              <View style={[styles.accentCurrentDot, { backgroundColor: accentColor, borderColor: colors.pureWhite, borderWidth: 4 }]} />
+
             </View>
             <View style={[styles.divider, { borderColor: colors.cardBorder }]} />
             <View style={styles.accentGrid}>
@@ -636,8 +640,9 @@ function ToolRow({ icon, iconBg, label, hint, colors, onPress, danger, isSmall }
 function createStyles(colors: any, isSmall: boolean, screenWidth: number) {
   return StyleSheet.create({
     container: { flex: 1 },
-    bgGlow: { position: 'absolute', top: -100, right: -100, width: isSmall ? 280 : 320, height: isSmall ? 280 : 320, borderRadius: 160, opacity: 0.08 },
-    header: { paddingHorizontal: isSmall ? 16 : 20, marginBottom: 16 },
+    bgGlow: { position: 'absolute', top: -100, left: -100, width: 400, height: 400, borderRadius: 200, opacity: 0.08 },
+    header: { paddingHorizontal: isSmall ? 16 : 20, marginBottom: 20 },
+
     headerEyebrow: {
         fontSize: isSmall ? 11 : 12,
         fontWeight: '800',
@@ -655,29 +660,31 @@ function createStyles(colors: any, isSmall: boolean, screenWidth: number) {
     section: { marginBottom: 24, paddingHorizontal: isSmall ? 12 : 16 },
     statsCard: { 
       flexDirection: 'row', 
-      borderRadius: isSmall ? 16 : 20, 
-      borderWidth: 1, 
-      paddingVertical: isSmall ? 16 : 18, 
-      paddingHorizontal: isSmall ? 8 : 12,
+      borderRadius: 24, 
+      borderWidth: 1.5, 
+      paddingVertical: isSmall ? 20 : 24, 
+      paddingHorizontal: isSmall ? 12 : 16,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 2
-    },
-    statDivider: { width: 1, height: '80%', alignSelf: 'center', opacity: 0.4 },
-    card: { 
-      borderRadius: isSmall ? 18 : 22, 
-      borderWidth: 1, 
-      paddingHorizontal: isSmall ? 14 : 16, 
-      paddingVertical: 6, 
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.05,
-      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
       elevation: 3
     },
+
+    statDivider: { width: 1, height: '80%', alignSelf: 'center', opacity: 0.4 },
+    card: { 
+      borderRadius: 24, 
+      borderWidth: 1.5, 
+      paddingHorizontal: 16, 
+      paddingVertical: 8, 
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.06,
+      shadowRadius: 24,
+      elevation: 3
+    },
+
     divider: { borderBottomWidth: StyleSheet.hairlineWidth, marginVertical: 2, opacity: 0.5 },
     themeCardRow: { flexDirection: 'row', gap: isSmall ? 8 : 12 },
     themeCard: { 

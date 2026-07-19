@@ -7,7 +7,15 @@ export const useSafeRouterPush = () => {
     const navigationState = useRootNavigationState();
 
     const safePush = useCallback((href: string) => {
+        // If navigation isn't ready, we might want to wait or just log it
         if (!navigationState?.key) {
+            console.warn(`Navigation not ready for push to: ${href}. Retrying...`);
+            // Attempting direct navigation as a fallback for some edge cases
+            try {
+                router.navigate(href as any);
+            } catch (e) {
+                console.error('Direct navigation failed:', e);
+            }
             return;
         }
 
@@ -21,6 +29,7 @@ export const useSafeRouterPush = () => {
         }
         router.navigate(href as any);
     }, [router, navigationState]);
+
 
     return safePush;
 };

@@ -15,21 +15,26 @@ import {
   Text,
   View,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
+import CommunitySlider from '@react-native-community/slider';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AddToPlaylistModal from '../components/AddToPlaylistModal';
 import { ActionDialog, ConfirmDialog, NoticeDialog } from '../components/AppDialogs';
 import ScalePressable from '../components/ScalePressable';
-import WaveformSeekbar from '../components/WaveformSeekbar';
 import { CORE_COLORS, withAlpha } from '../constants/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../hooks/useAudio';
 import { useSafeRouterPush } from '../hooks/useSafeRouterPush';
+import { useAudioStore } from '../store/useAudioStore';
 import { AudioTrack } from '../types/audio';
+
 
 const PLACEHOLDER_ART = require('../assets/images/placeholder.png');
 const AnimatedImage = Animated.createAnimatedComponent(Image);
+const AnimatedSlider = Animated.createAnimatedComponent(CommunitySlider);
+
 
 type QueueListItem = {
   key: string;
@@ -40,17 +45,15 @@ export default function FullPlayerScreen() {
   useKeepAwake();
 
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { colors, resolvedTheme } = useTheme();
   const router = useRouter();
   const safePush = useSafeRouterPush();
+  
   const isSmall = screenWidth < 375;
-  const isMedium = screenWidth >= 375 && screenWidth < 414;
-  const artSize = Math.min(screenWidth - 72, Math.max(220, Math.min(340, screenWidth * 0.82)));
-  const styles = useMemo(
-    () => createStyles(colors, isSmall, isMedium, artSize, screenWidth),
-    [artSize, colors, isMedium, isSmall, screenWidth]
-  );
+  const isShort = screenHeight < 700;
+  
+  const artSize = Math.min(screenWidth - 64, Math.max(240, Math.min(360, screenWidth * 0.85)));
 
   const [isActionVisible, setIsActionVisible] = useState(false);
   const [isDeleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -65,19 +68,19 @@ export default function FullPlayerScreen() {
     message: '',
   });
 
+  const position = useAudioStore((state) => state.position);
+  const duration = useAudioStore((state) => state.duration);
+
   const {
     currentTrack,
     queue,
     currentIndex,
     nowPlayingContext,
     isPlaying,
-    position,
-    duration,
     shuffle,
     repeatMode,
     playlists,
     likedIds,
-    waveformSamples,
     adaptiveAccent,
     handlePlayPause,
     handleNext,
@@ -94,13 +97,17 @@ export default function FullPlayerScreen() {
     removeQueueItem,
   } = useAudio();
 
+
   const pulse = useRef(new Animated.Value(1)).current;
   const accent = adaptiveAccent || colors.accent;
   const activeTrack = currentTrack;
   const playbackQueue = queue as unknown as AudioTrack[];
-  const artworkSource = activeTrack?.imageUrl
-    ? { uri: activeTrack.imageUrl }
-    : PLACEHOLDER_ART;
+  
+  const artworkSource = useMemo(() => {
+    return activeTrack?.imageUrl
+      ? { uri: activeTrack.imageUrl }
+      : PLACEHOLDER_ART;
+  }, [activeTrack?.imageUrl]);
 
   const queueItems = useMemo<QueueListItem[]>(
     () => playbackQueue.map((track, index) => ({ key: `${track.id}-${index}`, track })),
@@ -108,22 +115,22 @@ export default function FullPlayerScreen() {
   );
 
   const selectedQueueTrack = selectedQueueIndex !== null ? playbackQueue[selectedQueueIndex] ?? null : null;
-  const sourceLabel =
-    nowPlayingContext?.type === 'playlist'
-      ? 'Playlist'
-      : nowPlayingContext?.type === 'liked'
-        ? 'Liked'
-        : nowPlayingContext?.type === 'jiosaavn'
-          ? 'JioSaavn'
-          : nowPlayingContext?.type === 'remote'
-            ? 'Direct Stream'
-            : 'Library';
+  
+  const sourceLabel = useMemo(() => {
+    switch (nowPlayingContext?.type) {
+        case 'playlist': return 'Playlist';
+        case 'liked': return 'Liked Songs';
+        case 'jiosaavn': return 'JioSaavn';
+        case 'remote': return 'Stream';
+        default: return 'Library';
+    }
+  }, [nowPlayingContext?.type]);
 
-  const currentFilename = activeTrack?.filename || '';
-  const currentUri = activeTrack?.uri || '';
-  const isVideoTrack =
-    /\.(mp4|m4v|mov|webm|m3u8)(\?.*)?$/i.test(currentFilename) ||
-    /\.(mp4|m4v|mov|webm|m3u8)(\?.*)?$/i.test(currentUri);
+  const isVideoTrack = useMemo(() => {
+    if (!activeTrack) return false;
+    const path = (activeTrack.uri || activeTrack.filename || '').toLowerCase();
+    return /\.(mp4|m4v|mov|webm|m3u8)(\?.*)?$/i.test(path);
+  }, [activeTrack]);
 
   const videoPlayer = useVideoPlayer(isVideoTrack && activeTrack ? activeTrack.uri : null, (player) => {
     player.muted = true;
@@ -133,131 +140,87 @@ export default function FullPlayerScreen() {
     player.play();
   });
 
+  // Pulse animation for artwork
   useEffect(() => {
-    if (!activeTrack) {
-      return;
-    }
-
     pulse.stopAnimation();
-
     if (isPlaying && !isVideoTrack) {
-      const animation = Animated.loop(
+      Animated.loop(
         Animated.sequence([
-          Animated.timing(pulse, {
-            toValue: 1.05,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulse, {
-            toValue: 1,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulse, { toValue: 1.04, duration: 2500, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1, duration: 2500, useNativeDriver: true }),
         ])
-      );
-      animation.start();
-
-      return () => {
-        animation.stop();
-      };
+      ).start();
+    } else {
+      Animated.spring(pulse, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }).start();
     }
+  }, [isPlaying, isVideoTrack, pulse]);
 
-    Animated.spring(pulse, {
-      toValue: 1,
-      friction: 7,
-      tension: 70,
-      useNativeDriver: true,
-    }).start();
-  }, [activeTrack, isPlaying, isVideoTrack, pulse]);
-
+  // Video sync
   useEffect(() => {
-    if (!isVideoTrack || !activeTrack) {
-      videoPlayer.pause();
-      return;
-    }
-
-    if (Math.abs(videoPlayer.currentTime - position) > 0.8) {
+    if (!isVideoTrack || !activeTrack || !videoPlayer) return;
+    if (Math.abs(videoPlayer.currentTime - position) > 1) {
       videoPlayer.currentTime = position;
     }
+    if (isPlaying) videoPlayer.play();
+    else videoPlayer.pause();
+  }, [activeTrack, isPlaying, isVideoTrack, position, videoPlayer]);
 
-    if (isPlaying) {
-      videoPlayer.play();
-    } else {
-      videoPlayer.pause();
-    }
-  }, [activeTrack, activeTrack?.id, isPlaying, isVideoTrack, position, videoPlayer]);
+  const progressAnim = useRef(new Animated.Value(position)).current;
+
+  // Sync Animated Value smoothly
+  useEffect(() => {
+    if (isSliding) return;
+    
+    // Animate smoothly to the expected next position based on our 250ms polling interval
+    Animated.timing(progressAnim, {
+      toValue: isPlaying ? position + 0.25 : position,
+      duration: isPlaying ? 250 : 100,
+      useNativeDriver: false, // Slider value prop doesn't support native driver
+    }).start();
+  }, [position, isPlaying, isSliding]);
+
+  // We keep a simple state for text rendering which updates at 250ms (doesn't cause jitter)
+  const [textPosition, setTextPosition] = useState(position);
+  useEffect(() => {
+    if (!isSliding) setTextPosition(position);
+  }, [position, isSliding]);
+
+
+
 
   const formatTime = useCallback((seconds: number) => {
+
+    if (isNaN(seconds) || seconds < 0) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }, []);
 
-  const liked = activeTrack ? likedIds.has(activeTrack.id) : false;
-
-  const openQueueActions = useCallback((index: number) => {
-    Haptics.selectionAsync();
-    setSelectedQueueIndex(index);
-    setIsQueueActionVisible(true);
-  }, []);
-
-  const handleDelete = useCallback(async () => {
-    if (!activeTrack) {
-      return;
+  const onSeekComplete = async (val: number) => {
+    await seekTo(val);
+    if (isVideoTrack && videoPlayer) {
+      videoPlayer.currentTime = val;
     }
-
-    setDeleteConfirmVisible(false);
-    const success = await deleteSong(activeTrack);
-    if (success) {
-      router.back();
-      return;
-    }
-
-    setNoticeState({
-      visible: true,
-      title: 'Delete Failed',
-      message: 'Could not delete this file from your device.',
-    });
-  }, [activeTrack, deleteSong, router]);
-
-  const onSeekComplete = useCallback(async (seconds: number) => {
-    await seekTo(seconds);
-    if (isVideoTrack) {
-      videoPlayer.currentTime = seconds;
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSlidingValue(seconds);
+    progressAnim.setValue(val);
+    setTextPosition(val);
     setIsSliding(false);
-  }, [isVideoTrack, seekTo, videoPlayer]);
+  };
 
-  const onToggleRepeat = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+
+
+  const onToggleRepeat = () => {
     if (repeatMode === 'off') setRepeatMode('all');
     else if (repeatMode === 'all') setRepeatMode('one');
     else setRepeatMode('off');
-  }, [repeatMode, setRepeatMode]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
-  const handleQueueAction = useCallback(async (
-    action: 'play' | 'next' | 'end' | 'remove'
-  ) => {
-    if (selectedQueueIndex === null || !selectedQueueTrack) {
-      return;
-    }
-
-    setIsQueueActionVisible(false);
-
-    if (action === 'play') {
-      await selectQueueItem(selectedQueueIndex);
-      return;
-    }
-
-    if (action === 'remove') {
-      await removeQueueItem(selectedQueueIndex);
-      return;
-    }
-
-    await enqueueTracks([selectedQueueTrack], action === 'next' ? 'next' : 'end');
-  }, [enqueueTracks, removeQueueItem, selectQueueItem, selectedQueueIndex, selectedQueueTrack]);
+  const openQueueActions = (index: number) => {
+    setSelectedQueueIndex(index);
+    setIsQueueActionVisible(true);
+    Haptics.selectionAsync();
+  };
 
   const renderQueueItem = useCallback(({ item, drag, getIndex, isActive }: any) => {
     const queueIndex = getIndex?.() ?? 0;
@@ -265,76 +228,48 @@ export default function FullPlayerScreen() {
     const isCurrent = queueIndex === currentIndex;
 
     return (
-      <View
-        style={[
-          styles.queueRow,
-          {
-            borderColor: isCurrent ? accent : colors.cardBorder,
-            backgroundColor: isCurrent ? withAlpha(accent, 0.14) : colors.cardBackground,
-            opacity: isActive ? 0.92 : 1,
-          },
-        ]}
-      >
-        <ScalePressable style={styles.queueMainTap} onPress={() => void selectQueueItem(queueIndex)}>
-          <View style={styles.queueThumbWrap}>
-            <Image
-              source={track.imageUrl ? { uri: track.imageUrl } : PLACEHOLDER_ART}
-              style={styles.queueThumb}
-            />
-            {isCurrent ? (
-              <View style={[styles.queuePlayingOverlay, { backgroundColor: withAlpha(CORE_COLORS.black, 0.35) }]}>
-                <Ionicons name="volume-high" size={16} color={colors.onAccent} />
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.queueMetaWrap}>
-            <Text numberOfLines={1} style={[styles.queueSongName, { color: isCurrent ? accent : colors.text }]}>
-              {track.title || track.filename}
+      <View style={[
+        styles.queueRow, 
+        { 
+          backgroundColor: isCurrent ? withAlpha(accent, 0.12) : 'transparent',
+          borderColor: isCurrent ? withAlpha(accent, 0.3) : colors.cardBorder,
+          opacity: isActive ? 0.8 : 1
+        }
+      ]}>
+        <ScalePressable style={styles.queueMain} onPress={() => selectQueueItem(queueIndex)}>
+          <Image 
+            source={track.imageUrl ? { uri: track.imageUrl } : PLACEHOLDER_ART} 
+            style={styles.queueThumb} 
+          />
+          <View style={styles.queueInfo}>
+            <Text numberOfLines={1} style={[styles.queueTitle, { color: isCurrent ? accent : colors.text }]}>
+                {track.title || track.filename}
             </Text>
-            <Text numberOfLines={1} style={[styles.queueArtists, { color: colors.textMuted }]}>
-              {track.artist || track.artists || 'Unknown Artist'}
+            <Text numberOfLines={1} style={[styles.queueArtist, { color: colors.textMuted }]}>
+                {track.artist || 'Unknown Artist'}
             </Text>
-          </View>
-
-          <View style={styles.queueRightWrap}>
-            {track.duration > 0 ? (
-              <Text style={[styles.queueDuration, { color: colors.textMuted }]}>
-                {formatTime(track.duration)}
-              </Text>
-            ) : null}
           </View>
         </ScalePressable>
-
+        
         <View style={styles.queueActions}>
-          <ScalePressable style={styles.queueActionBtn} onLongPress={drag} onPressIn={() => Haptics.selectionAsync()}>
-            <Ionicons name="reorder-three-outline" size={20} color={colors.textMuted} />
+          <ScalePressable onLongPress={drag} onPressIn={() => Haptics.selectionAsync()} style={styles.queueActionBtn}>
+            <Ionicons name="reorder-three" size={22} color={colors.textMuted} />
           </ScalePressable>
-          <ScalePressable style={styles.queueActionBtn} onPress={() => openQueueActions(queueIndex)}>
-            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMuted} />
+          <ScalePressable onPress={() => openQueueActions(queueIndex)} style={styles.queueActionBtn}>
+            <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMuted} />
           </ScalePressable>
         </View>
       </View>
     );
-  }, [accent, colors.cardBackground, colors.cardBorder, colors.onAccent, colors.text, colors.textMuted, currentIndex, formatTime, openQueueActions, selectQueueItem, styles.queueActionBtn, styles.queueActions, styles.queueArtists, styles.queueDuration, styles.queueMainTap, styles.queueMetaWrap, styles.queuePlayingOverlay, styles.queueRightWrap, styles.queueRow, styles.queueSongName, styles.queueThumb, styles.queueThumbWrap]);
+  }, [accent, currentIndex, colors, selectQueueItem]);
 
   if (!activeTrack) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
-        <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-        <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>No track is playing</Text>
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-            Start a song from Library, Search, or Playlist.
-          </Text>
-          <ScalePressable
-            style={[styles.emptyBtn, { borderColor: colors.iconButtonBorder, backgroundColor: colors.iconButtonBackground }]}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="chevron-back" size={18} color={colors.text} />
-            <Text style={[styles.emptyBtnText, { color: colors.text }]}>Go Back</Text>
-          </ScalePressable>
-        </View>
+      <View style={[styles.container, { backgroundColor: colors.screenBackground, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>Nothing playing</Text>
+        <ScalePressable onPress={() => router.back()} style={{ marginTop: 20 }}>
+            <Text style={{ color: accent, fontWeight: '600' }}>Go Back</Text>
+        </ScalePressable>
       </View>
     );
   }
@@ -342,197 +277,139 @@ export default function FullPlayerScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
       <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+      
+      {/* Background Glow */}
+      <View style={StyleSheet.absoluteFill}>
+        {activeTrack.imageUrl && (
+          <AnimatedImage 
+            source={{ uri: activeTrack.imageUrl }} 
+            blurRadius={Platform.OS === 'ios' ? 80 : 40}
+            style={[styles.backgroundBlur, { opacity: 0.3, transform: [{ scale: pulse }] }]}
+          />
+        )}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(accent, 0.08) }]} />
+      </View>
 
-      {activeTrack.imageUrl ? (
-        <AnimatedImage
-          source={{ uri: activeTrack.imageUrl }}
-          blurRadius={72}
-          style={[
-            styles.backdropArt,
-            {
-              opacity: isVideoTrack ? 0.12 : 0.28,
-              transform: [{ scale: pulse }],
-            },
-          ]}
-        />
-      ) : null}
-      <View style={[styles.backdropTint, { backgroundColor: withAlpha(accent, 0.18) }]} />
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 124 }}
+      <ScrollView 
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
       >
-        <BlurView
-          intensity={45}
-          tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-          style={[styles.headerGlass, { paddingTop: insets.top + 8, borderColor: colors.cardBorder }]}
-        >
-          <ScalePressable
-            style={[styles.iconBtn, { borderColor: colors.iconButtonBorder, backgroundColor: withAlpha(colors.cardBackground, 0.65) }]}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="chevron-down" size={22} color={colors.text} />
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <ScalePressable onPress={() => router.back()} style={styles.headerBtn}>
+            <Ionicons name="chevron-down" size={28} color={colors.text} />
           </ScalePressable>
-
-          <View style={styles.headerCenter}>
-            <Text numberOfLines={1} style={[styles.headerEyebrow, { color: accent }]}>
-              {sourceLabel}
-            </Text>
-            <Text numberOfLines={1} style={[styles.headerTitle, { color: colors.text }]}>
-              {nowPlayingContext?.title || 'Now Playing'}
-            </Text>
+          <View style={styles.headerText}>
+            <Text style={[styles.headerEyebrow, { color: accent }]}>{sourceLabel}</Text>
+            <Text numberOfLines={1} style={[styles.headerTitle, { color: colors.text }]}>{nowPlayingContext?.title || 'Player'}</Text>
           </View>
-
-          <ScalePressable
-            style={[styles.iconBtn, { borderColor: colors.iconButtonBorder, backgroundColor: withAlpha(colors.cardBackground, 0.65) }]}
-            onPress={() => setIsActionVisible(true)}
-          >
-            <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
+          <ScalePressable onPress={() => setIsActionVisible(true)} style={styles.headerBtn}>
+            <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
           </ScalePressable>
-        </BlurView>
-
-        <View style={[styles.heroGlow, { backgroundColor: withAlpha(accent, 0.28), transform: [{ scale: pulse }] }]} />
-
-        <View style={[styles.artworkWrap, { borderColor: withAlpha(accent, 0.32), backgroundColor: withAlpha(colors.cardBackground, 0.74) }]}>
-          {isVideoTrack ? (
-            <VideoView
-              style={[styles.artwork, { width: artSize, height: artSize }]}
-              player={videoPlayer}
-              nativeControls={false}
-              contentFit="cover"
-            />
-          ) : (
-            <AnimatedImage
-              source={artworkSource}
-              style={[
-                styles.artwork,
-                {
-                  width: artSize,
-                  height: artSize,
-                  transform: [{ scale: pulse }],
-                },
-              ]}
-            />
-          )}
         </View>
 
-        <View style={styles.songBlock}>
-          <View style={styles.songTitleRow}>
-            <View style={styles.currentSongInfo}>
-                <Text numberOfLines={1} style={[styles.songTitle, { color: colors.text }]}>
-                {activeTrack.title || activeTrack.filename}
-              </Text>
-              <Text numberOfLines={1} style={[styles.songSub, { color: colors.textMuted }]}>
-                {activeTrack.artist || activeTrack.artists || 'Unknown Artist'}
-              </Text>
-
-              <View style={styles.metaPills}>
-                <View style={[styles.metaPill, { backgroundColor: withAlpha(accent, 0.14) }]}>
-                  <Text style={[styles.metaPillText, { color: accent }]}>{sourceLabel}</Text>
-                </View>
-                {isVideoTrack ? (
-                  <View style={[styles.metaPill, { backgroundColor: withAlpha(colors.textMuted, 0.14) }]}>
-                    <Text style={[styles.metaPillText, { color: colors.textMuted }]}>Video</Text>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-
-            <ScalePressable
-              style={[styles.likeBtn, { backgroundColor: colors.likeButtonBackground, borderColor: liked ? accent : colors.mainControlBorder }]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                toggleLike(activeTrack.id);
-              }}
-            >
-              <Ionicons name={liked ? 'heart' : 'heart-outline'} size={22} color={liked ? accent : colors.text} />
-            </ScalePressable>
-          </View>
-
-          <View style={styles.waveformWrap}>
-            <WaveformSeekbar
-              samples={waveformSamples}
-              progressSeconds={isSliding ? slidingValue : position}
-              durationSeconds={Math.max(duration, 1)}
-              activeColor={accent}
-              inactiveColor={withAlpha(colors.textMuted, 0.24)}
-              scrubberColor={colors.text}
-              onSeekStart={() => {
-                Haptics.selectionAsync();
-                setIsSliding(true);
-                setSlidingValue(position);
-              }}
-              onSeekPreview={(seconds) => {
-                setSlidingValue(seconds);
-              }}
-              onSeekComplete={onSeekComplete}
-            />
-
-            <View style={styles.timeRow}>
-              <Text style={[styles.timeText, { color: colors.textMuted }]}>
-                {formatTime(isSliding ? slidingValue : position)}
-              </Text>
-              <Text style={[styles.timeText, { color: colors.textMuted }]}>
-                -{formatTime(Math.max(0, duration - (isSliding ? slidingValue : position)))}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.controlRow}>
-            <ScalePressable style={styles.smallControl} onPress={() => setShuffle(!shuffle)}>
-              <Ionicons name="shuffle" size={22} color={shuffle ? accent : colors.textMuted} />
-            </ScalePressable>
-
-            <ScalePressable
-              style={[styles.mainControl, { backgroundColor: colors.mainControlBackground, borderColor: colors.mainControlBorder }]}
-              onPress={handlePrevious}
-            >
-              <Ionicons name="play-skip-back" size={24} color={colors.text} />
-            </ScalePressable>
-
-            <ScalePressable
-              style={[styles.playControl, { backgroundColor: accent }]}
-              onPress={handlePlayPause}
-            >
-              <Ionicons
-                name={isPlaying ? 'pause' : 'play'}
-                size={32}
-                color={colors.onAccent}
+        {/* Artwork Section */}
+        <View style={styles.artworkContainer}>
+          <Animated.View style={[styles.artworkGlow, { backgroundColor: accent, transform: [{ scale: pulse }] }]} />
+          <View style={[styles.artworkWrapper, { borderColor: withAlpha(colors.text, 0.1), shadowColor: colors.text }]}>
+            {isVideoTrack ? (
+              <VideoView 
+                player={videoPlayer} 
+                nativeControls={false} 
+                contentFit="cover" 
+                style={[styles.artwork, { width: artSize, height: artSize }]} 
               />
-            </ScalePressable>
-
-            <ScalePressable
-              style={[styles.mainControl, { backgroundColor: colors.mainControlBackground, borderColor: colors.mainControlBorder }]}
-              onPress={handleNext}
-            >
-              <Ionicons name="play-skip-forward" size={24} color={colors.text} />
-            </ScalePressable>
-
-            <ScalePressable style={styles.smallControl} onPress={onToggleRepeat}>
-              <View>
-                <Ionicons name="repeat" size={22} color={repeatMode !== 'off' ? accent : colors.textMuted} />
-                {repeatMode === 'one' ? <Text style={[styles.repeatOne, { color: accent }]}>1</Text> : null}
-              </View>
-            </ScalePressable>
+            ) : (
+              <AnimatedImage 
+                source={artworkSource} 
+                style={[styles.artwork, { width: artSize, height: artSize, transform: [{ scale: pulse }] }]} 
+              />
+            )}
           </View>
         </View>
 
-        <BlurView
-          intensity={50}
-          tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-          style={[styles.queueCard, { borderColor: withAlpha(accent, 0.22) }]}
-        >
-          <View style={styles.queueHeader}>
+        {/* Info & Like */}
+        <View style={styles.trackInfoSection}>
+          <View style={styles.titleArea}>
+            <Text numberOfLines={1} style={[styles.trackTitle, { color: colors.text }]}>{activeTrack.title || activeTrack.filename}</Text>
+            <Text numberOfLines={1} style={[styles.trackArtist, { color: colors.textMuted }]}>{activeTrack.artist || 'Unknown Artist'}</Text>
+          </View>
+          <ScalePressable 
+            onPress={() => toggleLike(activeTrack.id)} 
+            style={[styles.likeButton, { backgroundColor: withAlpha(accent, likedIds.has(activeTrack.id) ? 1 : 0.1) }]}
+          >
+            <Ionicons 
+                name={likedIds.has(activeTrack.id) ? "heart" : "heart-outline"} 
+                size={24} 
+                color={likedIds.has(activeTrack.id) ? CORE_COLORS.white : colors.text} 
+            />
+          </ScalePressable>
+        </View>
+
+        {/* Slider Section */}
+        <View style={styles.sliderSection}>
+
+
+          <AnimatedSlider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={Math.max(duration, 1)}
+            value={isSliding ? slidingValue : progressAnim}
+            minimumTrackTintColor={accent}
+            maximumTrackTintColor={withAlpha(colors.text, 0.1)}
+            thumbTintColor={accent}
+            onSlidingStart={() => {
+              setIsSliding(true);
+              setSlidingValue(position);
+              Haptics.selectionAsync();
+            }}
+            onValueChange={setSlidingValue}
+            onSlidingComplete={onSeekComplete}
+          />
+          <View style={styles.timeLabels}>
+            <Text style={[styles.timeText, { color: colors.textMuted }]}>{formatTime(isSliding ? slidingValue : textPosition)}</Text>
+            <Text style={[styles.timeText, { color: colors.textMuted }]}>-{formatTime(Math.max(0, duration - (isSliding ? slidingValue : textPosition)))}</Text>
+          </View>
+        </View>
+
+        {/* Controls Section */}
+        <View style={styles.controlsSection}>
+          <ScalePressable onPress={() => setShuffle(!shuffle)} style={styles.secondaryCtrl}>
+            <Ionicons name="shuffle" size={24} color={shuffle ? accent : colors.textMuted} />
+          </ScalePressable>
+
+          <ScalePressable onPress={handlePrevious} style={styles.mainCtrl}>
+            <Ionicons name="play-skip-back" size={32} color={colors.text} />
+          </ScalePressable>
+
+          <ScalePressable 
+            onPress={handlePlayPause} 
+            style={[styles.playButton, { backgroundColor: accent, shadowColor: accent }]}
+          >
+            <Ionicons name={isPlaying ? "pause" : "play"} size={40} color={CORE_COLORS.white} style={{ marginLeft: isPlaying ? 0 : 4 }} />
+          </ScalePressable>
+
+          <ScalePressable onPress={handleNext} style={styles.mainCtrl}>
+            <Ionicons name="play-skip-forward" size={32} color={colors.text} />
+          </ScalePressable>
+
+          <ScalePressable onPress={onToggleRepeat} style={styles.secondaryCtrl}>
             <View>
-              <Text style={[styles.queueHeaderText, { color: colors.text }]}>Queue ({playbackQueue.length})</Text>
-              <Text style={[styles.queueHint, { color: colors.textMuted }]}>Drag to reorder. Tap for play. More actions on each row.</Text>
+              <Ionicons name="repeat" size={24} color={repeatMode !== 'off' ? accent : colors.textMuted} />
+              {repeatMode === 'one' && <View style={[styles.repeatOneDot, { backgroundColor: accent }]} />}
             </View>
-            {nowPlayingContext?.playlistId ? (
+          </ScalePressable>
+        </View>
+
+        {/* Queue Section */}
+        <View style={styles.queueSection}>
+          <View style={styles.queueHeader}>
+            <Text style={[styles.queueHeaderText, { color: colors.text }]}>Up Next ({playbackQueue.length})</Text>
+            {nowPlayingContext?.playlistId && (
               <ScalePressable onPress={() => safePush(`/playlist/${nowPlayingContext.playlistId}`)}>
-                <Text style={[styles.openPlaylist, { color: accent }]}>Open Playlist</Text>
+                <Text style={{ color: accent, fontWeight: '700' }}>Full Playlist</Text>
               </ScalePressable>
-            ) : null}
+            )}
           </View>
 
           <DraggableFlatList
@@ -540,449 +417,262 @@ export default function FullPlayerScreen() {
             keyExtractor={(item) => item.key}
             renderItem={renderQueueItem}
             scrollEnabled={false}
-            activationDistance={16}
+            activationDistance={20}
             onDragEnd={({ from, to }) => {
               if (from !== to) {
+                moveQueueItem(from, to);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                void moveQueueItem(from, to);
               }
             }}
-            ListEmptyComponent={
-              <View style={styles.emptyQueue}>
-                <Ionicons name="list-outline" size={28} color={colors.textMuted} />
-                <Text style={[styles.emptyQueueText, { color: colors.textMuted }]}>
-                  The queue will appear here once playback starts.
-                </Text>
-              </View>
-            }
           />
-        </BlurView>
+        </View>
       </ScrollView>
 
-      <AddToPlaylistModal
-        visible={isAddPlaylistVisible}
-        onClose={() => setIsAddPlaylistVisible(false)}
+      {/* Modals & Dialogs */}
+      <AddToPlaylistModal 
+        visible={isAddPlaylistVisible} 
+        onClose={() => setIsAddPlaylistVisible(false)} 
         playlists={playlists}
-        onSelect={(playlistId: string) => {
-          addToPlaylist(playlistId, activeTrack.id);
-          setIsAddPlaylistVisible(false);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onSelect={(id) => {
+            addToPlaylist(id, activeTrack.id);
+            setIsAddPlaylistVisible(false);
         }}
       />
 
-      <ActionDialog
+      <ActionDialog 
         visible={isActionVisible}
         title={activeTrack.title || activeTrack.filename}
-        subtitle={`${formatTime(activeTrack.duration)} · ${activeTrack.artist || activeTrack.artists || 'Unknown Artist'}`}
+        subtitle={activeTrack.artist || 'Unknown'}
         imageSource={artworkSource}
-        message="Manage this track"
         onClose={() => setIsActionVisible(false)}
         actions={[
-          {
-            key: 'playlist',
-            label: 'Add to Playlist',
-            icon: 'add-circle-outline',
-            onPress: () => {
+          { key: 'playlist', label: 'Add to Playlist', icon: 'add-circle-outline', onPress: () => { setIsActionVisible(false); setIsAddPlaylistVisible(true); } },
+          { key: 'share', label: 'Share Track', icon: 'share-social-outline', onPress: () => {
               setIsActionVisible(false);
-              setIsAddPlaylistVisible(true);
-            },
-          },
-          {
-            key: 'share',
-            label: 'Share',
-            icon: 'share-social-outline',
-            onPress: async () => {
-              setIsActionVisible(false);
-              try {
-                await Share.share({
-                  message: activeTrack.title || activeTrack.filename,
-                  url: activeTrack.uri,
-                });
-              } catch {
-                // Native share sheet failures are non-fatal.
-              }
-            },
-          },
-          {
-            key: 'delete',
-            label: 'Delete from Device',
-            icon: 'trash-outline',
-            danger: true,
-            onPress: () => {
-              setIsActionVisible(false);
-              setDeleteConfirmVisible(true);
-            },
-          },
+              Share.share({ message: `${activeTrack.title} by ${activeTrack.artist}`, url: activeTrack.uri });
+          }},
+          { key: 'delete', label: 'Delete from Device', icon: 'trash-outline', danger: true, onPress: () => { setIsActionVisible(false); setDeleteConfirmVisible(true); } },
         ]}
       />
 
-      <ActionDialog
-        visible={isQueueActionVisible && Boolean(selectedQueueTrack)}
-        title={selectedQueueTrack?.title || selectedQueueTrack?.filename || 'Queue Item'}
-        subtitle={selectedQueueTrack ? `${formatTime(selectedQueueTrack.duration)} · ${selectedQueueTrack.artist || selectedQueueTrack.artists || 'Unknown Artist'}` : undefined}
-        imageSource={selectedQueueTrack?.imageUrl ? { uri: selectedQueueTrack.imageUrl } : PLACEHOLDER_ART}
-        message="Queue options"
-        onClose={() => setIsQueueActionVisible(false)}
-        actions={[
-          {
-            key: 'play',
-            label: 'Play Now',
-            icon: 'play-outline',
-            onPress: () => { void handleQueueAction('play'); },
-          },
-          {
-            key: 'next',
-            label: 'Add to Next',
-            icon: 'play-skip-forward-outline',
-            onPress: () => { void handleQueueAction('next'); },
-          },
-          {
-            key: 'end',
-            label: 'Add to End',
-            icon: 'play-forward-outline',
-            onPress: () => { void handleQueueAction('end'); },
-          },
-          {
-            key: 'remove',
-            label: 'Remove from Queue',
-            icon: 'remove-circle-outline',
-            danger: true,
-            onPress: () => { void handleQueueAction('remove'); },
-          },
-        ]}
-      />
-
-      <ConfirmDialog
+      <ConfirmDialog 
         visible={isDeleteConfirmVisible}
-        title="Delete Track"
-        message="Permanently delete this track from the device?"
+        title="Delete Song?"
+        message="This will permanently remove the file from your storage."
+        onConfirm={async () => {
+            await deleteSong(activeTrack);
+            setDeleteConfirmVisible(false);
+            router.back();
+        }}
         onClose={() => setDeleteConfirmVisible(false)}
-        onConfirm={handleDelete}
-        confirmText="Delete"
-        cancelText="Cancel"
         danger
-      />
-
-      <NoticeDialog
-        visible={noticeState.visible}
-        title={noticeState.title}
-        message={noticeState.message}
-        onClose={() => setNoticeState((prev) => ({ ...prev, visible: false }))}
       />
     </View>
   );
 }
 
-function createStyles(colors: any, isSmall: boolean, isMedium: boolean, artSize: number, screenWidth: number) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    backdropArt: {
-      ...StyleSheet.absoluteFillObject,
-      width: screenWidth,
-      height: '100%',
-    },
-    backdropTint: {
-      ...StyleSheet.absoluteFillObject,
-    },
-    scroll: {
-      flex: 1,
-    },
-    headerGlass: {
-      marginHorizontal: isSmall ? 12 : 16,
-      marginTop: 8,
-      borderWidth: 1,
-      borderRadius: isSmall ? 22 : 26,
-      paddingHorizontal: isSmall ? 14 : 18,
-      paddingBottom: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    iconBtn: {
-      width: isSmall ? 42 : 46,
-      height: isSmall ? 42 : 46,
-      borderRadius: isSmall ? 14 : 16,
-      borderWidth: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerCenter: {
-      flex: 1,
-      marginHorizontal: 12,
-    },
-    headerEyebrow: {
-      fontSize: 11,
-      fontWeight: '800',
-      letterSpacing: 1.1,
-      textTransform: 'uppercase',
-    },
-    headerTitle: {
-      fontSize: isSmall ? 14 : 16,
-      fontWeight: '700',
-      marginTop: 3,
-    },
-    heroGlow: {
-      width: artSize + 76,
-      height: artSize + 76,
-      borderRadius: artSize,
-      marginTop: 28,
-      alignSelf: 'center',
-      position: 'absolute',
-      top: isSmall ? 110 : 122,
-      opacity: 0.9,
-    },
-    artworkWrap: {
-      marginTop: 34,
-      marginHorizontal: isSmall ? 18 : 22,
-      borderWidth: 1,
-      borderRadius: isSmall ? 34 : 40,
-      padding: isSmall ? 18 : 22,
-      alignItems: 'center',
-      shadowColor: CORE_COLORS.black,
-      shadowOffset: { width: 0, height: 14 },
-      shadowOpacity: 0.22,
-      shadowRadius: 24,
-      elevation: 10,
-    },
-    artwork: {
-      borderRadius: isSmall ? 22 : 28,
-    },
-    songBlock: {
-      marginTop: 22,
-      paddingHorizontal: isSmall ? 16 : 20,
-    },
-    songTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-    },
-    currentSongInfo: {
-      flex: 1,
-      marginRight: 12,
-    },
-    songTitle: {
-      fontSize: isSmall ? 24 : 28,
-      fontWeight: '900',
-      letterSpacing: -0.6,
-    },
-    songSub: {
-      marginTop: 6,
-      fontSize: isSmall ? 14 : 15,
-      fontWeight: '600',
-    },
-    metaPills: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flexWrap: 'wrap',
-      gap: 8,
-      marginTop: 12,
-    },
-    metaPill: {
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 999,
-    },
-    metaPillText: {
-      fontSize: 12,
-      fontWeight: '800',
-      letterSpacing: 0.2,
-    },
-    likeBtn: {
-      width: isSmall ? 44 : 48,
-      height: isSmall ? 44 : 48,
-      borderRadius: isSmall ? 16 : 18,
-      borderWidth: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 2,
-    },
-    waveformWrap: {
-      marginTop: 22,
-    },
-    timeRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 2,
-    },
-    timeText: {
-      fontSize: isSmall ? 11 : 12,
-      fontWeight: '700',
-    },
-    controlRow: {
-      marginTop: 20,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    smallControl: {
-      width: isSmall ? 38 : 42,
-      height: isSmall ? 38 : 42,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    mainControl: {
-      width: isSmall ? 48 : 54,
-      height: isSmall ? 48 : 54,
-      borderRadius: isSmall ? 16 : 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-    },
-    playControl: {
-      width: isSmall ? 66 : 74,
-      height: isSmall ? 66 : 74,
-      borderRadius: 999,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: CORE_COLORS.black,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.22,
-      shadowRadius: 20,
-      elevation: 8,
-    },
-    repeatOne: {
-      position: 'absolute',
-      right: -7,
-      top: -7,
-      fontSize: 10,
-      fontWeight: '900',
-    },
-    queueCard: {
-      marginTop: 26,
-      marginHorizontal: isSmall ? 12 : 16,
-      borderRadius: isSmall ? 26 : 30,
-      borderWidth: 1,
-      padding: isSmall ? 14 : 18,
-      overflow: 'hidden',
-    },
-    queueHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: 12,
-      marginBottom: 14,
-      alignItems: 'flex-start',
-    },
-    queueHeaderText: {
-      fontSize: isSmall ? 15 : 16,
-      fontWeight: '800',
-    },
-    queueHint: {
-      marginTop: 4,
-      fontSize: isSmall ? 11 : 12,
-      fontWeight: '500',
-      lineHeight: 18,
-      maxWidth: isMedium ? screenWidth - 150 : screenWidth - 170,
-    },
-    openPlaylist: {
-      fontSize: isSmall ? 12 : 13,
-      fontWeight: '800',
-      marginTop: 2,
-    },
-    queueRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderRadius: isSmall ? 18 : 20,
-      borderWidth: 1,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      marginBottom: 10,
-    },
-    queueMainTap: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    queueThumbWrap: {
-      width: isSmall ? 44 : 50,
-      height: isSmall ? 44 : 50,
-      borderRadius: isSmall ? 12 : 14,
-      overflow: 'hidden',
-      marginRight: 12,
-      backgroundColor: withAlpha(CORE_COLORS.black, 0.08),
-    },
-    queueThumb: {
-      width: '100%',
-      height: '100%',
-    },
-    queuePlayingOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    queueMetaWrap: {
-      flex: 1,
-      marginRight: 10,
-    },
-    queueSongName: {
-      fontSize: isSmall ? 14 : 15,
-      fontWeight: '800',
-      letterSpacing: -0.2,
-    },
-    queueArtists: {
-      fontSize: isSmall ? 11 : 12,
-      fontWeight: '500',
-      marginTop: 3,
-    },
-    queueRightWrap: {
-      justifyContent: 'center',
-      minWidth: 44,
-      alignItems: 'flex-end',
-    },
-    queueDuration: {
-      fontSize: isSmall ? 11 : 12,
-      fontWeight: '700',
-    },
-    queueActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginLeft: 8,
-    },
-    queueActionBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    emptyQueue: {
-      alignItems: 'center',
-      paddingVertical: 24,
-      gap: 10,
-    },
-    emptyQueueText: {
-      fontSize: 13,
-      fontWeight: '500',
-      textAlign: 'center',
-    },
-    emptyWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: isSmall ? 16 : 24,
-    },
-    emptyTitle: {
-      fontSize: isSmall ? 18 : 22,
-      fontWeight: '800',
-    },
-    emptyText: {
-      fontSize: isSmall ? 13 : 14,
-      fontWeight: '500',
-      marginTop: 8,
-      textAlign: 'center',
-    },
-    emptyBtn: {
-      marginTop: 18,
-      borderWidth: 1,
-      borderRadius: isSmall ? 12 : 14,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    emptyBtnText: {
-      fontSize: isSmall ? 13 : 14,
-      fontWeight: '700',
-    },
-  });
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  backgroundBlur: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  headerBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 10,
+  },
+  headerEyebrow: {
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginBottom: 2,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  artworkContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 30,
+  },
+  artworkWrapper: {
+    borderRadius: 40,
+    borderWidth: 1,
+    overflow: 'hidden',
+    elevation: 20,
+    shadowOffset: { width: 0, height: 15 },
+    shadowOpacity: 0.3,
+    shadowRadius: 25,
+  },
+  artwork: {
+    borderRadius: 40,
+  },
+  artworkGlow: {
+    position: 'absolute',
+    width: '70%',
+    height: '70%',
+    borderRadius: 100,
+    opacity: 0.2,
+    blurRadius: 50,
+  },
+  trackInfoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    marginBottom: 30,
+  },
+  titleArea: {
+    flex: 1,
+    marginRight: 20,
+  },
+  trackTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  trackArtist: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  likeButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sliderSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  timeLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    marginTop: -5,
+  },
+  timeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  controlsSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 10,
+    marginBottom: 40,
+  },
+  playButton: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  mainCtrl: {
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryCtrl: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  repeatOneDot: {
+    position: 'absolute',
+    bottom: -4,
+    alignSelf: 'center',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  queueSection: {
+    paddingHorizontal: 20,
+  },
+  queueHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  queueHeaderText: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  queueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  queueMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  queueThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    marginRight: 15,
+  },
+  queueInfo: {
+    flex: 1,
+  },
+  queueTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  queueArtist: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  queueActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  queueActionBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

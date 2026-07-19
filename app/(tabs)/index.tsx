@@ -333,17 +333,21 @@ export default function LibraryScreen() {
     if (loading) {
         return (
             <View style={[styles.container, { backgroundColor: colors.screenBackground, justifyContent: 'center', alignItems: 'center' }]}>
-                <Ionicons 
-                    name="musical-notes" 
-                    size={isSmall ? 80 : 100} 
-                    color={colors.accent} 
-                    style={{ marginBottom: 20 }} 
-                />
-                <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={{ color: colors.textMuted, marginTop: 20, fontWeight: '600', fontSize: isSmall ? 14 : 16 }}>Scan in progress...</Text>
+                <View style={[styles.loaderGlow, { backgroundColor: colors.accent }]} />
+                <View style={[styles.loaderIconContainer, { backgroundColor: colors.accentSurface }]}>
+                    <Ionicons 
+                        name="musical-notes" 
+                        size={isSmall ? 48 : 56} 
+                        color={colors.accent} 
+                    />
+                </View>
+                <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 24 }} />
+                <Text style={{ color: colors.text, marginTop: 16, fontWeight: '800', fontSize: isSmall ? 16 : 18, letterSpacing: -0.5 }}>Syncing Library</Text>
+                <Text style={{ color: colors.textMuted, marginTop: 4, fontWeight: '500', fontSize: isSmall ? 12 : 14 }}>Finding your favorite tracks...</Text>
             </View>
         );
     }
+
 
     return (
         <View style={[styles.container, { backgroundColor: colors.screenBackground }]}>
@@ -351,7 +355,7 @@ export default function LibraryScreen() {
 
             <View style={[styles.bgGlow, { backgroundColor: colors.accent }]} />
 
-            <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                 {isSelectionMode ? (
                     <View style={styles.selectionHeader}>
                         <TouchableOpacity onPress={exitSelectionMode} style={styles.headerBtn}>
@@ -361,93 +365,104 @@ export default function LibraryScreen() {
                             {selectedIds.size} Selected
                         </Text>
                         <TouchableOpacity onPress={selectAll} style={styles.headerBtnText}>
-                            <Text style={{ color: colors.accent, fontWeight: '700' }}>
-                                {selectedIds.size === library.length ? 'None' : 'All'}
+                            <Text style={{ color: colors.accent, fontWeight: '800', fontSize: 15 }}>
+                                {selectedIds.size === library.length ? 'Clear' : 'Select All'}
                             </Text>
                         </TouchableOpacity>
                     </View>
                 ) : (
                     <>
                         <View style={styles.headerTop}>
-                            <View style={{ flex: 1, marginRight: 16 }}>
-                                <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Your Media</Text>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.headerEyebrow, { color: colors.accent }]}>Local Collection</Text>
                                 <Text style={[styles.headerTitle, { color: colors.text }]}>Library</Text>
                             </View>
-                            <View style={[styles.countBadge, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-                                <Text style={[styles.countBadgeText, { color: colors.accent }]}>{sortedSongs.length}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <View style={[styles.countBadge, { backgroundColor: colors.accentSurface, borderColor: colors.accent + '20' }]}>
+                                    <Text style={[styles.countBadgeText, { color: colors.accent }]}>{sortedSongs.length}</Text>
+                                </View>
+                                <ScalePressable
+                                    style={[styles.iconBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsGrid(!isGrid); }}
+                                >
+                                    <Ionicons name={isGrid ? "list" : "grid"} size={20} color={colors.text} />
+                                </ScalePressable>
                             </View>
-                            <ScalePressable
-                                style={[styles.iconBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsGrid(!isGrid); }}
-                            >
-                                <Ionicons name={isGrid ? "list" : "grid"} size={20} color={colors.text} />
-                            </ScalePressable>
                         </View>
                         <View style={[styles.searchBar, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
-                            <Ionicons name="search" size={20} color={colors.textMuted} style={{ marginRight: 8 }} />
+                            <Ionicons name="search" size={20} color={colors.textMuted} style={{ marginRight: 10 }} />
                             <TextInput 
                                 style={[styles.searchInput, { color: colors.text }]} 
-                                placeholder="Search your library..." 
+                                placeholder="Find a song or artist..." 
                                 placeholderTextColor={colors.textMuted} 
                                 value={searchQuery} 
                                 onChangeText={setSearchQuery} 
+                                selectionColor={colors.accent}
                             />
                             {searchQuery.length > 0 && (
-                                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={10}>
                                     <Ionicons name="close-circle" size={20} color={colors.textMuted} />
                                 </TouchableOpacity>
                             )}
                         </View>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortContainer}>
-                            <ScalePressable
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSortBy('name'); }}
-                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'name' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
-                            >
-                                <Ionicons name="text-outline" size={14} color={sortBy === 'name' ? colors.accent : colors.textMuted} />
-                                <Text style={[styles.sortText, { color: sortBy === 'name' ? colors.accent : colors.textMuted }]}>Name</Text>
-                            </ScalePressable>
-                            <ScalePressable
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSortBy('date'); }}
-                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'date' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
-                            >
-                                <Ionicons name="calendar-outline" size={14} color={sortBy === 'date' ? colors.accent : colors.textMuted} />
-                                <Text style={[styles.sortText, { color: sortBy === 'date' ? colors.accent : colors.textMuted }]}>Recent</Text>
-                            </ScalePressable>
-                            <ScalePressable
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSortBy('duration'); }}
-                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, sortBy === 'duration' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
-                            >
-                                <Ionicons name="time-outline" size={14} color={sortBy === 'duration' ? colors.accent : colors.textMuted} />
-                                <Text style={[styles.sortText, { color: sortBy === 'duration' ? colors.accent : colors.textMuted }]}>Length</Text>
-                            </ScalePressable>
+                            <SortChip 
+                                active={sortBy === 'name'} 
+                                label="Alphabetical" 
+                                icon="text-outline" 
+                                onPress={() => setSortBy('name')} 
+                                colors={colors} 
+                                styles={styles}
+                            />
+                            <SortChip 
+                                active={sortBy === 'date'} 
+                                label="Recently Added" 
+                                icon="calendar-outline" 
+                                onPress={() => setSortBy('date')} 
+                                colors={colors} 
+                                styles={styles}
+                            />
+                            <SortChip 
+                                active={sortBy === 'duration'} 
+                                label="By Duration" 
+                                icon="time-outline" 
+                                onPress={() => setSortBy('duration')} 
+                                colors={colors} 
+                                styles={styles}
+                            />
 
-                            <View style={{ width: 1, height: 20, backgroundColor: colors.textMuted, marginHorizontal: 4, alignSelf: 'center', opacity: 0.3 }} />
+                            <View style={styles.chipDivider} />
 
-                            <ScalePressable
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterType('all'); }}
-                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, filterType === 'all' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
-                            >
-                                <Ionicons name="albums-outline" size={14} color={filterType === 'all' ? colors.accent : colors.textMuted} />
-                                <Text style={[styles.sortText, { color: filterType === 'all' ? colors.accent : colors.textMuted }]}>All</Text>
-                            </ScalePressable>
-                            <ScalePressable
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterType('audio'); }}
-                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, filterType === 'audio' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
-                            >
-                                <Ionicons name="musical-notes-outline" size={14} color={filterType === 'audio' ? colors.accent : colors.textMuted} />
-                                <Text style={[styles.sortText, { color: filterType === 'audio' ? colors.accent : colors.textMuted }]}>Audio</Text>
-                            </ScalePressable>
-                            <ScalePressable
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterType('video'); }}
-                                style={[styles.sortBtn, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }, filterType === 'video' && { backgroundColor: colors.accentSurface, borderColor: colors.accent }]}
-                            >
-                                <Ionicons name="videocam-outline" size={14} color={filterType === 'video' ? colors.accent : colors.textMuted} />
-                                <Text style={[styles.sortText, { color: filterType === 'video' ? colors.accent : colors.textMuted }]}>Video</Text>
-                            </ScalePressable>
+                            <SortChip 
+                                active={filterType === 'all'} 
+                                label="Everything" 
+                                icon="albums-outline" 
+                                onPress={() => setFilterType('all')} 
+                                colors={colors} 
+                                styles={styles}
+                            />
+                            <SortChip 
+                                active={filterType === 'audio'} 
+                                label="Music Only" 
+                                icon="musical-notes-outline" 
+                                onPress={() => setFilterType('audio')} 
+                                colors={colors} 
+                                styles={styles}
+                            />
+                            <SortChip 
+                                active={filterType === 'video'} 
+                                label="Videos Only" 
+                                icon="videocam-outline" 
+                                onPress={() => setFilterType('video')} 
+                                colors={colors} 
+                                styles={styles}
+                            />
                         </ScrollView>
+
                     </>
                 )}
             </View>
+
 
             <FlatList
                 ref={flatListRef}
@@ -576,28 +591,69 @@ export default function LibraryScreen() {
     );
 }
 
+function SortChip({ active, label, icon, onPress, colors, styles }: any) {
+    return (
+        <ScalePressable
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
+            style={[
+                styles.sortBtn, 
+                { 
+                    backgroundColor: active ? colors.accentSurface : colors.cardBackground, 
+                    borderColor: active ? colors.accent : colors.cardBorder 
+                }
+            ]}
+        >
+            <Ionicons name={icon as any} size={16} color={active ? colors.accent : colors.textMuted} />
+            <Text style={[styles.sortText, { color: active ? colors.accent : colors.textMuted, fontWeight: active ? '800' : '600', fontSize: 13 }]}>
+                {label}
+            </Text>
+        </ScalePressable>
+    );
+}
+
+
 function createStyles(colors: any, isSmall: boolean, gridItemWidth: number) {
     return StyleSheet.create({
         container: { flex: 1 },
         bgGlow: {
             position: 'absolute',
-            top: -140,
-            left: -80,
-            width: 360,
-            height: 360,
-            borderRadius: 180,
-            opacity: 0.11,
+            top: -100,
+            left: -100,
+            width: 400,
+            height: 400,
+            borderRadius: 200,
+            opacity: 0.08,
+        },
+        loaderGlow: {
+            position: 'absolute',
+            width: 300,
+            height: 300,
+            borderRadius: 150,
+            opacity: 0.15,
+        },
+        loaderIconContainer: {
+            width: 100,
+            height: 100,
+            borderRadius: 32,
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.1,
+            shadowRadius: 20,
+            elevation: 5,
         },
         header: {
-            paddingHorizontal: isSmall ? 12 : 16,
-            paddingBottom: 10,
+            paddingHorizontal: isSmall ? 16 : 20,
+            paddingBottom: 12,
         },
         headerTop: {
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 10,
+            marginBottom: 16,
         },
+
         selectionHeader: {
             flex: 1,
             flexDirection: 'row',
@@ -640,17 +696,17 @@ function createStyles(colors: any, isSmall: boolean, gridItemWidth: number) {
             letterSpacing: -1,
         },
         countBadge: {
-            borderRadius: 14,
-            borderWidth: 1.5,
-            paddingHorizontal: isSmall ? 10 : 12,
-            paddingVertical: isSmall ? 5 : 6,
-            marginRight: 10,
+            borderRadius: 12,
+            borderWidth: 1,
+            paddingHorizontal: isSmall ? 10 : 14,
+            paddingVertical: isSmall ? 6 : 8,
             justifyContent: 'center',
         },
         countBadgeText: {
-            fontSize: isSmall ? 12 : 14,
-            fontWeight: '800',
+            fontSize: isSmall ? 13 : 15,
+            fontWeight: '900',
         },
+
         iconBtn: {
             width: isSmall ? 42 : 46,
             height: isSmall ? 42 : 46,
@@ -748,38 +804,47 @@ function createStyles(colors: any, isSmall: boolean, gridItemWidth: number) {
         },
         sortContainer: {
             flexDirection: 'row',
-            gap: isSmall ? 6 : 8,
+            gap: 10,
+            paddingRight: 16,
         },
         sortBtn: {
             flexDirection: 'row',
             alignItems: 'center',
-            minHeight: isSmall ? 34 : 38,
-            paddingHorizontal: isSmall ? 14 : 18,
-            paddingVertical: isSmall ? 6 : 8,
-            borderRadius: isSmall ? 18 : 20,
-            borderWidth: 1,
-            gap: 6,
+            minHeight: isSmall ? 36 : 40,
+            paddingHorizontal: isSmall ? 16 : 20,
+            borderRadius: 20,
+            borderWidth: 1.5,
+            gap: 8,
+        },
+        chipDivider: {
+            width: 1,
+            height: 20,
+            backgroundColor: colors.textMuted,
+            marginHorizontal: 6,
+            alignSelf: 'center',
+            opacity: 0.2,
         },
         searchBar: {
             flexDirection: 'row',
             alignItems: 'center',
-            paddingHorizontal: isSmall ? 16 : 20,
-            paddingVertical: isSmall ? 12 : 14,
-            borderRadius: isSmall ? 18 : 22,
-            borderWidth: 1,
+            paddingHorizontal: 16,
+            paddingVertical: isSmall ? 10 : 12,
+            borderRadius: 20,
+            borderWidth: 1.5,
             marginBottom: 20,
-            shadowColor: CORE_COLORS.black,
+            shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.05,
-            shadowRadius: 10,
+            shadowRadius: 8,
             elevation: 2,
         },
         searchInput: {
             flex: 1,
-            fontSize: isSmall ? 14 : 16,
-            fontWeight: '500',
+            fontSize: isSmall ? 15 : 16,
+            fontWeight: '600',
             padding: 0,
         },
+
         scrubberContainer: {
             position: 'absolute',
             right: 2,

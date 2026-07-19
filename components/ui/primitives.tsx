@@ -18,8 +18,10 @@ import { useAdaptiveTheme } from '../../hooks/useAdaptiveTheme';
 import ScalePressable from '../ScalePressable';
 
 const ANDROID_BLUR_PROPS = Platform.OS === 'android'
-    ? { blurMethod: 'dimezisBlurView' as const }
+    ? { blurMethod: 'none' as const }
     : {};
+
+
 
 type ChildProps = {
     children?: React.ReactNode;
